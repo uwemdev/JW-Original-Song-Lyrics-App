@@ -1,333 +1,491 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
+import React, { useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
   TouchableOpacity,
   Dimensions,
+  Platform,
+  StatusBar,
+  Image,
   Animated,
-  FlatList,
-  Platform
+  Easing,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Music, BookOpen, Headphones } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
-const slides = [
-  {
-    id: '1',
-    title: 'Welcome to Original Song Lyrics',
-    body: 'Every original song from jw.org, gathered in one place. Read the lyrics, learn the story behind each song, and listen along whenever you\'re connected.',
-  },
-  {
-    id: '2',
-    title: 'Lyrics for every song, always at hand',
-    body: 'Browse Original Songs, Become Jehovah\'s Friend, Sing With Us, and International Music. Each song comes with its lyrics and a short write-up so you understand the heart behind it, not just the words.',
-  },
-  {
-    id: '3',
-    title: 'Sing along, online or off',
-    body: 'Connected to Wi-Fi or data? The song plays automatically as you read. No connection? The lyrics are still right there. Save your favorites so they\'re always one tap away.',
-  }
-];
+// ─── Brand Palette ───────────────────────────────────────────────
+const BG_DARK = '#0F0A1A';
+const PURPLE_PRIMARY = '#6D28D9';
+const PURPLE_ACCENT = '#A78BFA';
+const PURPLE_FAINT = '#C4B5FD';
+const TEXT_MUTED = '#B8AFC9';
+const CARD_BG = '#1A1425';
+const ICON_BG = '#251B3A';
 
-export default function OnboardingScreen({ navigation }) {
-  const [isFirstLaunch, setIsFirstLaunch] = useState(null);
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const flatListRef = useRef(null);
-  
-  const [currentIndex, setCurrentIndex] = useState(0);
+// ─── Dot ring generation ─────────────────────────────────────────
+function makeDots(count, radius) {
+  const dots = [];
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * 2 * Math.PI;
+    const r = 2.5 + Math.random() * 4;
+    const opacity = 0.15 + Math.random() * 0.55;
+    dots.push({ angle, r, opacity });
+  }
+  return dots;
+}
+
+const INNER_R = 100;
+const MID_R = 132;
+const OUTER_R = 160;
+
+const innerDots = makeDots(24, INNER_R);
+const midDots = makeDots(32, MID_R);
+const outerDots = makeDots(42, OUTER_R);
+
+const SVG_SIZE = (OUTER_R + 20) * 2;
+const SVG_CENTER = SVG_SIZE / 2;
+
+// ─── Spinning Dots + Pulse Glow ──────────────────────────────────
+function LogoWithRings() {
+  const spin1 = useRef(new Animated.Value(0)).current;
+  const spin2 = useRef(new Animated.Value(0)).current;
+  const spin3 = useRef(new Animated.Value(0)).current;
+  const pulseScale = useRef(new Animated.Value(1)).current;
+  const pulseOpacity = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
-    async function checkFirstLaunch() {
-      try {
-        const hasLaunched = await AsyncStorage.getItem('hasLaunched');
-        if (hasLaunched === null) {
-          setIsFirstLaunch(true);
-          await AsyncStorage.setItem('hasLaunched', 'true');
-        } else {
-          navigation.replace('MainApp');
-        }
-      } catch (error) {
-        setIsFirstLaunch(true);
-      }
-    }
-    
-    checkFirstLaunch();
-  }, [navigation]);
+    // Inner: clockwise, 18s
+    Animated.loop(
+      Animated.timing(spin1, {
+        toValue: 1,
+        duration: 18000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    ).start();
 
-  if (isFirstLaunch === null) {
-    return <View style={styles.container} />;
-  }
+    // Middle: counter-clockwise, 25s
+    Animated.loop(
+      Animated.timing(spin2, {
+        toValue: 1,
+        duration: 25000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    ).start();
 
-  const handleContinue = () => {
-    navigation.replace('MainApp');
-  };
+    // Outer: clockwise, 35s
+    Animated.loop(
+      Animated.timing(spin3, {
+        toValue: 1,
+        duration: 35000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    ).start();
 
-  const handleNext = () => {
-    if (currentIndex < slides.length - 1) {
-      flatListRef.current?.scrollToIndex({
-        index: currentIndex + 1,
-        animated: true,
-      });
-    }
-  };
+    // Pulse glow
+    Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(pulseScale, {
+            toValue: 1.12,
+            duration: 2000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseOpacity, {
+            toValue: 0.25,
+            duration: 2000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(pulseScale, {
+            toValue: 1,
+            duration: 2000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseOpacity, {
+            toValue: 0.6,
+            duration: 2000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    ).start();
+  }, []);
 
-  const viewableItemsChanged = useRef(({ viewableItems }) => {
-    if (viewableItems && viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index);
-    }
-  }).current;
+  const rot1 = spin1.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const rot2 = spin2.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-360deg'] });
+  const rot3 = spin3.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
-  const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
-
-  // Background Opacity Interpolation for crossfading
-  // Screen 1: bg1 visible (opacity 1), bg2 invisible (opacity 0)
-  // Screen 2 & 3: bg2 visible (opacity 1)
-  const bg2Opacity = scrollX.interpolate({
-    inputRange: [0, width, width * 2],
-    outputRange: [0, 1, 1],
-    extrapolate: 'clamp',
-  });
-
-  // Darker gradient overlay on Screen 3
-  const extraDarkOpacity = scrollX.interpolate({
-    inputRange: [0, width, width * 2],
-    outputRange: [0, 0, 0.6],
-    extrapolate: 'clamp',
-  });
-
-  const renderItem = ({ item }) => {
-    return (
-      <View style={styles.slide}>
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.body}>{item.body}</Text>
-        </View>
-      </View>
-    );
-  };
+  const renderDotRing = (dots, radius, color) => (
+    <Svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}>
+      {dots.map((d, i) => (
+        <Circle
+          key={i}
+          cx={SVG_CENTER + radius * Math.cos(d.angle)}
+          cy={SVG_CENTER + radius * Math.sin(d.angle)}
+          r={d.r}
+          fill={color}
+          opacity={d.opacity}
+        />
+      ))}
+    </Svg>
+  );
 
   return (
-    <View style={styles.container}>
-      {/* Animated Backgrounds */}
-      <Animated.Image 
-        source={require('../../assets/onboarding_bg_1.jpg')} 
-        style={[styles.backgroundImage, { position: 'absolute' }]}
-        resizeMode="cover"
+    <View style={styles.logoArea}>
+      {/* Radial glow behind everything */}
+      <View style={styles.radialGlow} />
+
+      {/* Pulsing glow ring */}
+      <Animated.View
+        style={[
+          styles.pulseRing,
+          {
+            opacity: pulseOpacity,
+            transform: [{ scale: pulseScale }],
+          },
+        ]}
       />
-      <Animated.Image 
-        source={require('../../assets/onboarding_bg_2.jpg')} 
-        style={[styles.backgroundImage, { position: 'absolute', opacity: bg2Opacity }]}
-        resizeMode="cover"
-      />
 
-      <LinearGradient
-        colors={['rgba(3, 7, 18, 0.1)', 'rgba(23, 12, 38, 0.7)', '#030712']}
-        locations={[0, 0.4, 1]}
-        style={styles.gradient}
-      >
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', opacity: extraDarkOpacity }]} />
-        
-        <SafeAreaView style={styles.safeArea}>
-          
-          <Animated.FlatList 
-            ref={flatListRef}
-            data={slides}
-            renderItem={renderItem}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            pagingEnabled
-            bounces={false}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-              { useNativeDriver: false } // Opacity interpolation doesn't always support true on Android for complex background logic, but color/opacity often does. Wait, using useNativeDriver: false for width/layout animations.
-            )}
-            onViewableItemsChanged={viewableItemsChanged}
-            viewabilityConfig={viewConfig}
-            scrollEventThrottle={32}
-            contentContainerStyle={styles.flatListContent}
-          />
+      {/* Inner ring — clockwise */}
+      <Animated.View style={[styles.ringLayer, { transform: [{ rotate: rot1 }] }]}>
+        {renderDotRing(innerDots, INNER_R, PURPLE_ACCENT)}
+      </Animated.View>
 
-          {/* Bottom Controls */}
-          <View style={styles.controlsContainer}>
-            
-            {/* Pagination Dots */}
-            <View style={styles.pagination}>
-              {slides.map((_, i) => {
-                const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
-                
-                const dotWidth = scrollX.interpolate({
-                  inputRange,
-                  outputRange: [8, 24, 8],
-                  extrapolate: 'clamp',
-                });
-                
-                const dotOpacity = scrollX.interpolate({
-                  inputRange,
-                  outputRange: [0.3, 1, 0.3],
-                  extrapolate: 'clamp',
-                });
+      {/* Middle ring — counter-clockwise */}
+      <Animated.View style={[styles.ringLayer, { transform: [{ rotate: rot2 }] }]}>
+        {renderDotRing(midDots, MID_R, PURPLE_PRIMARY)}
+      </Animated.View>
 
-                return (
-                  <Animated.View 
-                    key={i.toString()} 
-                    style={[styles.dot, { width: dotWidth, opacity: dotOpacity }]} 
-                  />
-                );
-              })}
-            </View>
+      {/* Outer ring — clockwise */}
+      <Animated.View style={[styles.ringLayer, { transform: [{ rotate: rot3 }] }]}>
+        {renderDotRing(outerDots, OUTER_R, PURPLE_FAINT)}
+      </Animated.View>
 
-            {/* Buttons */}
-            <View style={styles.buttonContainer}>
-              {currentIndex === slides.length - 1 ? (
-                <TouchableOpacity 
-                  style={[styles.button, styles.primaryButton]}
-                  onPress={handleContinue}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.buttonText}>Get Started</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.navButtonsRow}>
-                  <TouchableOpacity 
-                    style={styles.textButton}
-                    onPress={handleContinue}
-                    activeOpacity={0.6}
-                  >
-                    <Text style={styles.skipText}>Skip</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[styles.button, styles.nextButton]}
-                    onPress={handleNext}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.buttonText}>Next</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-
-          </View>
-          
-        </SafeAreaView>
-      </LinearGradient>
+      {/* Logo */}
+      <View style={styles.logoContainer}>
+        <Image
+          source={require('../../assets/icon.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </View>
     </View>
   );
 }
 
+// ─── Feature Card ────────────────────────────────────────────────
+function FeatureCard({ icon: Icon, label, delay, parentAnim }) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(18)).current;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 500,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [delay]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.featureCard,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <View style={styles.iconCircle}>
+        <Icon color={PURPLE_ACCENT} size={20} strokeWidth={2.5} />
+      </View>
+      <Text style={styles.featureLabel}>{label}</Text>
+    </Animated.View>
+  );
+}
+
+// ─── Main Screen ─────────────────────────────────────────────────
+export default function OnboardingScreen({ navigation }) {
+  // Staggered entrance animations
+  const headFade = useRef(new Animated.Value(0)).current;
+  const headSlide = useRef(new Animated.Value(24)).current;
+  const subFade = useRef(new Animated.Value(0)).current;
+  const subSlide = useRef(new Animated.Value(20)).current;
+  const btnFade = useRef(new Animated.Value(0)).current;
+  const btnSlide = useRef(new Animated.Value(16)).current;
+  const footFade = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Headline at 300ms
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(headFade, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(headSlide, { toValue: 0, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+    }, 300);
+
+    // Subtext at 500ms
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(subFade, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(subSlide, { toValue: 0, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+    }, 500);
+
+    // Button at 1100ms
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(btnFade, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(btnSlide, { toValue: 0, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+    }, 1100);
+
+    // Footer at 1300ms
+    setTimeout(() => {
+      Animated.timing(footFade, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+    }, 1300);
+  }, []);
+
+  const handleExplore = async () => {
+    try {
+      await AsyncStorage.setItem('@onboarding_complete', 'true');
+    } catch (_) {}
+    navigation.replace('MainApp');
+  };
+
+  return (
+    <View style={styles.container}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+
+      <View style={styles.content}>
+        {/* ── Logo + spinning rings ── */}
+        <LogoWithRings />
+
+        {/* ── Headline ── */}
+        <Animated.View style={{ opacity: headFade, transform: [{ translateY: headSlide }] }}>
+          <Text style={styles.heading}>
+            <Text style={{ color: '#FFFFFF' }}>Every song,{'\n'}</Text>
+            <Text style={{ color: PURPLE_ACCENT }}>every category</Text>
+            <Text style={{ color: '#FFFFFF' }}>, one app</Text>
+          </Text>
+        </Animated.View>
+
+        {/* ── Subtext ── */}
+        <Animated.View style={{ opacity: subFade, transform: [{ translateY: subSlide }] }}>
+          <Text style={styles.subtext}>
+            Original Songs, Become Jehovah's Friend, Sing With Us, International Music. Lyrics, write-ups, and audio, all in one place.
+          </Text>
+        </Animated.View>
+
+        {/* ── Feature cards (staggered entrance) ── */}
+        <View style={styles.featuresColumn}>
+          <FeatureCard icon={Music} label="Lyrics for every category" delay={700} />
+          <FeatureCard icon={BookOpen} label="The story behind each song" delay={830} />
+          <FeatureCard icon={Headphones} label="Listen online, read anytime" delay={960} />
+        </View>
+
+        {/* ── CTA Button ── */}
+        <Animated.View
+          style={[
+            styles.ctaWrapper,
+            { opacity: btnFade, transform: [{ translateY: btnSlide }] },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.ctaButton}
+            onPress={handleExplore}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Explore The App"
+          >
+            <Text style={styles.ctaText}>Explore The App</Text>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* ── Footer ── */}
+        <Animated.View style={{ opacity: footFade }}>
+          <Text style={styles.footer}>Free &amp; always will be</Text>
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#030712',
+    backgroundColor: BG_DARK,
   },
-  backgroundImage: {
-    width: width,
-    height: height,
-  },
-  gradient: {
+  content: {
     flex: 1,
-    width: '100%',
-    height: '100%',
-  },
-  safeArea: {
-    flex: 1,
-    paddingTop: Platform.OS === 'android' ? 25 : 0,
-  },
-  flatListContent: {
-    paddingTop: height * 0.45, // Push text to lower half
-  },
-  slide: {
-    width: width,
     alignItems: 'center',
-    paddingHorizontal: 30,
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    paddingTop: Platform.OS === 'ios' ? 50 : 40,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 26,
   },
-  textContainer: {
-    width: '100%',
-    backgroundColor: 'transparent',
+
+  // ── Logo area ──
+  logoArea: {
+    width: SVG_SIZE,
+    height: SVG_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 16,
-    letterSpacing: -0.5,
-    lineHeight: 40,
+  radialGlow: {
+    position: 'absolute',
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: 'rgba(109, 40, 217, 0.10)',
   },
-  body: {
-    fontSize: 16,
-    color: '#D1D5DB', // Light gray
+  pulseRing: {
+    position: 'absolute',
+    width: 148,
+    height: 148,
+    borderRadius: 74,
+    borderWidth: 1.5,
+    borderColor: PURPLE_PRIMARY,
+  },
+  ringLayer: {
+    position: 'absolute',
+    width: SVG_SIZE,
+    height: SVG_SIZE,
+  },
+  logoContainer: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: '#150E28',
+    borderWidth: 1.5,
+    borderColor: 'rgba(109, 40, 217, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: PURPLE_PRIMARY,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+      },
+      android: { elevation: 10 },
+    }),
+  },
+  logo: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+  },
+
+  // ── Typography ──
+  heading: {
+    fontSize: 30,
+    fontWeight: '900',
+    textAlign: 'center',
+    lineHeight: 38,
+    letterSpacing: -0.4,
+    marginBottom: 10,
+  },
+  subtext: {
+    fontSize: 14.5,
     fontWeight: '400',
-    lineHeight: 26,
-    opacity: 0.95,
+    color: TEXT_MUTED,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+    paddingHorizontal: 4,
   },
-  controlsContainer: {
-    height: 160,
-    justifyContent: 'flex-end',
-    paddingBottom: Platform.OS === 'ios' ? 20 : 30,
-    paddingHorizontal: 30,
-  },
-  pagination: {
-    flexDirection: 'row',
-    height: 20,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  dot: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#A78BFA',
-    marginRight: 8,
-  },
-  buttonContainer: {
-    height: 60,
-    justifyContent: 'center',
-  },
-  navButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+
+  // ── Feature cards ──
+  featuresColumn: {
     width: '100%',
+    marginBottom: 8,
   },
-  button: {
+  featureCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: CARD_BG,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginBottom: 10,
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: ICON_BG,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  featureLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#E2DFF0',
+    flex: 1,
+  },
+
+  // ── CTA ──
+  ctaWrapper: {
+    width: '100%',
+    marginTop: 16,
+  },
+  ctaButton: {
+    width: '100%',
     height: 56,
+    borderRadius: 28,
+    backgroundColor: PURPLE_PRIMARY,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 28,
+    ...Platform.select({
+      ios: {
+        shadowColor: PURPLE_PRIMARY,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.45,
+        shadowRadius: 16,
+      },
+      android: { elevation: 12 },
+    }),
   },
-  primaryButton: {
-    backgroundColor: '#8B5CF6',
-    width: '100%',
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  nextButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: 40,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  buttonText: {
+  ctaText: {
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
-  textButton: {
-    paddingVertical: 15,
-    paddingRight: 20,
-  },
-  skipText: {
-    color: '#9CA3AF',
-    fontSize: 17,
-    fontWeight: '600',
+
+  // ── Footer ──
+  footer: {
+    marginTop: 14,
+    fontSize: 13,
+    color: TEXT_MUTED,
+    fontWeight: '400',
+    opacity: 0.7,
   },
 });
