@@ -18,7 +18,7 @@ const quillModules = {
 
 // ─── Shared inline style helpers ───
 const s = {
-  page: { padding: '32px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif' },
+  page: { padding: '32px', maxWidth: '100%', margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' },
   title: { fontSize: '24px', fontWeight: '700', color: '#fff', margin: 0 },
   subtitle: { fontSize: '13px', color: '#9CA3AF', margin: '4px 0 0 0' },
