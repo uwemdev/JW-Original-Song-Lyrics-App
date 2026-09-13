@@ -1,7 +1,9 @@
-import React, { useEffect, useState, lazy, Suspense } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Plus, Edit2, Trash2, Save, ArrowLeft, X } from 'lucide-react';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 
 // ReactQuill toolbar config
 const quillModules = {
@@ -14,67 +16,6 @@ const quillModules = {
   ],
 };
 
-// Error boundary to catch ReactQuill crashes (findDOMNode in React 18)
-class QuillErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { hasError: false }; }
-  static getDerivedStateFromError() { return { hasError: true }; }
-  render() {
-    if (this.state.hasError) return this.props.fallback;
-    return this.props.children;
-  }
-}
-
-// Safe wrapper that loads ReactQuill only when needed
-function SafeQuill({ value, onChange, modules, placeholder }) {
-  const [QuillComponent, setQuillComponent] = useState(null);
-  const [loadError, setLoadError] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    import('react-quill').then((mod) => {
-      if (!cancelled) {
-        // Also import the CSS
-        import('react-quill/dist/quill.snow.css');
-        setQuillComponent(() => mod.default);
-      }
-    }).catch(() => {
-      if (!cancelled) setLoadError(true);
-    });
-    return () => { cancelled = true; };
-  }, []);
-
-  // Fallback textarea
-  const textareaFallback = (
-    <textarea
-      value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={24}
-      style={{
-        width: '100%', padding: '10px 12px', background: '#0d0c11', border: '1px solid #2d293b',
-        borderRadius: '8px', color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box',
-        resize: 'vertical', fontFamily: 'inherit', minHeight: '450px',
-      }}
-    />
-  );
-
-  if (loadError || !QuillComponent) {
-    if (loadError) return textareaFallback;
-    return <p style={{ color: '#9CA3AF' }}>Loading editor...</p>;
-  }
-
-  return (
-    <QuillErrorBoundary fallback={textareaFallback}>
-      <QuillComponent
-        theme="snow"
-        value={value}
-        onChange={onChange}
-        modules={modules}
-        placeholder={placeholder}
-      />
-    </QuillErrorBoundary>
-  );
-}
 
 // ─── Shared inline style helpers ───
 const s = {
@@ -497,7 +438,8 @@ export default function AdminDashboard() {
                   .admin-quill .ql-picker-item:hover { color: #A78BFA; }
                 `}</style>
                 <div className="admin-quill">
-                  <SafeQuill
+                  <ReactQuill
+                    theme="snow"
                     value={songForm.lyrics}
                     onChange={(val) => setSongForm({ ...songForm, lyrics: val })}
                     modules={quillModules}
