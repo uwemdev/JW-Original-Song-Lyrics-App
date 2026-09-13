@@ -21,7 +21,7 @@ export default function SongScreen({ route }) {
   }, [sound]);
 
   async function handlePlayPause() {
-    if (!song.audio_url) return;
+    if (!song.mp3_url) return;
 
     try {
       if (sound) {
@@ -32,7 +32,7 @@ export default function SongScreen({ route }) {
         }
       } else {
         const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: song.audio_url },
+          { uri: song.mp3_url },
           { shouldPlay: true },
           onPlaybackStatusUpdate
         );
@@ -78,7 +78,7 @@ export default function SongScreen({ route }) {
       
       <Text style={styles.title}>{song.title}</Text>
       
-      {song.audio_url && (
+      {song.mp3_url && (
         <View style={styles.playerContainer}>
           <View style={styles.controlsRow}>
             <TouchableOpacity style={styles.playButton} onPress={handlePlayPause}>
