@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { Plus, Edit2, Trash2, X, Save, ArrowLeft } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Save, ArrowLeft, Users, Music as MusicIcon, PlayCircle, DollarSign, Clock, CheckCircle, Flag, Wallet, TrendingDown, TrendingUp } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+
 export default function AdminDashboard() {
+  const { currentTab } = useOutletContext() || { currentTab: 'dashboard' };
   const [songs, setSongs] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('songs');
   
   // View state: 'list', 'song-form', 'category-form'
   const [view, setView] = useState('list');
@@ -380,41 +382,181 @@ export default function AdminDashboard() {
     );
   }
 
+  // ==== DASHBOARD VIEW ====
+  if (currentTab === 'dashboard' && view === 'list') {
+    return (
+      <div className="animate-slide-up">
+        {/* Banner */}
+        <div className="mb-8 p-8 rounded-xl border border-[#2d293b] bg-gradient-to-r from-[#170c26] to-[#0d0c11] relative overflow-hidden">
+          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#2d1b4e 1px, transparent 1px), linear-gradient(90deg, #2d1b4e 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+          <div className="absolute right-0 top-0 w-64 h-64 bg-[#F472B6] opacity-10 filter blur-[80px] rounded-full"></div>
+          
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-2 h-2 bg-[#F472B6]"></div>
+              <span className="text-xs font-bold tracking-wider text-[#A78BFA] uppercase">Overview</span>
+            </div>
+            <h2 className="text-4xl font-extrabold text-white mb-2 tracking-tight">Dashboard</h2>
+            <p className="text-[#9CA3AF] mb-6">Welcome back. Platform health at a glance.</p>
+            
+            <div className="flex gap-4">
+              <span className="px-3 py-1.5 rounded bg-[#17151f] border border-[#2d293b] text-xs font-bold text-white shadow-sm">
+                {songs.length} SONGS
+              </span>
+              <span className="px-3 py-1.5 rounded bg-[#17151f] border border-[#2d293b] text-xs font-bold text-white shadow-sm">
+                {categories.length} CATEGORIES
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Stat Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          
+          {/* Card 1 */}
+          <div className="p-6 rounded-xl bg-[#0d0c11] border border-[#2d293b] flex flex-col hover:border-[#8B5CF6] transition-colors relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-b from-[#8B5CF6]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-10 h-10 rounded bg-[#8B5CF6]/10 flex items-center justify-center">
+                <MusicIcon size={20} className="text-[#8B5CF6]" />
+              </div>
+              <div className="flex items-center gap-1 text-[#10B981] bg-[#10B981]/10 px-2 py-1 rounded text-xs font-bold">
+                <TrendingUp size={12} /> 12%
+              </div>
+            </div>
+            <h3 className="text-3xl font-extrabold text-white mb-1">{songs.length}</h3>
+            <p className="text-[#6B7280] text-sm">Total Songs</p>
+          </div>
+
+          {/* Card 2 */}
+          <div className="p-6 rounded-xl bg-[#0d0c11] border border-[#2d293b] flex flex-col hover:border-[#F472B6] transition-colors relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-b from-[#F472B6]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-10 h-10 rounded bg-[#F472B6]/10 flex items-center justify-center">
+                <FolderTree size={20} className="text-[#F472B6]" />
+              </div>
+            </div>
+            <h3 className="text-3xl font-extrabold text-white mb-1">{categories.length}</h3>
+            <p className="text-[#6B7280] text-sm">Total Categories</p>
+          </div>
+
+          {/* Card 3 (Placeholder) */}
+          <div className="p-6 rounded-xl bg-[#0d0c11] border border-[#2d293b] flex flex-col hover:border-[#10B981] transition-colors relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-b from-[#10B981]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-10 h-10 rounded bg-[#10B981]/10 flex items-center justify-center">
+                <PlayCircle size={20} className="text-[#10B981]" />
+              </div>
+              <div className="flex items-center gap-1 text-[#EF4444] bg-[#EF4444]/10 px-2 py-1 rounded text-xs font-bold">
+                <TrendingDown size={12} /> 2.4%
+              </div>
+            </div>
+            <h3 className="text-3xl font-extrabold text-white mb-1">2,405</h3>
+            <p className="text-[#6B7280] text-sm">Total Streams (30d)</p>
+          </div>
+
+          {/* Card 4 (Placeholder) */}
+          <div className="p-6 rounded-xl bg-[#0d0c11] border border-[#2d293b] flex flex-col hover:border-[#F59E0B] transition-colors relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-b from-[#F59E0B]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-10 h-10 rounded bg-[#F59E0B]/10 flex items-center justify-center">
+                <Users size={20} className="text-[#F59E0B]" />
+              </div>
+            </div>
+            <h3 className="text-3xl font-extrabold text-white mb-1">842</h3>
+            <p className="text-[#6B7280] text-sm">Active Users</p>
+          </div>
+
+          {/* Card 5 */}
+          <div className="p-6 rounded-xl bg-[#0d0c11] border border-[#2d293b] flex flex-col">
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-10 h-10 rounded bg-[#EF4444]/10 flex items-center justify-center">
+                <Clock size={20} className="text-[#EF4444]" />
+              </div>
+            </div>
+            <h3 className="text-3xl font-extrabold text-white mb-1">{songs.filter(s => !s.is_published).length}</h3>
+            <p className="text-[#6B7280] text-sm">Draft Songs</p>
+          </div>
+
+          {/* Card 6 */}
+          <div className="p-6 rounded-xl bg-[#0d0c11] border border-[#2d293b] flex flex-col">
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-10 h-10 rounded bg-[#3B82F6]/10 flex items-center justify-center">
+                <CheckCircle size={20} className="text-[#3B82F6]" />
+              </div>
+            </div>
+            <h3 className="text-3xl font-extrabold text-white mb-1">{songs.filter(s => s.is_published).length}</h3>
+            <p className="text-[#6B7280] text-sm">Published Songs</p>
+          </div>
+
+          {/* Card 7 (Placeholder) */}
+          <div className="p-6 rounded-xl bg-[#0d0c11] border border-[#2d293b] flex flex-col">
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-10 h-10 rounded bg-[#F43F5E]/10 flex items-center justify-center">
+                <Flag size={20} className="text-[#F43F5E]" />
+              </div>
+              <div className="flex items-center gap-1 text-[#F43F5E] bg-[#F43F5E]/10 px-2 py-1 rounded text-xs font-bold">
+                Review
+              </div>
+            </div>
+            <h3 className="text-3xl font-extrabold text-white mb-1">0</h3>
+            <p className="text-[#6B7280] text-sm">Flagged Reports</p>
+          </div>
+
+          {/* Card 8 (Placeholder) */}
+          <div className="p-6 rounded-xl bg-[#0d0c11] border border-[#2d293b] flex flex-col">
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-10 h-10 rounded bg-[#10B981]/10 flex items-center justify-center">
+                <Wallet size={20} className="text-[#10B981]" />
+              </div>
+            </div>
+            <h3 className="text-3xl font-extrabold text-white mb-1">0</h3>
+            <p className="text-[#6B7280] text-sm">Payout Requests</p>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ==== SETTINGS PLACEHOLDER ====
+  if (currentTab === 'settings' && view === 'list') {
+    return (
+      <div className="animate-slide-up flex flex-col items-center justify-center h-full text-center">
+        <Settings size={48} className="text-[#2d293b] mb-4" />
+        <h2 className="text-2xl font-bold text-white mb-2">System Settings</h2>
+        <p className="text-[#9CA3AF]">Configuration options will appear here.</p>
+      </div>
+    );
+  }
+
   // ==== LIST VIEW ====
   return (
     <div className="animate-slide-up">
-      <header className="dashboard-topbar">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-extrabold mb-1">Welcome back!</h1>
-          <p className="text-secondary">Manage your songs and categories</p>
+          <h2 className="text-2xl font-extrabold text-white mb-1">
+            {currentTab === 'songs' ? 'All Songs' : 'Categories'}
+          </h2>
+          <p className="text-[#9CA3AF] text-sm">
+            {currentTab === 'songs' ? 'Manage your lyric catalog' : 'Organize your songs'}
+          </p>
         </div>
         <div className="flex gap-4">
-          <button onClick={handleAddNewSong} className="btn btn-primary">
-            <Plus size={18} className="mr-2" /> New Song
-          </button>
-          <button onClick={handleAddNewCategory} className="btn btn-secondary">
-            <Plus size={18} className="mr-2" /> New Category
-          </button>
+          {currentTab === 'songs' ? (
+            <button onClick={handleAddNewSong} className="px-4 py-2 font-bold text-white rounded bg-gradient-to-r from-[#A78BFA] to-[#F472B6] hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(244,114,182,0.2)]">
+              <Plus size={18} /> New Song
+            </button>
+          ) : (
+            <button onClick={handleAddNewCategory} className="px-4 py-2 font-bold text-white rounded bg-[#17151f] border border-[#2d293b] hover:bg-[#2d293b] transition-colors flex items-center justify-center gap-2">
+              <Plus size={18} /> New Category
+            </button>
+          )}
         </div>
-      </header>
-
-      <div className="tabs">
-        <button 
-          className={`tab ${activeTab === 'songs' ? 'active' : ''}`}
-          onClick={() => setActiveTab('songs')}
-        >
-          All Songs ({songs.length})
-        </button>
-        <button 
-          className={`tab ${activeTab === 'categories' ? 'active' : ''}`}
-          onClick={() => setActiveTab('categories')}
-        >
-          Categories ({categories.length})
-        </button>
       </div>
 
-      <div className="table-container">
-        {activeTab === 'songs' ? (
+      <div className="table-container rounded-xl border border-[#2d293b] bg-[#17151f] overflow-hidden">
+        {currentTab === 'songs' ? (
           <table>
             <thead>
               <tr>
