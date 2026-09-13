@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, useWindowDimensions } from 'react-native';
-import { Audio } from 'expo-av';
-import { Play, Pause, Square } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, useWindowDimensions, StatusBar } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+// import { Audio } from 'expo-av';
+import { Play, Pause, Square, Music, ChevronDown } from 'lucide-react-native';
 import RenderHTML from 'react-native-render-html';
 
-export default function SongScreen({ route }) {
+export default function SongScreen({ route, navigation }) {
   const { song } = route.params;
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [sound, setSound] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
@@ -15,7 +16,7 @@ export default function SongScreen({ route }) {
   useEffect(() => {
     return () => {
       if (sound) {
-        sound.unloadAsync();
+        // sound.unloadAsync();
       }
     };
   }, [sound]);
@@ -26,17 +27,18 @@ export default function SongScreen({ route }) {
     try {
       if (sound) {
         if (isPlaying) {
-          await sound.pauseAsync();
+          // await sound.pauseAsync();
         } else {
-          await sound.playAsync();
+          // await sound.playAsync();
         }
       } else {
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: song.mp3_url },
-          { shouldPlay: true },
-          onPlaybackStatusUpdate
-        );
-        setSound(newSound);
+        // const { sound: newSound } = await Audio.Sound.createAsync(
+        //   { uri: song.mp3_url },
+        //   { shouldPlay: true },
+        //   onPlaybackStatusUpdate
+        // );
+        // setSound(newSound);
+        alert("Audio playback requires compiling the app. It's disabled in the Expo Go preview.");
       }
     } catch (err) {
       console.error('Error playing audio', err);
@@ -45,8 +47,8 @@ export default function SongScreen({ route }) {
 
   async function handleStop() {
     if (sound) {
-      await sound.stopAsync();
-      await sound.setPositionAsync(0);
+      // await sound.stopAsync();
+      // await sound.setPositionAsync(0);
     }
   }
 
@@ -71,153 +73,250 @@ export default function SongScreen({ route }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
+      {/* Background artwork blur effect */}
       {song.feature_image_url && (
-        <Image source={{ uri: song.feature_image_url }} style={styles.heroImage} />
+        <>
+          <Image source={{ uri: song.feature_image_url }} style={styles.bgImage} blurRadius={90} />
+          <View style={styles.bgOverlay} />
+        </>
       )}
-      
-      <Text style={styles.title}>{song.title}</Text>
-      
-      {song.mp3_url && (
-        <View style={styles.playerContainer}>
-          <View style={styles.controlsRow}>
-            <TouchableOpacity style={styles.playButton} onPress={handlePlayPause}>
-              {isPlaying ? <Pause color="#FFF" size={24} /> : <Play color="#FFF" size={24} />}
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.stopButton} onPress={handleStop}>
-              <Square color="#94A3B8" size={20} />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.progressRow}>
-            <Text style={styles.timeText}>{formatTime(position)}</Text>
-            <View style={styles.progressBarBg}>
-              <View 
-                style={[
-                  styles.progressBarFill, 
-                  { width: duration > 0 ? `${(position / duration) * 100}%` : '0%' }
-                ]} 
-              />
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        
+        {/* Header Controls */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
+            <ChevronDown color="#FFF" size={32} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Artwork */}
+        <View style={styles.artworkContainer}>
+          {song.feature_image_url ? (
+            <Image source={{ uri: song.feature_image_url }} style={styles.artwork} />
+          ) : (
+            <LinearGradient
+              colors={['#8B5CF6', '#3B82F6']}
+              style={styles.artworkPlaceholder}
+            >
+              <Music color="#FFF" size={80} opacity={0.5} />
+            </LinearGradient>
+          )}
+        </View>
+        
+        {/* Title Info */}
+        <View style={styles.titleContainer}>
+          <Text style={styles.title} numberOfLines={2}>{song.title}</Text>
+          <Text style={styles.artist}>Original Song</Text>
+        </View>
+        
+        {/* Player Controls */}
+        {song.mp3_url && (
+          <View style={styles.playerContainer}>
+            <View style={styles.progressRow}>
+              <Text style={styles.timeText}>{formatTime(position)}</Text>
+              <View style={styles.progressBarBg}>
+                <View 
+                  style={[
+                    styles.progressBarFill, 
+                    { width: duration > 0 ? `${(position / duration) * 100}%` : '0%' }
+                  ]} 
+                />
+              </View>
+              <Text style={styles.timeText}>{formatTime(duration)}</Text>
             </View>
-            <Text style={styles.timeText}>{formatTime(duration)}</Text>
+
+            <View style={styles.controlsRow}>
+              <TouchableOpacity style={styles.stopButton} onPress={handleStop}>
+                <Square color="#94A3B8" size={24} />
+              </TouchableOpacity>
+              
+              <TouchableOpacity onPress={handlePlayPause}>
+                <LinearGradient
+                  colors={['#8B5CF6', '#F472B6']}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 1}}
+                  style={styles.playButton}
+                >
+                  {isPlaying ? <Pause color="#FFF" size={32} fill="#FFF" /> : <Play color="#FFF" size={32} fill="#FFF" style={{marginLeft: 4}} />}
+                </LinearGradient>
+              </TouchableOpacity>
+              
+              {/* Placeholder for symmetry */}
+              <View style={{ width: 48 }} />
+            </View>
+          </View>
+        )}
+
+        {/* Content Tabs (Lyrics & Info) */}
+        <View style={styles.infoCard}>
+          {song.writeup ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>About this Song</Text>
+              <Text style={styles.writeup}>{song.writeup}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Lyrics</Text>
+            <RenderHTML
+              contentWidth={width - 48} // Adjusting for padding
+              source={{ html: song.lyrics || '<p>No lyrics available.</p>' }}
+              baseStyle={{ color: '#E2E8F0', fontSize: 18, lineHeight: 32 }}
+              tagsStyles={{
+                p: { marginBottom: 20 }
+              }}
+            />
           </View>
         </View>
-      )}
 
-      {song.writeup ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About this Song</Text>
-          <Text style={styles.writeup}>{song.writeup}</Text>
-        </View>
-      ) : null}
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Lyrics</Text>
-        <RenderHTML
-          contentWidth={width}
-          source={{ html: song.lyrics || '<p>No lyrics available.</p>' }}
-          baseStyle={{ color: '#CBD5E1', fontSize: 16, lineHeight: 32 }}
-          tagsStyles={{
-            p: { marginBottom: 16 }
-          }}
-        />
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B0F19',
+    backgroundColor: '#030712', // Fallback
+  },
+  bgImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    opacity: 0.6,
+  },
+  bgOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(3, 7, 18, 0.75)',
   },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: 24,
+    paddingTop: 60, // For status bar
+    paddingBottom: 100, // For bottom tab
   },
-  heroImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 16,
-    marginBottom: 20,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginBottom: 30,
+  },
+  iconButton: {
+    padding: 8,
+    marginLeft: -8,
+  },
+  artworkContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.5,
+    shadowRadius: 30,
+    elevation: 20,
+  },
+  artwork: {
+    width: 300,
+    height: 300,
+    borderRadius: 20,
+  },
+  artworkPlaceholder: {
+    width: 300,
+    height: 300,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  titleContainer: {
+    alignItems: 'flex-start',
+    marginBottom: 30,
   },
   title: {
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#FFF',
-    marginBottom: 24,
+    marginBottom: 8,
+  },
+  artist: {
+    fontSize: 18,
+    color: '#8B5CF6',
+    fontWeight: '600',
   },
   playerContainer: {
-    backgroundColor: '#1E293B',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 24,
-  },
-  controlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    justifyContent: 'center',
-    gap: 16,
-  },
-  playButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#8B5CF6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stopButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#334155',
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginBottom: 40,
   },
   progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginBottom: 24,
   },
   timeText: {
-    color: '#94A3B8',
-    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
     fontVariant: ['tabular-nums'],
-    width: 40,
+    width: 36,
     textAlign: 'center',
+    fontWeight: '600',
   },
   progressBarBg: {
     flex: 1,
-    height: 4,
-    backgroundColor: '#334155',
-    borderRadius: 2,
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 3,
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: '#8B5CF6',
-    borderRadius: 2,
+    borderRadius: 3,
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  playButton: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#F472B6',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  stopButton: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoCard: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#E2E8F0',
-    marginBottom: 12,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#8B5CF6',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 16,
   },
   writeup: {
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 28,
     color: '#94A3B8',
     fontStyle: 'italic',
-  },
-  lyrics: {
-    fontSize: 16,
-    lineHeight: 32,
-    color: '#CBD5E1',
   }
 });
