@@ -2,6 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Plus, Edit2, Trash2, Save, ArrowLeft, X } from 'lucide-react';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+
+// ReactQuill toolbar config
+const quillModules = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline'],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ align: [] }],
+    ['clean'],
+  ],
+};
 
 // ─── Shared inline style helpers ───
 const s = {
@@ -394,14 +407,44 @@ export default function AdminDashboard() {
 
               {/* Right column — Lyrics */}
               <div>
-                <label style={s.label}>Lyrics</label>
-                <textarea
-                  value={songForm.lyrics}
-                  onChange={(e) => setSongForm({ ...songForm, lyrics: e.target.value })}
-                  placeholder="Paste or type the song lyrics here..."
-                  rows={24}
-                  style={{ ...s.textarea, minHeight: '500px' }}
-                />
+                <label style={s.label}>Lyrics (Rich Text)</label>
+                <style>{`
+                  .admin-quill .ql-toolbar {
+                    background: #0d0c11;
+                    border: 1px solid #2d293b;
+                    border-radius: 8px 8px 0 0;
+                  }
+                  .admin-quill .ql-toolbar .ql-stroke { stroke: #9CA3AF; }
+                  .admin-quill .ql-toolbar .ql-fill { fill: #9CA3AF; }
+                  .admin-quill .ql-toolbar .ql-picker-label { color: #9CA3AF; }
+                  .admin-quill .ql-toolbar button:hover .ql-stroke,
+                  .admin-quill .ql-toolbar .ql-active .ql-stroke { stroke: #A78BFA; }
+                  .admin-quill .ql-toolbar button:hover .ql-fill,
+                  .admin-quill .ql-toolbar .ql-active .ql-fill { fill: #A78BFA; }
+                  .admin-quill .ql-container {
+                    background: #0d0c11;
+                    border: 1px solid #2d293b;
+                    border-top: none;
+                    border-radius: 0 0 8px 8px;
+                    color: #fff;
+                    font-size: 14px;
+                    min-height: 450px;
+                  }
+                  .admin-quill .ql-editor { min-height: 450px; line-height: 1.8; }
+                  .admin-quill .ql-editor.ql-blank::before { color: #6B7280; font-style: normal; }
+                  .admin-quill .ql-picker-options { background: #17151f; border-color: #2d293b; }
+                  .admin-quill .ql-picker-item { color: #D1D5DB; }
+                  .admin-quill .ql-picker-item:hover { color: #A78BFA; }
+                `}</style>
+                <div className="admin-quill">
+                  <ReactQuill
+                    theme="snow"
+                    value={songForm.lyrics}
+                    onChange={(val) => setSongForm({ ...songForm, lyrics: val })}
+                    modules={quillModules}
+                    placeholder="Type or paste the song lyrics here..."
+                  />
+                </div>
               </div>
             </div>
 
