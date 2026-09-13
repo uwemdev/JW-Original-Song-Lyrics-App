@@ -7,9 +7,11 @@ import { Home, Music, Settings, Info } from 'lucide-react-native';
 import HomeScreen from './src/screens/HomeScreen';
 import CategoryScreen from './src/screens/CategoryScreen';
 import SongScreen from './src/screens/SongScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+const RootStack = createNativeStackNavigator();
 
 const MyDarkTheme = {
   ...DarkTheme,
@@ -44,36 +46,45 @@ function SettingsScreen() {
   return null; // Placeholder
 }
 
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarStyle: { 
+          backgroundColor: 'rgba(17, 24, 39, 0.95)', 
+          borderTopWidth: 0,
+          elevation: 0,
+          position: 'absolute',
+          height: 80,
+          paddingBottom: 25,
+          paddingTop: 10,
+        },
+        tabBarActiveTintColor: '#C4B5FD',
+        tabBarInactiveTintColor: '#4B5563',
+        tabBarIcon: ({ color, size }) => {
+          let IconComponent;
+          if (route.name === 'Home') IconComponent = Home;
+          else if (route.name === 'Library') IconComponent = Music;
+          else if (route.name === 'Settings') IconComponent = Settings;
+          return <IconComponent color={color} size={24} strokeWidth={2.5} />;
+        },
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeStack} />
+      <Tab.Screen name="Library" component={HomeStack} />
+      <Tab.Screen name="Settings" component={SettingsScreen} />
+    </Tab.Navigator>
+  );
+}
+
 export default function App() {
   return (
     <NavigationContainer theme={MyDarkTheme}>
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          tabBarStyle: { 
-            backgroundColor: 'rgba(17, 24, 39, 0.95)', 
-            borderTopWidth: 0,
-            elevation: 0,
-            position: 'absolute',
-            height: 80,
-            paddingBottom: 25,
-            paddingTop: 10,
-          },
-          tabBarActiveTintColor: '#C4B5FD',
-          tabBarInactiveTintColor: '#4B5563',
-          tabBarIcon: ({ color, size }) => {
-            let IconComponent;
-            if (route.name === 'Home') IconComponent = Home;
-            else if (route.name === 'Library') IconComponent = Music;
-            else if (route.name === 'Settings') IconComponent = Settings;
-            return <IconComponent color={color} size={24} strokeWidth={2.5} />;
-          },
-        })}
-      >
-        <Tab.Screen name="Home" component={HomeStack} />
-        <Tab.Screen name="Library" component={HomeStack} />
-        <Tab.Screen name="Settings" component={SettingsScreen} />
-      </Tab.Navigator>
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
+        <RootStack.Screen name="MainApp" component={MainTabs} />
+      </RootStack.Navigator>
     </NavigationContainer>
   );
 }
