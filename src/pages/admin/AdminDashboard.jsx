@@ -131,8 +131,8 @@ export default function AdminDashboard() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const from = page * 15;
-      const to = from + 14;
+      const from = page * 10;
+      const to = from + 9;
       
       const [catsRes, songsRes] = await Promise.all([
         supabase.from('categories').select('*').order('sort_order'),
@@ -144,7 +144,7 @@ export default function AdminDashboard() {
 
       setCategories(catsRes.data || []);
       setSongs(songsRes.data || []);
-      setHasMoreSongs(songsRes.data?.length === 15);
+      setHasMoreSongs(songsRes.data?.length === 10);
     } catch (err) {
       setErrorMsg('Failed to load data: ' + (err.message || 'Unknown error'));
     } finally {

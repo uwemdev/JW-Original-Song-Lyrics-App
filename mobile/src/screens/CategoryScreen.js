@@ -370,10 +370,35 @@ export default function CategoryScreen({ route, navigation }) {
 
   // ── Footer loading ──
   const renderFooter = () => {
-    if (!loadingMore) return <View style={{ height: 120 }} />;
+    if (loadingMore) {
+      return (
+        <View style={{ paddingVertical: 16 }}>
+          {viewMode === 'list' ? <ListSkeleton /> : <GridSkeleton />}
+        </View>
+      );
+    }
+    if (!hasMore || searchActive || songs.length === 0) {
+      return <View style={{ height: 120 }} />;
+    }
+    
     return (
-      <View style={{ paddingVertical: 16 }}>
-        {viewMode === 'list' ? <ListSkeleton /> : <GridSkeleton />}
+      <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+        <TouchableOpacity 
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 24,
+            backgroundColor: 'rgba(109,40,217,0.2)',
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: 'rgba(109,40,217,0.5)',
+            marginBottom: 40,
+          }}
+          onPress={() => fetchSongs(false)}
+        >
+          <Text style={{ color: '#A78BFA', fontWeight: '600', fontSize: 14 }}>
+            Load More Songs
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -558,8 +583,6 @@ export default function CategoryScreen({ route, navigation }) {
           ListHeaderComponent={ListHeader}
           ListEmptyComponent={renderEmpty}
           ListFooterComponent={renderFooter}
-          onEndReached={onEndReached}
-          onEndReachedThreshold={0.4}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: SIDE_PAD, paddingBottom: 120 }}
           refreshControl={
@@ -584,8 +607,6 @@ export default function CategoryScreen({ route, navigation }) {
           ListHeaderComponent={ListHeader}
           ListEmptyComponent={renderEmpty}
           ListFooterComponent={renderFooter}
-          onEndReached={onEndReached}
-          onEndReachedThreshold={0.4}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: SIDE_PAD, paddingBottom: 120 }}
           refreshControl={
