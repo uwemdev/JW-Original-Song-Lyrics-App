@@ -7,12 +7,18 @@ import { Search, LayoutGrid, Home, Heart, Settings } from 'lucide-react-native';
 
 import HomeScreen from './src/screens/HomeScreen';
 import CategoryScreen from './src/screens/CategoryScreen';
+import CategoriesScreen from './src/screens/CategoriesScreen';
 import SongScreen from './src/screens/SongScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
+import FavoritesScreen from './src/screens/FavoritesScreen';
+import SearchScreen from './src/screens/SearchScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 
 const Tab = createBottomTabNavigator();
-const HomeStack = createNativeStackNavigator();
-const CategoriesStack = createNativeStackNavigator();
+const HomeStackNav = createNativeStackNavigator();
+const CategoriesStackNav = createNativeStackNavigator();
+const FavoritesStackNav = createNativeStackNavigator();
+const SearchStackNav = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
 
 // ─── Theme ───────────────────────────────────────────────────────
@@ -40,61 +46,98 @@ const stackScreenOptions = {
 
 function HomeStackScreen() {
   return (
-    <HomeStack.Navigator screenOptions={stackScreenOptions}>
-      <HomeStack.Screen
+    <HomeStackNav.Navigator screenOptions={stackScreenOptions}>
+      <HomeStackNav.Screen
         name="HomeMain"
         component={HomeScreen}
         options={{ headerShown: false }}
       />
-      <HomeStack.Screen
+      <HomeStackNav.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ headerShown: false }}
+      />
+      <HomeStackNav.Screen
         name="Category"
         component={CategoryScreen}
-        options={({ route }) => ({
-          title: route.params.categoryName,
-          headerTitleStyle: { fontWeight: '700', fontSize: 18 },
-        })}
+        options={{ headerShown: false }}
       />
-      <HomeStack.Screen
+      <HomeStackNav.Screen
         name="Song"
         component={SongScreen}
         options={{ headerShown: false }}
       />
-    </HomeStack.Navigator>
+    </HomeStackNav.Navigator>
   );
 }
 
 function CategoriesStackScreen() {
   return (
-    <CategoriesStack.Navigator screenOptions={stackScreenOptions}>
-      <CategoriesStack.Screen
+    <CategoriesStackNav.Navigator screenOptions={stackScreenOptions}>
+      <CategoriesStackNav.Screen
         name="CategoriesMain"
-        component={HomeScreen}
+        component={CategoriesScreen}
         options={{ headerShown: false }}
       />
-      <CategoriesStack.Screen
+      <CategoriesStackNav.Screen
         name="Category"
         component={CategoryScreen}
-        options={({ route }) => ({
-          title: route.params.categoryName,
-          headerTitleStyle: { fontWeight: '700', fontSize: 18 },
-        })}
+        options={{ headerShown: false }}
       />
-      <CategoriesStack.Screen
+      <CategoriesStackNav.Screen
         name="Song"
         component={SongScreen}
         options={{ headerShown: false }}
       />
-    </CategoriesStack.Navigator>
+    </CategoriesStackNav.Navigator>
+  );
+}
+
+function FavoritesStackScreen() {
+  return (
+    <FavoritesStackNav.Navigator screenOptions={stackScreenOptions}>
+      <FavoritesStackNav.Screen
+        name="FavoritesMain"
+        component={FavoritesScreen}
+        options={{ headerShown: false }}
+      />
+      <FavoritesStackNav.Screen
+        name="Category"
+        component={CategoryScreen}
+        options={{ headerShown: false }}
+      />
+      <FavoritesStackNav.Screen
+        name="Song"
+        component={SongScreen}
+        options={{ headerShown: false }}
+      />
+    </FavoritesStackNav.Navigator>
+  );
+}
+
+function SearchStackScreen() {
+  return (
+    <SearchStackNav.Navigator screenOptions={stackScreenOptions}>
+      <SearchStackNav.Screen
+        name="SearchMain"
+        component={SearchScreen}
+        options={{ headerShown: false }}
+      />
+      <SearchStackNav.Screen
+        name="Category"
+        component={CategoryScreen}
+        options={{ headerShown: false }}
+      />
+      <SearchStackNav.Screen
+        name="Song"
+        component={SongScreen}
+        options={{ headerShown: false }}
+      />
+    </SearchStackNav.Navigator>
   );
 }
 
 // ─── Placeholder screens ─────────────────────────────────────────
-function SearchScreen() {
-  return <View style={{ flex: 1, backgroundColor: '#030712' }} />;
-}
-function FavoritesScreen() {
-  return <View style={{ flex: 1, backgroundColor: '#030712' }} />;
-}
 function SettingsScreen() {
   return <View style={{ flex: 1, backgroundColor: '#030712' }} />;
 }
@@ -107,6 +150,7 @@ const INACTIVE_COLOR = '#4B5563';
 function MainTabs() {
   return (
     <Tab.Navigator
+      initialRouteName="Home"
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
@@ -150,10 +194,10 @@ function MainTabs() {
         },
       })}
     >
-      <Tab.Screen name="Search" component={SearchScreen} />
+      <Tab.Screen name="Search" component={SearchStackScreen} />
       <Tab.Screen name="Categories" component={CategoriesStackScreen} />
       <Tab.Screen name="Home" component={HomeStackScreen} />
-      <Tab.Screen name="Favorites" component={FavoritesScreen} />
+      <Tab.Screen name="Favorites" component={FavoritesStackScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );

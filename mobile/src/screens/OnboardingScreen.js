@@ -26,6 +26,10 @@ const TEXT_MUTED = '#B8AFC9';
 const CARD_BG = '#1A1425';
 const ICON_BG = '#251B3A';
 
+// ─── Responsive sizing ───────────────────────────────────────────
+const isSmall = height < 800;
+const scale = isSmall ? 0.75 : 1;
+
 // ─── Dot ring generation ─────────────────────────────────────────
 function makeDots(count, radius) {
   const dots = [];
@@ -38,9 +42,9 @@ function makeDots(count, radius) {
   return dots;
 }
 
-const INNER_R = 100;
-const MID_R = 132;
-const OUTER_R = 160;
+export const INNER_R = 100 * scale;
+export const MID_R = 132 * scale;
+export const OUTER_R = 160 * scale;
 
 const innerDots = makeDots(24, INNER_R);
 const midDots = makeDots(32, MID_R);
@@ -345,8 +349,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 28,
-    paddingTop: Platform.OS === 'ios' ? 50 : 40,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 26,
+    paddingTop: Platform.OS === 'ios' ? 50 : 60,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 46,
   },
 
   // ── Logo area ──
@@ -355,20 +359,20 @@ const styles = StyleSheet.create({
     height: SVG_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: isSmall ? 16 : 24,
   },
   radialGlow: {
     position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 160,
+    width: 320 * scale,
+    height: 320 * scale,
+    borderRadius: 160 * scale,
     backgroundColor: 'rgba(109, 40, 217, 0.10)',
   },
   pulseRing: {
     position: 'absolute',
-    width: 148,
-    height: 148,
-    borderRadius: 74,
+    width: 148 * scale,
+    height: 148 * scale,
+    borderRadius: 74 * scale,
     borderWidth: 1.5,
     borderColor: PURPLE_PRIMARY,
   },
@@ -378,9 +382,9 @@ const styles = StyleSheet.create({
     height: SVG_SIZE,
   },
   logoContainer: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 110 * scale,
+    height: 110 * scale,
+    borderRadius: 55 * scale,
     backgroundColor: '#150E28',
     borderWidth: 1.5,
     borderColor: 'rgba(109, 40, 217, 0.35)',
@@ -397,55 +401,55 @@ const styles = StyleSheet.create({
     }),
   },
   logo: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 88 * scale,
+    height: 88 * scale,
+    borderRadius: 44 * scale,
   },
 
   // ── Typography ──
   heading: {
-    fontSize: 30,
+    fontSize: isSmall ? 26 : 30,
     fontWeight: '900',
     textAlign: 'center',
-    lineHeight: 38,
+    lineHeight: isSmall ? 32 : 38,
     letterSpacing: -0.4,
-    marginBottom: 10,
+    marginBottom: isSmall ? 6 : 10,
   },
   subtext: {
-    fontSize: 14.5,
+    fontSize: isSmall ? 13.5 : 14.5,
     fontWeight: '400',
     color: TEXT_MUTED,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
+    lineHeight: isSmall ? 20 : 22,
+    marginBottom: isSmall ? 18 : 24,
     paddingHorizontal: 4,
   },
 
   // ── Feature cards ──
   featuresColumn: {
     width: '100%',
-    marginBottom: 8,
+    marginBottom: isSmall ? 4 : 8,
   },
   featureCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: CARD_BG,
     borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    marginBottom: 10,
+    paddingVertical: isSmall ? 12 : 14,
+    paddingHorizontal: isSmall ? 14 : 18,
+    marginBottom: isSmall ? 8 : 10,
   },
   iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: isSmall ? 36 : 40,
+    height: isSmall ? 36 : 40,
+    borderRadius: isSmall ? 18 : 20,
     backgroundColor: ICON_BG,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
   },
   featureLabel: {
-    fontSize: 15,
+    fontSize: isSmall ? 14 : 15,
     fontWeight: '500',
     color: '#E2DFF0',
     flex: 1,
@@ -454,12 +458,12 @@ const styles = StyleSheet.create({
   // ── CTA ──
   ctaWrapper: {
     width: '100%',
-    marginTop: 16,
+    marginTop: isSmall ? 10 : 16,
   },
   ctaButton: {
     width: '100%',
-    height: 56,
-    borderRadius: 28,
+    height: isSmall ? 48 : 56,
+    borderRadius: isSmall ? 24 : 28,
     backgroundColor: PURPLE_PRIMARY,
     justifyContent: 'center',
     alignItems: 'center',
@@ -475,15 +479,15 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     color: '#FFFFFF',
-    fontSize: 17,
+    fontSize: isSmall ? 15 : 17,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
 
   // ── Footer ──
   footer: {
-    marginTop: 14,
-    fontSize: 13,
+    marginTop: isSmall ? 10 : 14,
+    fontSize: isSmall ? 12 : 13,
     color: TEXT_MUTED,
     fontWeight: '400',
     opacity: 0.7,

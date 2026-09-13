@@ -63,7 +63,7 @@ export default function MiniPlayer({
             {song.title}
           </Text>
           <Text style={styles.subtitle} numberOfLines={1}>
-            {song.category_name || 'Original Song'}
+            {song.categories?.name || song.category_name || 'Original Song'}
           </Text>
         </View>
 

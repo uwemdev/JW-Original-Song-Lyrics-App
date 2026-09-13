@@ -122,13 +122,11 @@ export default function SongScreen({ route, navigation }) {
   const [toastMsg, setToastMsg] = useState('');
 
   // Audio State
-  const [sound, setSound] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
-
+  
   // Heart bounce
-  const heartScale = useRef(new Animated.Value(1)).current;
 
   // Fade-in
   const contentFade = useRef(new Animated.Value(0)).current;
@@ -152,7 +150,11 @@ export default function SongScreen({ route, navigation }) {
   }, []);
 
   async function handlePlayPause() {
-    if (!song.mp3_url) return;
+    if (!song.mp3_url) {
+      setToastMsg('No audio available for this song');
+      setShowToast(true);
+      return;
+    }
     
     // Fake audio playback for preview purposes since expo-av crashes Expo Go
     if (isPlaying) {
@@ -354,6 +356,7 @@ export default function SongScreen({ route, navigation }) {
 
       {/* ── Scrollable content ── */}
       <Animated.ScrollView
+        style={{ zIndex: 2 }}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -551,7 +554,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 1,
+    zIndex: 0,
     overflow: 'hidden',
   },
   imgFallback: {

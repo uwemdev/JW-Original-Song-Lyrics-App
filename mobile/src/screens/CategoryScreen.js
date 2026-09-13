@@ -1,269 +1,832 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  Dimensions,
+  RefreshControl,
+  TextInput,
+  Animated,
+  Platform,
+  StatusBar,
+  LayoutAnimation,
+  UIManager,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
-import { Play, MoreVertical, Music } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  ArrowLeft,
+  Search,
+  Heart,
+  Music,
+  Grid,
+  List,
+  ChevronDown,
+  X,
+} from 'lucide-react-native';
 
-export default function CategoryScreen({ route, navigation }) {
-  const { categoryId, categoryName } = route.params;
-  const [songs, setSongs] = useState([]);
-  const [loading, setLoading] = useState(true);
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
+const { width } = Dimensions.get('window');
+
+// ─── Palette ─────────────────────────────────────────────────────
+const BG = '#0F0A1A';
+const CARD_BG = '#1A1425';
+const PURPLE = '#6D28D9';
+const PURPLE_ACCENT = '#A78BFA';
+const TEXT_WHITE = '#FFFFFF';
+const TEXT_MUTED = '#B8AFC9';
+const DIVIDER = 'rgba(255,255,255,0.06)';
+
+// ─── Layout ──────────────────────────────────────────────────────
+const SIDE_PAD = 16;
+const GRID_GAP = 12;
+const GRID_CARD_W = (width - SIDE_PAD * 2 - GRID_GAP) / 2;
+const PAGE_SIZE = 15;
+const BANNER_H = 260;
+const STATUS_BAR_H = Platform.OS === 'ios' ? 50 : StatusBar.currentHeight || 32;
+
+// ─── Sort options ────────────────────────────────────────────────
+const SORT_OPTIONS = [
+  { key: 'newest', label: 'Newest first' },
+  { key: 'az', label: 'A – Z' },
+  { key: 'most_played', label: 'Most played' },
+];
+
+// ─── Shimmer placeholder ────────────────────────────────────────
+function Shimmer({ w, h, radius = 8, style }) {
+  const anim = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
-    fetchSongs();
-  }, [categoryId]);
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0.7, duration: 800, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      ]),
+    ).start();
+  }, []);
+  return (
+    <Animated.View
+      style={[{ width: w, height: h, borderRadius: radius, backgroundColor: '#1F2937', opacity: anim }, style]}
+    />
+  );
+}
 
-  async function fetchSongs() {
-    try {
-      const { data, error } = await supabase
-        .from('songs')
-        .select('*')
-        .eq('category_id', categoryId)
-        .eq('is_published', true)
-        .order('created_at', { ascending: false });
-        
-      if (error) throw error;
-      setSongs(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+// ─── Image with fallback ─────────────────────────────────────────
+function SongImage({ uri, style, iconSize = 20 }) {
+  const [failed, setFailed] = useState(false);
+  if (!uri || failed) {
+    return (
+      <View style={[style, styles.imgFallback]}>
+        <Image
+          source={require('../../assets/icon.png')}
+          style={{ width: iconSize, height: iconSize, opacity: 0.35 }}
+          resizeMode="contain"
+        />
+      </View>
+    );
   }
+  return (
+    <Image source={{ uri }} style={style} resizeMode="cover" onError={() => setFailed(true)} />
+  );
+}
 
-  const renderSong = ({ item, index }) => (
-    <TouchableOpacity 
-      style={styles.card}
-      onPress={() => navigation.navigate('Song', { song: item })}
-      activeOpacity={0.7}
-    >
-      <View style={styles.indexContainer}>
-        <Text style={styles.indexText}>{index + 1}</Text>
-      </View>
-      
-      {item.feature_image_url ? (
-        <Image source={{ uri: item.feature_image_url }} style={styles.thumbnail} />
-      ) : (
-        <View style={[styles.thumbnail, styles.placeholder]}>
-          <Music color="rgba(255,255,255,0.5)" size={20} />
-        </View>
-      )}
-      
-      <View style={styles.cardContent}>
-        <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-        {item.writeup ? (
-          <Text style={styles.cardSubtitle} numberOfLines={1}>{item.writeup}</Text>
-        ) : (
-          <Text style={styles.cardSubtitle}>Original Song</Text>
-        )}
-      </View>
-      
-      <TouchableOpacity style={styles.moreButton}>
-        <MoreVertical color="#94A3B8" size={20} />
-      </TouchableOpacity>
+// ─── PressCard (scale animation) ─────────────────────────────────
+function PressCard({ onPress, style, children }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const pressIn = () =>
+    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
+  const pressOut = () =>
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
+  return (
+    <TouchableOpacity activeOpacity={1} onPressIn={pressIn} onPressOut={pressOut} onPress={onPress}>
+      <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>
     </TouchableOpacity>
   );
+}
 
+// ─── Heart button with bounce ────────────────────────────────────
+function HeartButton({ isFav, onToggle }) {
+  const bounceAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.timing(bounceAnim, { toValue: 1.35, duration: 120, useNativeDriver: true }),
+      Animated.spring(bounceAnim, { toValue: 1, friction: 3, useNativeDriver: true }),
+    ]).start();
+    onToggle();
+  };
+
+  return (
+    <TouchableOpacity
+      onPress={handlePress}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      accessibilityRole="button"
+      accessibilityLabel={isFav ? 'Remove from favorites' : 'Add to favorites'}
+    >
+      <Animated.View style={{ transform: [{ scale: bounceAnim }] }}>
+        <Heart
+          size={20}
+          color={isFav ? '#F472B6' : TEXT_MUTED}
+          fill={isFav ? '#F472B6' : 'transparent'}
+        />
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CATEGORY SCREEN
+// ═══════════════════════════════════════════════════════════════════
+export default function CategoryScreen({ route, navigation }) {
+  const { categoryId, categoryName, categoryImage } = route.params;
+
+  // ── State ──
+  const [songs, setSongs] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [categoryInfo, setCategoryInfo] = useState(null);
+
+  const [sortKey, setSortKey] = useState('newest');
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'grid'
+  const [showSortPicker, setShowSortPicker] = useState(false);
+
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const [favorites, setFavorites] = useState({});
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const searchInputRef = useRef(null);
+
+  // ── Load favourites from AsyncStorage ──
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('@favorites');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          // Handle both array [id1, id2] and object {id: true} formats
+          if (Array.isArray(parsed)) {
+            const map = {};
+            parsed.forEach((id) => { map[id] = true; });
+            setFavorites(map);
+          } else {
+            setFavorites(parsed);
+          }
+        }
+      } catch (_) {}
+    })();
+  }, []);
+
+  const toggleFavorite = async (songId) => {
+    const next = { ...favorites };
+    if (next[songId]) {
+      delete next[songId];
+    } else {
+      next[songId] = true;
+    }
+    setFavorites(next);
+    // Always persist as array for consistency with SongScreen
+    const ids = Object.keys(next).filter((k) => next[k]);
+    await AsyncStorage.setItem('@favorites', JSON.stringify(ids));
+  };
+
+  // ── Fetch category info ──
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('categories')
+          .select('*')
+          .eq('id', categoryId)
+          .single();
+        if (data) setCategoryInfo(data);
+      } catch (_) {}
+    })();
+  }, [categoryId]);
+
+  // ── Fetch songs ──
+  const fetchSongs = useCallback(
+    async (reset = false) => {
+      if (reset) {
+        setLoading(true);
+        setHasMore(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      try {
+        // Build query
+        let query = supabase
+          .from('songs')
+          .select('*', { count: 'exact' })
+          .eq('category_id', categoryId)
+          .eq('is_published', true);
+
+        // Sort
+        if (sortKey === 'az') {
+          query = query.order('title', { ascending: true });
+        } else {
+          // newest or most_played (fallback to newest since no play_count yet)
+          query = query.order('created_at', { ascending: false });
+        }
+
+        // Pagination
+        const from = reset ? 0 : songs.length;
+        const to = from + PAGE_SIZE - 1;
+        query = query.range(from, to);
+
+        const { data, count, error } = await query;
+        if (error) throw error;
+
+        const newSongs = data || [];
+        if (reset) {
+          setSongs(newSongs);
+        } else {
+          setSongs((prev) => [...prev, ...newSongs]);
+        }
+        if (count !== null && count !== undefined) setTotalCount(count);
+        setHasMore(newSongs.length === PAGE_SIZE);
+      } catch (err) {
+        console.error('CategoryScreen fetch error:', err);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [categoryId, sortKey, songs.length],
+  );
+
+  // Initial fetch + refetch on sort change
+  useEffect(() => {
+    fetchSongs(true);
+  }, [categoryId, sortKey]);
+
+  // Pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchSongs(true);
+    setRefreshing(false);
+  }, [fetchSongs]);
+
+  // Infinite scroll
+  const onEndReached = () => {
+    if (!loadingMore && hasMore && !loading) {
+      fetchSongs(false);
+    }
+  };
+
+  // ── Filtered songs (scoped search) ──
+  const displayedSongs = useMemo(() => {
+    if (!searchQuery.trim()) return songs;
+    const q = searchQuery.toLowerCase().trim();
+    return songs.filter(
+      (s) =>
+        (s.title || '').toLowerCase().includes(q) ||
+        (s.writeup || '').toLowerCase().includes(q),
+    );
+  }, [songs, searchQuery]);
+
+  // ── Sort label ──
+  const currentSortLabel = SORT_OPTIONS.find((o) => o.key === sortKey)?.label || 'Sort';
+
+  // ── View toggle ──
+  const toggleView = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setViewMode((v) => (v === 'list' ? 'grid' : 'list'));
+  };
+
+  // ── Navigate ──
+  const goToSong = (song) => navigation.navigate('Song', { song });
+
+  // ═══════════════════════════════════════════════════════════════
+  // RENDER ITEMS
+  // ═══════════════════════════════════════════════════════════════
+
+  // ── List row ──
+  const renderListItem = ({ item }) => (
+    <PressCard onPress={() => goToSong(item)} style={styles.listRow}>
+      <SongImage uri={item.feature_image_url} style={styles.listThumb} iconSize={22} />
+      <View style={styles.listInfo}>
+        <Text style={styles.listTitle} numberOfLines={1}>
+          {item.title}
+        </Text>
+        <Text style={styles.listWriteup} numberOfLines={2}>
+          {item.writeup
+            ? item.writeup.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ')
+            : 'Original Song'}
+        </Text>
+      </View>
+      <HeartButton isFav={!!favorites[item.id]} onToggle={() => toggleFavorite(item.id)} />
+    </PressCard>
+  );
+
+  // ── Grid card ──
+  const renderGridItem = ({ item }) => (
+    <PressCard onPress={() => goToSong(item)} style={styles.gridCard}>
+      <SongImage uri={item.feature_image_url} style={styles.gridImg} iconSize={28} />
+      <Text style={styles.gridTitle} numberOfLines={1}>
+        {item.title}
+      </Text>
+    </PressCard>
+  );
+
+  // ── Skeleton rows ──
+  const ListSkeleton = () => (
+    <View style={{ paddingHorizontal: SIDE_PAD }}>
+      {[1, 2, 3, 4].map((i) => (
+        <View key={i} style={[styles.listRow, { paddingVertical: 14 }]}>
+          <Shimmer w={64} h={64} radius={12} />
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <Shimmer w={160} h={16} radius={4} style={{ marginBottom: 8 }} />
+            <Shimmer w={220} h={12} radius={4} style={{ marginBottom: 4 }} />
+            <Shimmer w={180} h={12} radius={4} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+
+  const GridSkeleton = () => (
+    <View style={styles.gridContainer}>
+      {[1, 2, 3, 4].map((i) => (
+        <View key={i} style={styles.gridCard}>
+          <Shimmer w={GRID_CARD_W} h={GRID_CARD_W} radius={14} />
+          <Shimmer w={100} h={14} radius={4} style={{ marginTop: 10 }} />
+        </View>
+      ))}
+    </View>
+  );
+
+  // ── Footer loading ──
+  const renderFooter = () => {
+    if (!loadingMore) return <View style={{ height: 120 }} />;
+    return (
+      <View style={{ paddingVertical: 16 }}>
+        {viewMode === 'list' ? <ListSkeleton /> : <GridSkeleton />}
+      </View>
+    );
+  };
+
+  // ── Empty states ──
+  const renderEmpty = () => {
+    if (loading) return null;
+    if (searchQuery.trim()) {
+      return (
+        <View style={styles.emptyWrap}>
+          <Search color={TEXT_MUTED} size={36} />
+          <Text style={styles.emptyTitle}>No songs found</Text>
+          <Text style={styles.emptySubtitle}>
+            No songs found for "{searchQuery}" in {categoryName}
+          </Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.emptyWrap}>
+        <Image
+          source={require('../../assets/icon.png')}
+          style={{ width: 56, height: 56, opacity: 0.25, marginBottom: 16 }}
+          resizeMode="contain"
+        />
+        <Text style={styles.emptyTitle}>No songs here yet</Text>
+        <Text style={styles.emptySubtitle}>Check back soon — new songs are on the way!</Text>
+      </View>
+    );
+  };
+
+  // ── Banner image source ──
+  const bannerUri = categoryImage || categoryInfo?.image_url || null;
+
+  // ═══════════════════════════════════════════════════════════════
+  // HEADER COMPONENT (rendered inside FlatList as ListHeaderComponent)
+  // ═══════════════════════════════════════════════════════════════
+  const ListHeader = () => (
+    <View>
+      {/* ── Banner ── */}
+      <View style={styles.banner}>
+        {bannerUri ? (
+          <Image source={{ uri: bannerUri }} style={styles.bannerImg} resizeMode="cover" />
+        ) : (
+          <LinearGradient
+            colors={[PURPLE, '#3B0764']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.bannerImg}
+          >
+            <Music color="rgba(255,255,255,0.2)" size={80} />
+          </LinearGradient>
+        )}
+        {/* Gradient overlay */}
+        <LinearGradient
+          colors={['transparent', 'rgba(15,10,26,0.6)', BG]}
+          locations={[0, 0.6, 1]}
+          style={styles.bannerOverlay}
+        />
+
+        {/* Floating nav buttons */}
+        <View style={styles.floatingNav}>
+          <TouchableOpacity
+            style={styles.floatingBtn}
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <ArrowLeft color={TEXT_WHITE} size={22} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.floatingBtn}
+            onPress={() => navigation.navigate('Search', { categoryId, categoryName })}
+            accessibilityRole="button"
+            accessibilityLabel="Search in this category"
+          >
+            <Search color={TEXT_WHITE} size={20} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* ── Category info ── */}
+      <View style={styles.catInfo}>
+        <Text style={styles.catName}>{categoryName}</Text>
+        <Text style={styles.catCount}>
+          {totalCount} {totalCount === 1 ? 'song' : 'songs'}
+        </Text>
+        {categoryInfo?.description ? (
+          <Text style={styles.catDesc}>{categoryInfo.description}</Text>
+        ) : null}
+      </View>
+
+      {/* ── Search bar (conditional) ── */}
+
+
+      {/* ── Sort / View toggle bar ── */}
+      <View style={styles.sortBar}>
+        {/* Sort picker */}
+        <TouchableOpacity
+          style={styles.sortBtn}
+          onPress={() => setShowSortPicker(!showSortPicker)}
+          accessibilityRole="button"
+          accessibilityLabel={`Sort by ${currentSortLabel}`}
+        >
+          <Text style={styles.sortBtnText}>{currentSortLabel}</Text>
+          <ChevronDown color={PURPLE_ACCENT} size={16} />
+        </TouchableOpacity>
+
+        {/* View toggle */}
+        <TouchableOpacity
+          style={styles.viewToggle}
+          onPress={toggleView}
+          accessibilityRole="button"
+          accessibilityLabel={viewMode === 'list' ? 'Switch to grid view' : 'Switch to list view'}
+        >
+          {viewMode === 'list' ? (
+            <Grid color={PURPLE_ACCENT} size={20} />
+          ) : (
+            <List color={PURPLE_ACCENT} size={20} />
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Sort picker dropdown ── */}
+      {showSortPicker && (
+        <View style={styles.sortDropdown}>
+          {SORT_OPTIONS.map((opt) => (
+            <TouchableOpacity
+              key={opt.key}
+              style={[styles.sortOption, sortKey === opt.key && styles.sortOptionActive]}
+              onPress={() => {
+                setSortKey(opt.key);
+                setShowSortPicker(false);
+              }}
+            >
+              <Text
+                style={[
+                  styles.sortOptionText,
+                  sortKey === opt.key && styles.sortOptionTextActive,
+                ]}
+              >
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  // LOADING STATE
+  // ═══════════════════════════════════════════════════════════════
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#8B5CF6" />
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={BG} />
+        {/* Banner skeleton */}
+        <Shimmer w={width} h={BANNER_H} radius={0} />
+        <View style={{ padding: SIDE_PAD, paddingTop: 20 }}>
+          <Shimmer w={200} h={28} radius={6} style={{ marginBottom: 10 }} />
+          <Shimmer w={80} h={16} radius={4} style={{ marginBottom: 24 }} />
+        </View>
+        <ListSkeleton />
       </View>
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // MAIN RENDER
+  // ═══════════════════════════════════════════════════════════════
   return (
     <View style={styles.container}>
-      {/* Decorative Background Gradient */}
-      <View style={styles.bgGlow} />
-      
-      <FlatList
-        data={songs}
-        keyExtractor={item => item.id.toString()}
-        renderItem={renderSong}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <View style={styles.headerArtworkPlaceholder}>
-              <LinearGradient
-                colors={['#8B5CF6', '#3B82F6']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.headerArtworkGradient}
-              >
-                <Music color="#FFF" size={48} opacity={0.8} />
-              </LinearGradient>
-            </View>
-            <Text style={styles.headerTitle}>{categoryName}</Text>
-            <Text style={styles.headerSubtitle}>{songs.length} Tracks</Text>
-            
-            {songs.length > 0 && (
-              <TouchableOpacity 
-                style={styles.playAllButton}
-                activeOpacity={0.8}
-                onPress={() => navigation.navigate('Song', { song: songs[0] })}
-              >
-                <LinearGradient
-                  colors={['#8B5CF6', '#F472B6']}
-                  start={{x: 0, y: 0}}
-                  end={{x: 1, y: 0}}
-                  style={styles.playAllGradient}
-                >
-                  <Play color="#FFF" size={20} fill="#FFF" />
-                  <Text style={styles.playAllText}>Play Collection</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            )}
-          </View>
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No songs available in this collection yet.</Text>
-          </View>
-        }
-      />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+
+      {viewMode === 'list' ? (
+        <FlatList
+          data={displayedSongs}
+          keyExtractor={(item) => item.id}
+          renderItem={renderListItem}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={renderEmpty}
+          ListFooterComponent={renderFooter}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.4}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: SIDE_PAD, paddingBottom: 120 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={PURPLE_ACCENT}
+              colors={[PURPLE_ACCENT]}
+            />
+          }
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+            useNativeDriver: false,
+          })}
+        />
+      ) : (
+        <FlatList
+          data={displayedSongs}
+          keyExtractor={(item) => item.id}
+          renderItem={renderGridItem}
+          numColumns={2}
+          columnWrapperStyle={styles.gridRow}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={renderEmpty}
+          ListFooterComponent={renderFooter}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.4}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: SIDE_PAD, paddingBottom: 120 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={PURPLE_ACCENT}
+              colors={[PURPLE_ACCENT]}
+            />
+          }
+        />
+      )}
     </View>
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#030712',
+    backgroundColor: BG,
   },
-  bgGlow: {
+
+  // ── Banner ──
+  banner: {
+    height: BANNER_H,
+    width: width,
+    marginLeft: -SIDE_PAD,
+    marginRight: -SIDE_PAD,
+    position: 'relative',
+  },
+  bannerImg: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  floatingNav: {
     position: 'absolute',
-    top: -100,
-    left: -100,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: '#8B5CF6',
-    opacity: 0.15,
-    transform: [{ scale: 1.5 }],
+    top: STATUS_BAR_H + 8,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#030712',
-  },
-  header: {
-    alignItems: 'center',
-    paddingTop: 100,
-    paddingBottom: 30,
-  },
-  headerArtworkPlaceholder: {
-    width: 160,
-    height: 160,
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginBottom: 20,
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  headerArtworkGradient: {
-    flex: 1,
+  floatingBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    color: '#FFF',
+
+  // ── Category info ──
+  catInfo: {
+    marginTop: -20,
+    marginBottom: 8,
+  },
+  catName: {
+    color: TEXT_WHITE,
     fontSize: 28,
     fontWeight: '900',
-    marginBottom: 4,
-    textAlign: 'center',
+    letterSpacing: -0.5,
   },
-  headerSubtitle: {
-    color: '#94A3B8',
+  catCount: {
+    color: TEXT_MUTED,
     fontSize: 14,
     fontWeight: '600',
+    marginTop: 4,
     textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 24,
+    letterSpacing: 0.8,
   },
-  playAllButton: {
-    borderRadius: 30,
-    overflow: 'hidden',
-    width: 200,
-    shadowColor: '#F472B6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
+  catDesc: {
+    color: TEXT_MUTED,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
   },
-  playAllGradient: {
+
+  // ── Search bar ──
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: CARD_BG,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 6,
+    marginTop: 12,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.2)',
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 10,
+    marginRight: 8,
+    color: TEXT_WHITE,
+    fontSize: 15,
+  },
+
+  // ── Sort / View bar ──
+  sortBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 14,
-    paddingHorizontal: 20,
   },
-  playAllText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '700',
-    marginLeft: 8,
+  sortBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: CARD_BG,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 6,
   },
-  emptyContainer: {
-    paddingTop: 40,
+  sortBtnText: {
+    color: TEXT_WHITE,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  viewToggle: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: CARD_BG,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyText: {
-    color: '#64748B',
+  sortDropdown: {
+    backgroundColor: CARD_BG,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.15)',
+    overflow: 'hidden',
+  },
+  sortOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: DIVIDER,
+  },
+  sortOptionActive: {
+    backgroundColor: 'rgba(109,40,217,0.15)',
+  },
+  sortOptionText: {
+    color: TEXT_MUTED,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  sortOptionTextActive: {
+    color: PURPLE_ACCENT,
+    fontWeight: '700',
+  },
+
+  // ── List view ──
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: DIVIDER,
+  },
+  listThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+  },
+  imgFallback: {
+    backgroundColor: '#1F1A2E',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listInfo: {
+    flex: 1,
+    marginLeft: 14,
+    marginRight: 12,
+  },
+  listTitle: {
+    color: TEXT_WHITE,
     fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  listWriteup: {
+    color: TEXT_MUTED,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  // ── Grid view ──
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: GRID_GAP,
+  },
+  gridRow: {
+    justifyContent: 'space-between',
+    marginBottom: GRID_GAP,
+  },
+  gridCard: {
+    width: GRID_CARD_W,
+  },
+  gridImg: {
+    width: GRID_CARD_W,
+    height: GRID_CARD_W,
+    borderRadius: 14,
+  },
+  gridTitle: {
+    color: TEXT_WHITE,
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+    paddingHorizontal: 2,
+  },
+
+  // ── Empty states ──
+  emptyWrap: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    color: TEXT_WHITE,
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 16,
     textAlign: 'center',
   },
-  list: {
-    padding: 16,
-    paddingBottom: 120, // Space for bottom tab
-  },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  indexContainer: {
-    width: 30,
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  indexText: {
-    color: '#64748B',
+  emptySubtitle: {
+    color: TEXT_MUTED,
     fontSize: 14,
-    fontWeight: '700',
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
   },
-  thumbnail: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-  },
-  placeholder: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  cardTitle: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  cardSubtitle: {
-    color: '#94A3B8',
-    fontSize: 13,
-  },
-  moreButton: {
-    padding: 8,
-  }
 });

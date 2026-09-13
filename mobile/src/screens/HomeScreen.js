@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import {
   Clock,
   Music,
   Disc3,
+  Bell,
 } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
@@ -158,6 +159,7 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
   const [lastPlayed, setLastPlayed] = useState(null);
+  const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
 
   // ── Data fetch ──
   const fetchData = useCallback(async () => {
@@ -177,6 +179,35 @@ export default function HomeScreen({ navigation }) {
     }
   }, []);
 
+  const checkUnreadNotifs = useCallback(async () => {
+    try {
+      // Get the latest notification from Supabase
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error && error.code !== '42P01') {
+        console.error('Error checking notifications:', error);
+        return;
+      }
+
+      if (data) {
+        const latestTime = new Date(data.created_at).getTime();
+        const lastReadTimeStr = await AsyncStorage.getItem('@last_read_notification_time');
+        const lastReadTime = lastReadTimeStr ? new Date(lastReadTimeStr).getTime() : 0;
+        
+        setHasUnreadNotifs(latestTime > lastReadTime);
+      } else {
+        setHasUnreadNotifs(false);
+      }
+    } catch (err) {
+      // ignore
+    }
+  }, []);
+
   const loadLastPlayed = useCallback(async () => {
     try {
       const raw = await AsyncStorage.getItem('@last_played_song');
@@ -186,16 +217,16 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     (async () => {
-      await Promise.all([fetchData(), loadLastPlayed()]);
+      await Promise.all([fetchData(), loadLastPlayed(), checkUnreadNotifs()]);
       setLoading(false);
     })();
   }, []);
 
-  // Re-fetch on screen focus
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       fetchData();
       loadLastPlayed();
+      checkUnreadNotifs();
     });
     return unsubscribe;
   }, [navigation, fetchData, loadLastPlayed]);
@@ -218,11 +249,26 @@ export default function HomeScreen({ navigation }) {
     : songs.filter((s) => s.category_id === activeFilter).slice(0, 15);
 
   // Group songs by category (only cats with ≥1 song)
-  const songsByCategory = {};
-  songs.forEach((s) => {
-    if (!songsByCategory[s.category_id]) songsByCategory[s.category_id] = [];
-    songsByCategory[s.category_id].push(s);
-  });
+  // We useMemo and shuffle them here so the 'Popular in...' sections
+  // are randomized on load, but stable while scrolling/filtering.
+  const songsByCategory = useMemo(() => {
+    const grouped = {};
+    songs.forEach((s) => {
+      if (!grouped[s.category_id]) grouped[s.category_id] = [];
+      grouped[s.category_id].push(s);
+    });
+
+    // Shuffle the songs in each category
+    Object.keys(grouped).forEach((catId) => {
+      const list = grouped[catId];
+      for (let i = list.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [list[i], list[j]] = [list[j], list[i]];
+      }
+    });
+
+    return grouped;
+  }, [songs]);
 
   const populatedCategories = categories.filter(
     (c) => songsByCategory[c.id] && songsByCategory[c.id].length > 0,
@@ -335,12 +381,35 @@ export default function HomeScreen({ navigation }) {
               </View>
               <Text style={styles.headerTitle}>Original Song Lyrics</Text>
             </View>
-            <TouchableOpacity
-              style={styles.headerSearchBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Search color={TEXT_WHITE} size={22} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity
+                style={[styles.headerSearchBtn, { marginRight: 12 }]}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                onPress={() => navigation.navigate('Notifications')}
+              >
+                <Bell color={TEXT_WHITE} size={22} />
+                {hasUnreadNotifs && (
+                  <View style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -2,
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: '#EF4444',
+                    borderWidth: 2,
+                    borderColor: BG,
+                  }} />
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerSearchBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                onPress={() => navigation.navigate('Search')}
+              >
+                <Search color={TEXT_WHITE} size={22} />
+              </TouchableOpacity>
+            </View>
           </View>
         );
 
@@ -456,7 +525,7 @@ export default function HomeScreen({ navigation }) {
       subtitle: 'Your saved songs...',
       icon: <Heart color="#FFF" size={18} fill="#FFF" />,
       solidPurple: true,
-      onPress: () => {},
+      onPress: () => navigation.navigate('Favorites'),
     });
 
     // 3. Recently Added

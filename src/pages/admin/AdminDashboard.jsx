@@ -97,6 +97,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [songPage, setSongPage] = useState(0);
+  const [hasMoreSongs, setHasMoreSongs] = useState(true);
 
   // View: 'list' | 'song-form' | 'category-form'
   const [view, setView] = useState('list');
@@ -120,18 +122,21 @@ export default function AdminDashboard() {
     setSuccessMsg('');
   }, [currentTab]);
 
-  // Fetch data on mount
+  // Fetch data on mount or page change
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData(songPage);
+  }, [songPage]);
 
-  async function fetchData() {
+  async function fetchData(page = songPage) {
     setLoading(true);
     setErrorMsg('');
     try {
+      const from = page * 15;
+      const to = from + 14;
+      
       const [catsRes, songsRes] = await Promise.all([
         supabase.from('categories').select('*').order('sort_order'),
-        supabase.from('songs').select('*, categories(name)').order('created_at', { ascending: false }),
+        supabase.from('songs').select('*, categories(name)').order('created_at', { ascending: false }).range(from, to),
       ]);
 
       if (catsRes.error) throw catsRes.error;
@@ -139,6 +144,7 @@ export default function AdminDashboard() {
 
       setCategories(catsRes.data || []);
       setSongs(songsRes.data || []);
+      setHasMoreSongs(songsRes.data?.length === 15);
     } catch (err) {
       setErrorMsg('Failed to load data: ' + (err.message || 'Unknown error'));
     } finally {
@@ -538,7 +544,7 @@ export default function AdminDashboard() {
         <div style={s.header}>
           <div>
             <h1 style={s.title}>Songs</h1>
-            <p style={s.subtitle}>{songs.length} total songs</p>
+            <p style={s.subtitle}>Showing {songs.length} songs · Page {songPage + 1}</p>
           </div>
           <button onClick={openAddSong} style={s.btnPrimary}>
             <Plus size={14} /> Add Song
@@ -554,53 +560,73 @@ export default function AdminDashboard() {
               <p>No songs yet. Click "Add Song" to create your first one.</p>
             </div>
           ) : (
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  <th style={s.th}></th>
-                  <th style={s.th}>Title</th>
-                  <th style={s.th}>Category</th>
-                  <th style={s.th}>Status</th>
-                  <th style={s.th}>Created</th>
-                  <th style={{ ...s.th, textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {songs.map((song) => (
-                  <tr key={song.id}>
-                    <td style={s.td}>
-                      {song.feature_image_url ? (
-                        <img src={song.feature_image_url} alt="" style={s.imgThumb} />
-                      ) : (
-                        <div style={{ ...s.imgThumb, background: '#2d293b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span style={{ fontSize: '10px', color: '#6B7280' }}>N/A</span>
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ ...s.td, color: '#fff', fontWeight: '500' }}>{song.title}</td>
-                    <td style={s.td}>{song.categories?.name || '—'}</td>
-                    <td style={s.td}>
-                      <span style={s.badge(song.is_published)}>
-                        {song.is_published ? 'Published' : 'Draft'}
-                      </span>
-                    </td>
-                    <td style={s.td}>
-                      {song.created_at ? new Date(song.created_at).toLocaleDateString() : '—'}
-                    </td>
-                    <td style={{ ...s.td, textAlign: 'right' }}>
-                      <div style={s.actions}>
-                        <button onClick={() => openEditSong(song)} style={s.btnEdit}>
-                          <Edit2 size={12} /> Edit
-                        </button>
-                        <button onClick={() => deleteSong(song.id)} style={s.btnDanger}>
-                          <Trash2 size={12} /> Delete
-                        </button>
-                      </div>
-                    </td>
+            <>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    <th style={s.th}></th>
+                    <th style={s.th}>Title</th>
+                    <th style={s.th}>Category</th>
+                    <th style={s.th}>Status</th>
+                    <th style={s.th}>Created</th>
+                    <th style={{ ...s.th, textAlign: 'right' }}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {songs.map((song) => (
+                    <tr key={song.id}>
+                      <td style={s.td}>
+                        {song.feature_image_url ? (
+                          <img src={song.feature_image_url} alt="" style={s.imgThumb} />
+                        ) : (
+                          <div style={{ ...s.imgThumb, background: '#2d293b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ fontSize: '10px', color: '#6B7280' }}>N/A</span>
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ ...s.td, color: '#fff', fontWeight: '500' }}>{song.title}</td>
+                      <td style={s.td}>{song.categories?.name || '—'}</td>
+                      <td style={s.td}>
+                        <span style={s.badge(song.is_published)}>
+                          {song.is_published ? 'Published' : 'Draft'}
+                        </span>
+                      </td>
+                      <td style={s.td}>
+                        {song.created_at ? new Date(song.created_at).toLocaleDateString() : '—'}
+                      </td>
+                      <td style={{ ...s.td, textAlign: 'right' }}>
+                        <div style={s.actions}>
+                          <button onClick={() => openEditSong(song)} style={s.btnEdit}>
+                            <Edit2 size={12} /> Edit
+                          </button>
+                          <button onClick={() => deleteSong(song.id)} style={s.btnDanger}>
+                            <Trash2 size={12} /> Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #2d293b' }}>
+                <button
+                  onClick={() => setSongPage(p => Math.max(0, p - 1))}
+                  disabled={songPage === 0}
+                  style={{ ...s.btnSecondary, opacity: songPage === 0 ? 0.5 : 1 }}
+                >
+                  Previous
+                </button>
+                <span style={{ color: '#9CA3AF', fontSize: '13px' }}>Page {songPage + 1}</span>
+                <button
+                  onClick={() => setSongPage(p => p + 1)}
+                  disabled={!hasMoreSongs}
+                  style={{ ...s.btnSecondary, opacity: !hasMoreSongs ? 0.5 : 1 }}
+                >
+                  Next
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>
