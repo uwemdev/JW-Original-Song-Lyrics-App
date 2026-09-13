@@ -8,6 +8,9 @@ import HomeScreen from './src/screens/HomeScreen';
 import CategoryScreen from './src/screens/CategoryScreen';
 import SongScreen from './src/screens/SongScreen';
 
+const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
+
 const MyDarkTheme = {
   ...DarkTheme,
   colors: {
