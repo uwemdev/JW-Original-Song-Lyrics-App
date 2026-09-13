@@ -199,9 +199,9 @@ export default function AdminDashboard() {
 
   if (loading && view === 'list') {
     return (
-      <div className="flex flex-col gap-6 w-full h-full p-6">
-        <div className="skeleton h-24 w-full"></div>
-        <div className="skeleton h-64 w-full"></div>
+      <div className="flex flex-col items-center justify-center w-full h-full p-12 text-[#9CA3AF]">
+        <div className="w-8 h-8 border-4 border-[#2d293b] border-t-[#F472B6] rounded-full animate-spin mb-4"></div>
+        <p>Loading dashboard data...</p>
       </div>
     );
   }

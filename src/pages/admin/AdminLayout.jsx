@@ -11,9 +11,19 @@ export default function AdminLayout() {
   
   const currentTab = searchParams.get('tab') || 'dashboard';
 
+  const [errorMsg, setErrorMsg] = useState(null);
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error("Session fetch error:", error);
+        setErrorMsg("Authentication service unavailable. Please check your connection or environment variables.");
+      }
       setSession(session);
+      setLoading(false);
+    }).catch(err => {
+      console.error("Session promise error:", err);
+      setErrorMsg("Failed to connect to authentication server. Please check your environment variables.");
       setLoading(false);
     });
 
@@ -35,8 +45,28 @@ export default function AdminLayout() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0d0c11]">
-        <div className="skeleton w-32 h-32 rounded-full"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[#0d0c11] text-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-[#2d293b] border-t-[#F472B6] rounded-full animate-spin"></div>
+          <p className="text-[#A78BFA] font-bold tracking-widest text-sm uppercase">Authenticating...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (errorMsg) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0d0c11] p-6 text-white">
+        <div className="max-w-md p-8 bg-[#17151f] border border-[#EF4444]/30 rounded-2xl flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-[#EF4444]/10 text-[#EF4444] rounded-full flex items-center justify-center mb-4">
+            <span className="text-2xl font-bold">!</span>
+          </div>
+          <h2 className="text-xl font-bold mb-2">Connection Error</h2>
+          <p className="text-[#9CA3AF] mb-6 text-sm">{errorMsg}</p>
+          <button onClick={() => window.location.reload()} className="px-6 py-2 bg-[#2d293b] hover:bg-[#4a2e85] rounded font-bold transition-colors">
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
@@ -56,7 +86,7 @@ export default function AdminLayout() {
             <Music2 color="#F472B6" size={20} />
           </div>
           <div>
-            <h3 className="font-bold text-lg leading-tight tracking-wide">JW Lyrics</h3>
+            <h3 className="font-bold text-lg leading-tight tracking-wide">JW Original Songs</h3>
             <p className="text-[10px] font-bold tracking-widest text-[#A78BFA] uppercase">Admin Panel</p>
           </div>
         </div>
