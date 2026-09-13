@@ -210,7 +210,7 @@ export default function AdminDashboard() {
         {errorMsg && <div className="bg-danger/20 text-danger p-3 rounded mb-4">{errorMsg}</div>}
 
         <form onSubmit={handleSaveSong} className="card">
-          <div className="mb-4">
+          <div className="form-group">
             <label>Title</label>
             <input 
               type="text" 
@@ -360,15 +360,15 @@ export default function AdminDashboard() {
   // ==== LIST VIEW ====
   return (
     <div className="animate-fade-in">
-      <div className="flex gap-4 mb-6 border-b border-gray-700 pb-2">
+      <div className="tabs">
         <button 
-          className={`px-4 py-2 font-bold ${activeTab === 'songs' ? 'text-primary border-b-2 border-primary' : 'text-secondary hover:text-white'}`}
+          className={`tab ${activeTab === 'songs' ? 'active' : ''}`}
           onClick={() => setActiveTab('songs')}
         >
           Songs
         </button>
         <button 
-          className={`px-4 py-2 font-bold ${activeTab === 'categories' ? 'text-primary border-b-2 border-primary' : 'text-secondary hover:text-white'}`}
+          className={`tab ${activeTab === 'categories' ? 'active' : ''}`}
           onClick={() => setActiveTab('categories')}
         >
           Categories
@@ -377,10 +377,10 @@ export default function AdminDashboard() {
 
       {activeTab === 'songs' ? (
         <>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Songs</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Songs</h2>
             <button onClick={handleAddNewSong} className="btn btn-primary flex items-center gap-2">
-              <Plus size={16} /> Add Song
+              <Plus size={18} /> Add Song
             </button>
           </div>
           <div className="card overflow-x-auto p-0">
@@ -417,10 +417,10 @@ export default function AdminDashboard() {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Categories</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Categories</h2>
             <button onClick={handleAddNewCategory} className="btn btn-primary flex items-center gap-2">
-              <Plus size={16} /> Add Category
+              <Plus size={18} /> Add Category
             </button>
           </div>
           <div className="card overflow-x-auto p-0">

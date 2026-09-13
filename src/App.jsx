@@ -11,6 +11,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminLogin from './pages/admin/AdminLogin';
 import Navigation from './components/Navigation';
 import AudioPlayer from './components/AudioPlayer';
+import { seedCategoriesIfEmpty } from './lib/seedCategories';
 
 export const AppContext = React.createContext();
 
@@ -24,6 +25,11 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    // Attempt to seed categories on initial load if none exist
+    seedCategoriesIfEmpty();
+  }, []);
 
   if (showSplash) {
     return <Splash onComplete={() => setShowSplash(false)} />;

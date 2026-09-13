@@ -35,15 +35,17 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-color flex flex-col" style={{ paddingBottom: 0 }}>
-      <header className="bg-bg-card p-4 flex justify-between items-center border-b border-bg-hover">
-        <h1 className="font-bold text-xl text-primary">App Admin</h1>
+    <div className="min-h-screen flex flex-col">
+      <header className="topbar">
+        <h1 className="font-bold text-xl text-gradient">App Admin</h1>
         <button onClick={handleLogout} className="btn btn-secondary flex items-center gap-2">
           <LogOut size={16} /> Logout
         </button>
       </header>
       <main className="flex-1 p-4 md:p-8 overflow-y-auto" style={{ paddingBottom: '2rem' }}>
-        <Outlet />
+        <div className="max-w-6xl mx-auto">
+          <Outlet />
+        </div>
       </main>
     </div>
   );
