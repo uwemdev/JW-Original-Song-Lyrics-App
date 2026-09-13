@@ -13,12 +13,21 @@ import OnboardingScreen from './src/screens/OnboardingScreen';
 import FavoritesScreen from './src/screens/FavoritesScreen';
 import SearchScreen from './src/screens/SearchScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
+import ThemeScreen from './src/screens/settings/ThemeScreen';
+import FontSizeScreen from './src/screens/settings/FontSizeScreen';
+import StorageScreen from './src/screens/settings/StorageScreen';
+import AboutScreen from './src/screens/settings/AboutScreen';
+import FeedbackScreen from './src/screens/settings/FeedbackScreen';
+import PrivacyScreen from './src/screens/settings/PrivacyScreen';
+import { SettingsProvider } from './src/context/SettingsContext';
 
 const Tab = createBottomTabNavigator();
 const HomeStackNav = createNativeStackNavigator();
 const CategoriesStackNav = createNativeStackNavigator();
 const FavoritesStackNav = createNativeStackNavigator();
 const SearchStackNav = createNativeStackNavigator();
+const SettingsStackNav = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
 
 // ─── Theme ───────────────────────────────────────────────────────
@@ -137,9 +146,46 @@ function SearchStackScreen() {
   );
 }
 
-// ─── Placeholder screens ─────────────────────────────────────────
-function SettingsScreen() {
-  return <View style={{ flex: 1, backgroundColor: '#030712' }} />;
+function SettingsStackScreen() {
+  return (
+    <SettingsStackNav.Navigator screenOptions={stackScreenOptions}>
+      <SettingsStackNav.Screen
+        name="SettingsMain"
+        component={SettingsScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNav.Screen
+        name="ThemeSettings"
+        component={ThemeScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNav.Screen
+        name="FontSizeSettings"
+        component={FontSizeScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNav.Screen
+        name="StorageSettings"
+        component={StorageScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNav.Screen
+        name="AboutApp"
+        component={AboutScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNav.Screen
+        name="FeedbackScreen"
+        component={FeedbackScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNav.Screen
+        name="PrivacyScreen"
+        component={PrivacyScreen}
+        options={{ headerShown: false }}
+      />
+    </SettingsStackNav.Navigator>
+  );
 }
 
 // ─── Tab colours ─────────────────────────────────────────────────
@@ -198,7 +244,7 @@ function MainTabs() {
       <Tab.Screen name="Categories" component={CategoriesStackScreen} />
       <Tab.Screen name="Home" component={HomeStackScreen} />
       <Tab.Screen name="Favorites" component={FavoritesStackScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="Settings" component={SettingsStackScreen} />
     </Tab.Navigator>
   );
 }
@@ -206,12 +252,14 @@ function MainTabs() {
 // ─── Root ────────────────────────────────────────────────────────
 export default function App() {
   return (
-    <NavigationContainer theme={MyDarkTheme}>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
-        <RootStack.Screen name="MainApp" component={MainTabs} />
-      </RootStack.Navigator>
-    </NavigationContainer>
+    <SettingsProvider>
+      <NavigationContainer theme={MyDarkTheme}>
+        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+          <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
+          <RootStack.Screen name="MainApp" component={MainTabs} />
+        </RootStack.Navigator>
+      </NavigationContainer>
+    </SettingsProvider>
   );
 }
 

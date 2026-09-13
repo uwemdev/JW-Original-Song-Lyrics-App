@@ -30,6 +30,7 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import RenderHTML from 'react-native-render-html';
+import { useSettings } from '../context/SettingsContext';
 
 const { width, height: SCREEN_H } = Dimensions.get('window');
 
@@ -112,10 +113,10 @@ function Toast({ visible, message }) {
 export default function SongScreen({ route, navigation }) {
   const { song } = route.params;
   const scrollY = useRef(new Animated.Value(0)).current;
+  const settings = useSettings();
 
   // ── State ──
   const [isFavorite, setIsFavorite] = useState(false);
-  const [fontIdx, setFontIdx] = useState(1); // 0=small, 1=medium, 2=large
   const [moreSongs, setMoreSongs] = useState([]);
   const [loadingMore, setLoadingMore] = useState(true);
   const [showToast, setShowToast] = useState(false);
@@ -143,10 +144,14 @@ export default function SongScreen({ route, navigation }) {
     ]).start();
 
     loadFavoriteStatus();
-    loadFontSize();
     fetchMoreSongs();
     saveLastPlayed();
-    // initAudio(); // Disabled native audio
+    
+    // Auto-play logic
+    if (settings.autoPlay) {
+      setIsPlaying(true);
+      setDuration(180000);
+    }
   }, []);
 
   async function handlePlayPause() {
@@ -222,20 +227,10 @@ export default function SongScreen({ route, navigation }) {
     } catch (_) {}
   };
 
-  // ── Font size ──
-  const loadFontSize = async () => {
-    try {
-      const val = await AsyncStorage.getItem('@lyrics_font_size');
-      if (val !== null) setFontIdx(parseInt(val, 10));
-    } catch (_) {}
-  };
-
-  const changeFontSize = async (delta) => {
-    const next = Math.max(0, Math.min(2, fontIdx + delta));
-    setFontIdx(next);
-    try {
-      await AsyncStorage.setItem('@lyrics_font_size', String(next));
-    } catch (_) {}
+  // ── Font size handled by SettingsContext ──
+  const changeFontSize = (delta) => {
+    const next = Math.max(0, Math.min(2, settings.fontSizeIdx + delta));
+    settings.setFontSizeIdx(next);
   };
 
   // ── Save last played ──
@@ -429,23 +424,23 @@ export default function SongScreen({ route, navigation }) {
             <TouchableOpacity
               onPress={() => changeFontSize(-1)}
               style={styles.toolbarBtn}
-              disabled={fontIdx === 0}
+              disabled={settings.fontSizeIdx === 0}
               accessibilityRole="button"
               accessibilityLabel="Decrease lyrics font size"
             >
-              <Minus color={fontIdx === 0 ? '#4B3D6B' : TEXT_MUTED} size={16} />
-              <Text style={[styles.toolbarBtnLabel, fontIdx === 0 && { color: '#4B3D6B' }]}>A</Text>
+              <Minus color={settings.fontSizeIdx === 0 ? '#4B3D6B' : TEXT_MUTED} size={16} />
+              <Text style={[styles.toolbarBtnLabel, settings.fontSizeIdx === 0 && { color: '#4B3D6B' }]}>A</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => changeFontSize(1)}
               style={styles.toolbarBtn}
-              disabled={fontIdx === 2}
+              disabled={settings.fontSizeIdx === 2}
               accessibilityRole="button"
               accessibilityLabel="Increase lyrics font size"
             >
-              <Plus color={fontIdx === 2 ? '#4B3D6B' : TEXT_MUTED} size={16} />
-              <Text style={[styles.toolbarBtnLabel, fontIdx === 2 && { color: '#4B3D6B' }, { fontSize: 17 }]}>A</Text>
+              <Plus color={settings.fontSizeIdx === 2 ? '#4B3D6B' : TEXT_MUTED} size={16} />
+              <Text style={[styles.toolbarBtnLabel, settings.fontSizeIdx === 2 && { color: '#4B3D6B' }, { fontSize: 17 }]}>A</Text>
             </TouchableOpacity>
           </View>
 
@@ -478,8 +473,8 @@ export default function SongScreen({ route, navigation }) {
               source={{ html: song.lyrics }}
               baseStyle={{
                 color: TEXT_WHITE,
-                fontSize: FONT_SIZES[fontIdx],
-                lineHeight: LINE_HEIGHTS[fontIdx],
+                fontSize: FONT_SIZES[settings.fontSizeIdx],
+                lineHeight: LINE_HEIGHTS[settings.fontSizeIdx],
               }}
               tagsStyles={{
                 p: { marginBottom: 18 },
