@@ -1,28 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { Lock, Mail, ArrowRight, Music2 } from 'lucide-react';
+import { Lock, Mail, Music2 } from 'lucide-react';
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  // If already logged in, redirect
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) navigate('/admin', { replace: true });
+    });
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) {
-      setError(error.message);
+    if (authError) {
+      setError(authError.message);
     } else {
       navigate('/admin');
     }
@@ -30,112 +36,133 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center w-full bg-[#0d0c11] text-white font-sans overflow-hidden relative p-4">
-      
-      {/* Background Ambience */}
-      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#2d1b4e 1px, transparent 1px), linear-gradient(90deg, #2d1b4e 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-      <div className="absolute top-0 left-1/4 w-[40%] h-[40%] bg-[#A78BFA] mix-blend-screen filter blur-[150px] opacity-20 rounded-full animate-pulse"></div>
-      <div className="absolute bottom-0 right-1/4 w-[40%] h-[40%] bg-[#F472B6] mix-blend-screen filter blur-[150px] opacity-20 rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
-      
-      {/* Centered Glassmorphism Card */}
-      <div className="w-full max-w-md relative z-10">
-        
-        {/* Card Container */}
-        <div className="bg-[#170c26]/60 backdrop-blur-xl border border-[#4a2e85]/50 rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
-          
-          {/* Header */}
-          <div className="flex flex-col items-center mb-8 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#A78BFA] to-[#F472B6] flex items-center justify-center shadow-lg mb-4">
-              <Music2 color="white" size={28} />
-            </div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 bg-[#F472B6] rounded-full shadow-[0_0_8px_#F472B6]"></div>
-              <span className="text-xs font-bold tracking-wider text-[#A78BFA] uppercase">JW Original Songs</span>
-            </div>
-            <h1 className="text-3xl font-extrabold tracking-tight mb-1 text-white">Admin Access</h1>
-            <p className="text-sm text-[#9CA3AF]">Manage the music catalog and categories.</p>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#0d0c11',
+      padding: '16px',
+      fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+    }}>
+      <div style={{
+        width: '100%',
+        maxWidth: '400px',
+        background: '#17151f',
+        border: '1px solid #2d293b',
+        borderRadius: '16px',
+        padding: '40px 32px',
+      }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '14px',
+            background: 'linear-gradient(135deg, #A78BFA, #F472B6)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '16px',
+          }}>
+            <Music2 color="white" size={28} />
           </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-[#EF4444]/10 border border-[#EF4444]/30 text-[#FCA5A5] p-4 rounded-xl mb-6 text-sm flex items-center gap-3">
-              <div className="min-w-[20px]">
-                <Lock size={16} />
-              </div>
-              <p>{error}</p>
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleLogin} className="flex flex-col gap-5">
-            <div>
-              <label className="text-xs font-bold tracking-wider text-[#9CA3AF] mb-2 block uppercase">Email Address</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-[#A78BFA]">
-                  <Mail color="currentColor" size={18} className={email ? "text-[#A78BFA]" : "text-[#6B7280]"} />
-                </div>
-                <input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#0d0c11]/80 border border-[#2d293b] rounded-xl focus:border-[#A78BFA] focus:bg-[#0d0c11] text-white transition-all outline-none text-sm shadow-inner"
-                  placeholder="admin@example.com"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <label className="text-xs font-bold tracking-wider text-[#9CA3AF] mb-2 block uppercase">Password</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-[#A78BFA]">
-                  <Lock color="currentColor" size={18} className={password ? "text-[#A78BFA]" : "text-[#6B7280]"} />
-                </div>
-                <input 
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#0d0c11]/80 border border-[#2d293b] rounded-xl focus:border-[#A78BFA] focus:bg-[#0d0c11] text-white transition-all outline-none text-sm shadow-inner"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 mt-1 mb-2">
-              <button
-                type="button" 
-                className={`w-5 h-5 rounded flex items-center justify-center cursor-pointer border transition-colors ${rememberMe ? 'bg-[#F472B6] border-[#F472B6]' : 'bg-[#0d0c11] border-[#2d293b]'}`}
-                onClick={() => setRememberMe(!rememberMe)}
-                aria-label="Remember me"
-              >
-                {rememberMe && <div className="w-2 h-2 bg-white rounded-sm"></div>}
-              </button>
-              <span className="text-sm text-[#D1D5DB] cursor-pointer" onClick={() => setRememberMe(!rememberMe)}>
-                Remember me for 30 days
-              </span>
-            </div>
-
-            <button 
-              type="submit" 
-              className="w-full py-4 font-bold text-white rounded-xl bg-gradient-to-r from-[#A78BFA] to-[#F472B6] hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(244,114,182,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={loading}
-            >
-              {loading ? 'Authenticating...' : 'Sign In'} <ArrowRight size={18} />
-            </button>
-          </form>
-
+          <h1 style={{ color: '#fff', fontSize: '22px', fontWeight: '700', margin: '0 0 4px 0' }}>
+            JW Original Songs
+          </h1>
+          <p style={{ color: '#9CA3AF', fontSize: '14px', margin: 0 }}>Admin Panel</p>
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-between items-center w-full px-4 mt-6">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-[#10B981] rounded-full animate-pulse shadow-[0_0_8px_#10B981]"></div>
-            <span className="text-xs text-[#9CA3AF] font-medium tracking-wide">Systems online</span>
+        {/* Error */}
+        {error && (
+          <div style={{
+            background: 'rgba(239,68,68,0.1)',
+            border: '1px solid rgba(239,68,68,0.3)',
+            color: '#EF4444',
+            padding: '10px 14px',
+            borderRadius: '8px',
+            fontSize: '13px',
+            marginBottom: '20px',
+          }}>
+            {error}
           </div>
-          <span className="text-xs text-[#9CA3AF] font-medium tracking-wide">Secure Session</span>
-        </div>
+        )}
 
+        {/* Form */}
+        <form onSubmit={handleLogin}>
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', color: '#9CA3AF', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>
+              Email
+            </label>
+            <div style={{ position: 'relative' }}>
+              <Mail size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#6B7280' }} />
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@example.com"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px 10px 36px',
+                  background: '#0d0c11',
+                  border: '1px solid #2d293b',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  fontSize: '14px',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'block', color: '#9CA3AF', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>
+              Password
+            </label>
+            <div style={{ position: 'relative' }}>
+              <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#6B7280' }} />
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px 10px 36px',
+                  background: '#0d0c11',
+                  border: '1px solid #2d293b',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  fontSize: '14px',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: loading ? '#4a2e85' : 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
       </div>
     </div>
   );
