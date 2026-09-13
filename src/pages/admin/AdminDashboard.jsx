@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, Edit2, Trash2, X, Save, ArrowLeft } from 'lucide-react';
-
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 export default function AdminDashboard() {
   const [songs, setSongs] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -245,13 +246,12 @@ export default function AdminDashboard() {
 
           <div className="mb-4">
             <label>Lyrics (preserve formatting)</label>
-            <textarea 
-              rows="10"
-              required
+            <ReactQuill 
+              theme="snow"
               value={songFormData.lyrics}
-              onChange={e => setSongFormData({...songFormData, lyrics: e.target.value})}
-              style={{ fontFamily: 'monospace' }}
-            ></textarea>
+              onChange={(val) => setSongFormData({...songFormData, lyrics: val})}
+              className="bg-white text-black rounded mt-1"
+            />
           </div>
 
           <div className="mb-4">

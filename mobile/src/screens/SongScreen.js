@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, useWindowDimensions } from 'react-native';
 import { Audio } from 'expo-av';
 import { Play, Pause, Square } from 'lucide-react-native';
+import RenderHTML from 'react-native-render-html';
 
 export default function SongScreen({ route }) {
   const { song } = route.params;
+  const { width } = useWindowDimensions();
   const [sound, setSound] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
@@ -112,7 +114,14 @@ export default function SongScreen({ route }) {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Lyrics</Text>
-        <Text style={styles.lyrics}>{song.lyrics || 'No lyrics available.'}</Text>
+        <RenderHTML
+          contentWidth={width}
+          source={{ html: song.lyrics || '<p>No lyrics available.</p>' }}
+          baseStyle={{ color: '#CBD5E1', fontSize: 16, lineHeight: 32 }}
+          tagsStyles={{
+            p: { marginBottom: 16 }
+          }}
+        />
       </View>
     </ScrollView>
   );
