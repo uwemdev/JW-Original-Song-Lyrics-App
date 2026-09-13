@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
 import Splash from './pages/Splash';
 import Home from './pages/Home';
 import CategoryView from './pages/CategoryView';
@@ -14,6 +14,16 @@ import AudioPlayer from './components/AudioPlayer';
 import { seedCategoriesIfEmpty } from './lib/seedCategories';
 
 export const AppContext = React.createContext();
+
+function PublicLayout() {
+  return (
+    <>
+      <Outlet />
+      <AudioPlayer />
+      <Navigation />
+    </>
+  );
+}
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -40,21 +50,21 @@ function App() {
       <BrowserRouter>
         <div className="app-container">
           <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/category/:slug" element={<CategoryView />} />
-            <Route path="/song/:id" element={<SongDetail />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/about" element={<About />} />
+            {/* Public Routes with Navigation & AudioPlayer */}
+            <Route element={<PublicLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/category/:slug" element={<CategoryView />} />
+              <Route path="/song/:id" element={<SongDetail />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/about" element={<About />} />
+            </Route>
             
-            {/* Admin Routes */}
+            {/* Admin Routes (No Navigation/AudioPlayer) */}
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
             </Route>
           </Routes>
-          
-          <AudioPlayer />
-          <Navigation />
         </div>
       </BrowserRouter>
     </AppContext.Provider>

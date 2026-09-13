@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --primary-color: #8B5CF6; /* Lighter vibrant purple */
   --primary-light: #A78BFA;
