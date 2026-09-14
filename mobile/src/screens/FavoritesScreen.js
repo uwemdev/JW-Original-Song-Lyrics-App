@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Undo2,
 } from 'lucide-react-native';
+import { useSettings } from '../context/SettingsContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -32,16 +33,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const { width } = Dimensions.get('window');
 
-// ─── Palette ─────────────────────────────────────────────────────
-const BG = '#0F0A1A';
-const CARD_BG = '#1A1425';
-const PURPLE = '#6D28D9';
-const PURPLE_ACCENT = '#A78BFA';
-const TEXT_WHITE = '#FFFFFF';
-const TEXT_MUTED = '#B8AFC9';
-const PINK = '#F472B6';
-const STATUS_BAR_H = Platform.OS === 'ios' ? 50 : StatusBar.currentHeight || 32;
-
+// ─── Palette (removed) ───
 // ─── Sort options ────────────────────────────────────────────────
 const SORT_OPTIONS = [
   { key: 'recent', label: 'Recently added' },
@@ -51,6 +43,7 @@ const SORT_OPTIONS = [
 
 // ─── Shimmer placeholder ────────────────────────────────────────
 function Shimmer({ w, h, radius = 8, style }) {
+  const { isDark } = useSettings();
   const anim = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
     Animated.loop(
@@ -62,13 +55,15 @@ function Shimmer({ w, h, radius = 8, style }) {
   }, []);
   return (
     <Animated.View
-      style={[{ width: w, height: h, borderRadius: radius, backgroundColor: '#1F2937', opacity: anim }, style]}
+      style={[{ width: w, height: h, borderRadius: radius, backgroundColor: isDark ? '#1F2937' : '#E2E8F0', opacity: anim }, style]}
     />
   );
 }
 
 // ─── Image with fallback ─────────────────────────────────────────
 function SongImage({ uri, style, iconSize = 20 }) {
+  const { colors } = useSettings();
+  const styles = makeStyles(colors);
   const [failed, setFailed] = useState(false);
   if (!uri || failed) {
     return (
@@ -108,8 +103,8 @@ function HeartButton({ isFav, onToggle }) {
       <Animated.View style={{ transform: [{ scale: bounceAnim }] }}>
         <Heart
           size={20}
-          color={isFav ? PINK : TEXT_MUTED}
-          fill={isFav ? PINK : 'transparent'}
+          color={isFav ? '#EC4899' : colors.textMuted}
+          fill={isFav ? '#EC4899' : 'transparent'}
         />
       </Animated.View>
     </TouchableOpacity>
@@ -141,7 +136,7 @@ function UndoToast({ visible, onUndo }) {
     <Animated.View style={[styles.undoToast, { opacity, transform: [{ translateY: slideY }] }]}>
       <Text style={styles.undoToastText}>Removed from favorites</Text>
       <TouchableOpacity onPress={onUndo} style={styles.undoBtn}>
-        <Undo2 size={14} color={PURPLE_ACCENT} />
+        <Undo2 size={14} color={colors.purpleAccent} />
         <Text style={styles.undoBtnText}>Undo</Text>
       </TouchableOpacity>
     </Animated.View>
@@ -152,6 +147,9 @@ function UndoToast({ visible, onUndo }) {
 // FAVORITES SCREEN
 // ═══════════════════════════════════════════════════════════════════
 export default function FavoritesScreen({ navigation }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors);
+  const DIVIDER = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const [favSongs, setFavSongs] = useState([]);
   const [favIds, setFavIds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -335,7 +333,7 @@ export default function FavoritesScreen({ navigation }) {
     return (
       <View style={styles.emptyWrap}>
         <View style={styles.emptyIconCircle}>
-          <Heart size={48} color={PURPLE_ACCENT} strokeWidth={1.5} />
+          <Heart size={48} color={colors.purpleAccent} strokeWidth={1.5} />
         </View>
         <Text style={styles.emptyTitle}>No favorites yet</Text>
         <Text style={styles.emptySubtext}>
@@ -383,7 +381,7 @@ export default function FavoritesScreen({ navigation }) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={BG} />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
         <View style={styles.headerWrap}>
           <View>
             <Shimmer w={140} h={28} style={{ marginBottom: 8 }} />
@@ -408,7 +406,7 @@ export default function FavoritesScreen({ navigation }) {
   // ── Main render ──
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
 
       {/* ── Header ── */}
       <View style={styles.headerWrap}>
@@ -431,9 +429,9 @@ export default function FavoritesScreen({ navigation }) {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           {searchActive ? (
-            <X size={22} color={TEXT_WHITE} />
+            <X size={22} color={colors.textWhite} />
           ) : (
-            <Search size={22} color={TEXT_WHITE} />
+            <Search size={22} color={colors.textWhite} />
           )}
         </TouchableOpacity>
       </View>
@@ -441,12 +439,12 @@ export default function FavoritesScreen({ navigation }) {
       {/* ── Search bar ── */}
       {searchActive && (
         <View style={styles.searchBar}>
-          <Search size={18} color={TEXT_MUTED} style={{ marginRight: 10 }} />
+          <Search size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
           <TextInput
             ref={searchInputRef}
             style={styles.searchInput}
             placeholder="Search favorites..."
-            placeholderTextColor={TEXT_MUTED}
+            placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoFocus
@@ -455,7 +453,7 @@ export default function FavoritesScreen({ navigation }) {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <X size={18} color={TEXT_MUTED} />
+              <X size={18} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -503,7 +501,7 @@ export default function FavoritesScreen({ navigation }) {
               refreshing={refreshing}
               onRefresh={onRefresh}
               tintColor={PURPLE_ACCENT}
-              colors={[PURPLE]}
+              colors={[colors.purple]}
             />
           }
         />
@@ -516,10 +514,10 @@ export default function FavoritesScreen({ navigation }) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: colors.bg,
   },
 
   // ── Header ──
@@ -534,12 +532,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: '900',
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     letterSpacing: -0.3,
   },
   headerSubtext: {
     fontSize: 14,
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     marginTop: 2,
     fontWeight: '500',
   },
@@ -560,7 +558,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 4,
     marginBottom: 4,
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: Platform.OS === 'ios' ? 12 : 6,
@@ -570,7 +568,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontWeight: '500',
   },
 
@@ -596,10 +594,10 @@ const styles = StyleSheet.create({
   sortPillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: TEXT_MUTED,
+    color: colors.textMuted,
   },
   sortPillTextActive: {
-    color: PURPLE_ACCENT,
+    color: colors.purpleAccent,
   },
 
   // ── Song row ──
@@ -614,10 +612,10 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 12,
-    backgroundColor: '#1F2937',
+    backgroundColor: isDark ? '#1F2937' : '#E2E8F0',
   },
   imgFallback: {
-    backgroundColor: '#1F2937',
+    backgroundColor: isDark ? '#1F2937' : '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -629,13 +627,13 @@ const styles = StyleSheet.create({
   songRowTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     marginBottom: 3,
   },
   songRowCat: {
     fontSize: 13,
     fontWeight: '500',
-    color: PURPLE_ACCENT,
+    color: colors.purpleAccent,
   },
 
   // ── Empty state ──
@@ -660,12 +658,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 15,
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
@@ -673,7 +671,7 @@ const styles = StyleSheet.create({
   emptyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PURPLE,
+    backgroundColor: colors.purple,
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 28,
@@ -720,7 +718,7 @@ const styles = StyleSheet.create({
     }),
   },
   undoToastText: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -733,7 +731,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   undoBtnText: {
-    color: PURPLE_ACCENT,
+    color: colors.purpleAccent,
     fontSize: 13,
     fontWeight: '700',
     marginLeft: 5,

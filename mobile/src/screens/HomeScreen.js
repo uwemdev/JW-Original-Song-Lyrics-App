@@ -26,17 +26,9 @@ import {
   Disc3,
   Bell,
 } from 'lucide-react-native';
+import { useSettings } from '../context/SettingsContext';
 
 const { width } = Dimensions.get('window');
-
-// ─── Palette ─────────────────────────────────────────────────────
-const BG = '#030712';
-const CARD_BG = '#111827';
-const PURPLE = '#6D28D9';
-const PURPLE_ACCENT = '#A78BFA';
-const PURPLE_MUTED = '#9B8FC4';
-const TEXT_WHITE = '#FFFFFF';
-const TEXT_GREY = '#9CA3AF';
 
 // ─── Layout constants ────────────────────────────────────────────
 const CARD_GAP = 8;
@@ -56,6 +48,7 @@ const CAT_GRADIENTS = [
 
 // ─── Shimmer placeholder ────────────────────────────────────────
 function Shimmer({ w, h, radius = 8, style }) {
+  const { isDark } = useSettings();
   const anim = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
     Animated.loop(
@@ -68,7 +61,7 @@ function Shimmer({ w, h, radius = 8, style }) {
   return (
     <Animated.View
       style={[
-        { width: w, height: h, borderRadius: radius, backgroundColor: '#1F2937', opacity: anim },
+        { width: w, height: h, borderRadius: radius, backgroundColor: isDark ? '#1F2937' : '#E2E8F0', opacity: anim },
         style,
       ]}
     />
@@ -77,6 +70,8 @@ function Shimmer({ w, h, radius = 8, style }) {
 
 // ─── Image with fallback ─────────────────────────────────────────
 function SongImage({ uri, style, iconSize = 20 }) {
+  const { colors } = useSettings();
+  const styles = makeStyles(colors);
   const [failed, setFailed] = useState(false);
   if (!uri || failed) {
     return (
@@ -121,6 +116,8 @@ function PressCard({ onPress, style, children }) {
 
 // ─── Section header ──────────────────────────────────────────────
 function SectionHeader({ title, onSeeAll }) {
+  const { colors } = useSettings();
+  const styles = makeStyles(colors);
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -131,7 +128,7 @@ function SectionHeader({ title, onSeeAll }) {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Text style={styles.seeAllText}>See all</Text>
-          <ChevronRight color={PURPLE_ACCENT} size={16} />
+          <ChevronRight color={colors.purpleAccent} size={16} />
         </TouchableOpacity>
       )}
     </View>
@@ -140,6 +137,8 @@ function SectionHeader({ title, onSeeAll }) {
 
 // ─── Horizontal song card ────────────────────────────────────────
 function HScrollCard({ song, categoryName, onPress }) {
+  const { colors } = useSettings();
+  const styles = makeStyles(colors);
   return (
     <PressCard onPress={onPress} style={styles.hCard}>
       <SongImage uri={song.feature_image_url} style={styles.hCardImg} iconSize={24} />
@@ -153,6 +152,9 @@ function HScrollCard({ song, categoryName, onPress }) {
 // HOME SCREEN
 // ═══════════════════════════════════════════════════════════════════
 export default function HomeScreen({ navigation }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors);
+
   const [categories, setCategories] = useState([]);
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -292,7 +294,7 @@ export default function HomeScreen({ navigation }) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={BG} />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
         <View style={{ paddingTop: Platform.OS === 'ios' ? 60 : 44, paddingHorizontal: GRID_PAD }}>
           {/* Header shimmer */}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
@@ -328,7 +330,7 @@ export default function HomeScreen({ navigation }) {
   if (songs.length === 0 && !loading) {
     return (
       <View style={[styles.container, styles.emptyCenter]}>
-        <StatusBar barStyle="light-content" backgroundColor={BG} />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
         <Image
           source={require('../../assets/icon.png')}
           style={{ width: 100, height: 100, opacity: 0.5, marginBottom: 20 }}
@@ -387,7 +389,7 @@ export default function HomeScreen({ navigation }) {
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 onPress={() => navigation.navigate('Notifications')}
               >
-                <Bell color={TEXT_WHITE} size={22} />
+                <Bell color={colors.textWhite} size={22} />
                 {hasUnreadNotifs && (
                   <View style={{
                     position: 'absolute',
@@ -398,7 +400,7 @@ export default function HomeScreen({ navigation }) {
                     borderRadius: 5,
                     backgroundColor: '#EF4444',
                     borderWidth: 2,
-                    borderColor: BG,
+                    borderColor: colors.bg,
                   }} />
                 )}
               </TouchableOpacity>
@@ -407,7 +409,7 @@ export default function HomeScreen({ navigation }) {
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 onPress={() => navigation.navigate('Search')}
               >
-                <Search color={TEXT_WHITE} size={22} />
+                <Search color={colors.textWhite} size={22} />
               </TouchableOpacity>
             </View>
           </View>
@@ -511,7 +513,7 @@ export default function HomeScreen({ navigation }) {
       id: 'continue',
       title: lastPlayed ? lastPlayed.title : 'Continue Listening',
       subtitle: lastPlayed ? getCatName(lastPlayed) : 'Pick up where you left off',
-      icon: <Play color={PURPLE_ACCENT} size={18} fill={PURPLE_ACCENT} />,
+      icon: <Play color={colors.purpleAccent} size={18} fill={PURPLE_ACCENT} />,
       image: lastPlayed?.feature_image_url,
       onPress: lastPlayed
         ? () => navigateToSong(lastPlayed)
@@ -533,7 +535,7 @@ export default function HomeScreen({ navigation }) {
       id: 'recent-grid',
       title: 'Recently Added',
       subtitle: 'Latest songs...',
-      icon: <Clock color={PURPLE_ACCENT} size={18} />,
+      icon: <Clock color={colors.purpleAccent} size={18} />,
       image: recentSongs[0]?.feature_image_url,
       onPress: () => {},
     });
@@ -561,7 +563,7 @@ export default function HomeScreen({ navigation }) {
               return (
                 <PressCard key={item.id} onPress={item.onPress} style={styles.gridCard}>
                   {item.solidPurple ? (
-                    <View style={[styles.gridCardInner, { backgroundColor: PURPLE }]}>
+                    <View style={[styles.gridCardInner, { backgroundColor: colors.purple }]}>
                       <View style={styles.gridThumbWrap}>
                         <View style={[styles.gridThumb, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
                           {item.icon}
@@ -607,7 +609,7 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
       <FlatList
         data={sections}
         keyExtractor={(item) => item.key}
@@ -618,8 +620,8 @@ export default function HomeScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={PURPLE_ACCENT}
-            colors={[PURPLE]}
+            tintColor={colors.purpleAccent}
+            colors={[colors.purple]}
           />
         }
       />
@@ -628,10 +630,10 @@ export default function HomeScreen({ navigation }) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: colors.bg,
   },
 
   // ── Empty ──
@@ -641,13 +643,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 22,
     fontWeight: '800',
     marginBottom: 8,
   },
   emptySub: {
-    color: TEXT_GREY,
+    color: colors.textMuted,
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
@@ -677,7 +679,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   headerTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -700,11 +702,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   pillActive: {
-    backgroundColor: PURPLE,
-    borderColor: PURPLE,
+    backgroundColor: colors.purple,
+    borderColor: colors.purple,
   },
   pillText: {
-    color: PURPLE_ACCENT,
+    color: colors.purpleAccent,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -727,7 +729,7 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
   },
   gridCardInner: {
     flex: 1,
@@ -765,12 +767,12 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   gridTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 13,
     fontWeight: '700',
   },
   gridSub: {
-    color: TEXT_GREY,
+    color: colors.textMuted,
     fontSize: 11,
     marginTop: 1,
   },
@@ -788,7 +790,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   sectionTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -797,7 +799,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   seeAllText: {
-    color: PURPLE_ACCENT,
+    color: colors.purpleAccent,
     fontSize: 13,
     fontWeight: '600',
     marginRight: 2,
@@ -815,19 +817,19 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   hCardTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 13,
     fontWeight: '700',
   },
   hCardSub: {
-    color: PURPLE_MUTED,
+    color: colors.textMuted,
     fontSize: 11,
     marginTop: 2,
   },
 
   // ── Image fallback ──
   imgFallback: {
-    backgroundColor: '#1F2937',
+    backgroundColor: colors.cardBg,
     justifyContent: 'center',
     alignItems: 'center',
   },

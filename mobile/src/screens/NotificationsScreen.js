@@ -11,6 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
 import { ArrowLeft, Bell, Music, Edit3, FolderPlus, ChevronRight, CheckCheck } from 'lucide-react-native';
+import { useSettings } from '../context/SettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const timeAgo = (date) => {
@@ -28,14 +29,17 @@ const timeAgo = (date) => {
   return Math.floor(seconds) + ' seconds ago';
 };
 
-const BG = '#0F0A1A';
-const PURPLE = '#6D28D9';
-const PURPLE_ACCENT = '#A78BFA';
-const CARD_BG = '#1A1425';
-const TEXT_WHITE = '#FFFFFF';
-const TEXT_MUTED = '#B8AFC9';
+
+
+
+
+
+
 
 export default function NotificationsScreen({ navigation }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors);
+  const DIVIDER = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -123,13 +127,13 @@ export default function NotificationsScreen({ navigation }) {
   const getIcon = (type) => {
     switch (type) {
       case 'new_song':
-        return <Music size={20} color={PURPLE_ACCENT} />;
+        return <Music size={20} color={colors.purpleAccent} />;
       case 'song_edited':
         return <Edit3 size={20} color="#38BDF8" />; // Blue for edits
       case 'new_category':
         return <FolderPlus size={20} color="#10B981" />; // Green for new categories
       default:
-        return <Bell size={20} color={TEXT_MUTED} />;
+        return <Bell size={20} color={colors.textMuted} />;
     }
   };
 
@@ -160,11 +164,11 @@ export default function NotificationsScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
       
       {/* ── Header ── */}
       <LinearGradient
-        colors={[BG, 'rgba(15,10,26,0.9)']}
+        colors={[colors.bg, 'rgba(15,10,26,0.9)']}
         style={styles.header}
       >
         <TouchableOpacity
@@ -172,7 +176,7 @@ export default function NotificationsScreen({ navigation }) {
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <ArrowLeft size={22} color={TEXT_WHITE} />
+          <ArrowLeft size={22} color={colors.textWhite} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         <TouchableOpacity
@@ -181,7 +185,7 @@ export default function NotificationsScreen({ navigation }) {
           accessibilityRole="button"
           accessibilityLabel="Clear all notifications"
         >
-          <CheckCheck color={TEXT_MUTED} size={20} />
+          <CheckCheck color={colors.textMuted} size={20} />
         </TouchableOpacity>
       </LinearGradient>
 
@@ -202,7 +206,7 @@ export default function NotificationsScreen({ navigation }) {
           !loading && (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>
-                <Bell size={40} color={PURPLE_ACCENT} strokeWidth={1.5} />
+                <Bell size={40} color={colors.purpleAccent} strokeWidth={1.5} />
               </View>
               <Text style={styles.emptyTitle}>You're all caught up!</Text>
               <Text style={styles.emptySub}>
@@ -216,10 +220,10 @@ export default function NotificationsScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -248,7 +252,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -259,7 +263,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     padding: 16,
     borderRadius: 16,
     marginBottom: 12,
@@ -279,13 +283,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
   },
   message: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 6,
@@ -310,13 +314,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   emptyTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 8,
   },
   emptySub: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,

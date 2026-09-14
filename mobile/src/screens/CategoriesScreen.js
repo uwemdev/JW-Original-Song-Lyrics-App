@@ -15,14 +15,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
 import { Search, Music, LayoutGrid } from 'lucide-react-native';
+import { useSettings } from '../context/SettingsContext';
 
 const { width } = Dimensions.get('window');
-
-const BG = '#0F0A1A';
-const CARD_BG = '#1A1425';
-const PURPLE = '#6D28D9';
-const TEXT_WHITE = '#FFFFFF';
-const TEXT_MUTED = '#B8AFC9';
 
 const SIDE_PAD = 16;
 const GRID_GAP = 12;
@@ -43,6 +38,9 @@ function PressCard({ onPress, style, children }) {
 }
 
 export default function CategoriesScreen({ navigation }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors);
+
   const [categories, setCategories] = useState([]);
   const [songCounts, setSongCounts] = useState({});
   const [loading, setLoading] = useState(true);
@@ -107,7 +105,7 @@ export default function CategoriesScreen({ navigation }) {
           </LinearGradient>
         )}
         <LinearGradient
-          colors={['transparent', 'rgba(15,10,26,0.8)', 'rgba(15,10,26,0.95)']}
+          colors={['transparent', isDark ? 'rgba(15,10,26,0.8)' : 'rgba(255,255,255,0.7)', isDark ? 'rgba(15,10,26,0.95)' : 'rgba(255,255,255,0.95)']}
           locations={[0, 0.6, 1]}
           style={styles.cardOverlay}
         />
@@ -125,11 +123,11 @@ export default function CategoriesScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
       
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
-          <LayoutGrid color={TEXT_WHITE} size={28} style={{ marginRight: 10 }} />
+          <LayoutGrid color={colors.textWhite} size={28} style={{ marginRight: 10 }} />
           <Text style={styles.headerTitle}>Collections</Text>
         </View>
       </View>
@@ -146,8 +144,8 @@ export default function CategoriesScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={PURPLE}
-            colors={[PURPLE]}
+            tintColor={colors.purpleAccent}
+            colors={[colors.purple]}
           />
         }
       />
@@ -155,10 +153,10 @@ export default function CategoriesScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: colors.bg,
   },
   header: {
     paddingTop: STATUS_BAR_H + 10,
@@ -170,7 +168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.5,
@@ -188,7 +186,7 @@ const styles = StyleSheet.create({
     height: GRID_CARD_W * 1.2,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
   },
   cardImg: {
     ...StyleSheet.absoluteFillObject,
@@ -208,14 +206,14 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   cardTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 15,
     fontWeight: '700',
     marginBottom: 4,
     lineHeight: 20,
   },
   cardCount: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',

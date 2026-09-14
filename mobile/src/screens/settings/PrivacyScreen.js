@@ -9,16 +9,19 @@ import {
   ScrollView,
 } from 'react-native';
 import { ArrowLeft, Shield } from 'lucide-react-native';
+import { useSettings } from '../../context/SettingsContext';
 
-const BG = '#0F0A1A';
-const CARD_BG = '#1A1425';
-const TEXT_WHITE = '#FFFFFF';
-const TEXT_MUTED = '#B8AFC9';
+
+
+
+
 
 export default function PrivacyScreen({ navigation }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors);
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -28,7 +31,7 @@ export default function PrivacyScreen({ navigation }) {
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ArrowLeft color={TEXT_WHITE} size={22} />
+          <ArrowLeft color={colors.textWhite} size={22} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Privacy Note</Text>
         <View style={{ width: 34 }} />
@@ -65,8 +68,8 @@ export default function PrivacyScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -84,7 +87,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -104,7 +107,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   card: {
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     padding: 24,
     borderWidth: 1,
@@ -112,20 +115,20 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   paragraph: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 15,
     lineHeight: 24,
     marginBottom: 20,
   },
   bullet: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 15,
     lineHeight: 24,
     marginBottom: 16,
     paddingLeft: 8,
   },
   bold: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontWeight: '700',
   },
 });

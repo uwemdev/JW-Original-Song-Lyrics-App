@@ -28,6 +28,7 @@ import {
   ChevronDown,
   X,
 } from 'lucide-react-native';
+import { useSettings } from '../context/SettingsContext';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -36,15 +37,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const { width } = Dimensions.get('window');
 
-// ─── Palette ─────────────────────────────────────────────────────
-const BG = '#0F0A1A';
-const CARD_BG = '#1A1425';
-const PURPLE = '#6D28D9';
-const PURPLE_ACCENT = '#A78BFA';
-const TEXT_WHITE = '#FFFFFF';
-const TEXT_MUTED = '#B8AFC9';
-const DIVIDER = 'rgba(255,255,255,0.06)';
-
+// ─── Palette (removed) ───
 // ─── Layout ──────────────────────────────────────────────────────
 const SIDE_PAD = 16;
 const GRID_GAP = 12;
@@ -62,6 +55,7 @@ const SORT_OPTIONS = [
 
 // ─── Shimmer placeholder ────────────────────────────────────────
 function Shimmer({ w, h, radius = 8, style }) {
+  const { isDark } = useSettings();
   const anim = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
     Animated.loop(
@@ -73,13 +67,15 @@ function Shimmer({ w, h, radius = 8, style }) {
   }, []);
   return (
     <Animated.View
-      style={[{ width: w, height: h, borderRadius: radius, backgroundColor: '#1F2937', opacity: anim }, style]}
+      style={[{ width: w, height: h, borderRadius: radius, backgroundColor: isDark ? '#1F2937' : '#E2E8F0', opacity: anim }, style]}
     />
   );
 }
 
 // ─── Image with fallback ─────────────────────────────────────────
 function SongImage({ uri, style, iconSize = 20 }) {
+  const { colors } = useSettings();
+  const styles = makeStyles(colors);
   const [failed, setFailed] = useState(false);
   if (!uri || failed) {
     return (
@@ -113,6 +109,7 @@ function PressCard({ onPress, style, children }) {
 
 // ─── Heart button with bounce ────────────────────────────────────
 function HeartButton({ isFav, onToggle }) {
+  const { colors } = useSettings();
   const bounceAnim = useRef(new Animated.Value(1)).current;
 
   const handlePress = () => {
@@ -133,7 +130,7 @@ function HeartButton({ isFav, onToggle }) {
       <Animated.View style={{ transform: [{ scale: bounceAnim }] }}>
         <Heart
           size={20}
-          color={isFav ? '#F472B6' : TEXT_MUTED}
+          color={isFav ? '#F472B6' : colors.textMuted}
           fill={isFav ? '#F472B6' : 'transparent'}
         />
       </Animated.View>
@@ -145,6 +142,9 @@ function HeartButton({ isFav, onToggle }) {
 // CATEGORY SCREEN
 // ═══════════════════════════════════════════════════════════════════
 export default function CategoryScreen({ route, navigation }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors);
+  const DIVIDER = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const { categoryId, categoryName, categoryImage } = route.params;
 
   // ── State ──
@@ -409,7 +409,7 @@ export default function CategoryScreen({ route, navigation }) {
     if (searchQuery.trim()) {
       return (
         <View style={styles.emptyWrap}>
-          <Search color={TEXT_MUTED} size={36} />
+          <Search color={colors.textMuted} size={36} />
           <Text style={styles.emptyTitle}>No songs found</Text>
           <Text style={styles.emptySubtitle}>
             No songs found for "{searchQuery}" in {categoryName}
@@ -454,7 +454,7 @@ export default function CategoryScreen({ route, navigation }) {
         )}
         {/* Gradient overlay */}
         <LinearGradient
-          colors={['transparent', 'rgba(15,10,26,0.6)', BG]}
+          colors={['transparent', 'rgba(15,10,26,0.6)', colors.bg]}
           locations={[0, 0.6, 1]}
           style={styles.bannerOverlay}
         />
@@ -467,7 +467,7 @@ export default function CategoryScreen({ route, navigation }) {
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <ArrowLeft color={TEXT_WHITE} size={22} />
+            <ArrowLeft color={colors.textWhite} size={22} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -476,7 +476,7 @@ export default function CategoryScreen({ route, navigation }) {
             accessibilityRole="button"
             accessibilityLabel="Search in this category"
           >
-            <Search color={TEXT_WHITE} size={20} />
+            <Search color={colors.textWhite} size={20} />
           </TouchableOpacity>
         </View>
       </View>
@@ -505,7 +505,7 @@ export default function CategoryScreen({ route, navigation }) {
           accessibilityLabel={`Sort by ${currentSortLabel}`}
         >
           <Text style={styles.sortBtnText}>{currentSortLabel}</Text>
-          <ChevronDown color={PURPLE_ACCENT} size={16} />
+          <ChevronDown color={colors.purpleAccent} size={16} />
         </TouchableOpacity>
 
         {/* View toggle */}
@@ -516,9 +516,9 @@ export default function CategoryScreen({ route, navigation }) {
           accessibilityLabel={viewMode === 'list' ? 'Switch to grid view' : 'Switch to list view'}
         >
           {viewMode === 'list' ? (
-            <Grid color={PURPLE_ACCENT} size={20} />
+            <Grid color={colors.purpleAccent} size={20} />
           ) : (
-            <List color={PURPLE_ACCENT} size={20} />
+            <List color={colors.purpleAccent} size={20} />
           )}
         </TouchableOpacity>
       </View>
@@ -556,7 +556,7 @@ export default function CategoryScreen({ route, navigation }) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={BG} />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
         {/* Banner skeleton */}
         <Shimmer w={width} h={BANNER_H} radius={0} />
         <View style={{ padding: SIDE_PAD, paddingTop: 20 }}>
@@ -573,7 +573,7 @@ export default function CategoryScreen({ route, navigation }) {
   // ═══════════════════════════════════════════════════════════════
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
 
       {viewMode === 'list' ? (
         <FlatList
@@ -626,10 +626,10 @@ export default function CategoryScreen({ route, navigation }) {
 // ═══════════════════════════════════════════════════════════════════
 // STYLES
 // ═══════════════════════════════════════════════════════════════════
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: colors.bg,
   },
 
   // ── Banner ──
@@ -672,13 +672,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   catName: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 28,
     fontWeight: '900',
     letterSpacing: -0.5,
   },
   catCount: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '600',
     marginTop: 4,
@@ -686,7 +686,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   catDesc: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 8,
@@ -696,7 +696,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: Platform.OS === 'ios' ? 12 : 6,
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 10,
     marginRight: 8,
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 15,
   },
 
@@ -723,14 +723,14 @@ const styles = StyleSheet.create({
   sortBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 8,
     gap: 6,
   },
   sortBtnText: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -738,12 +738,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sortDropdown: {
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
@@ -760,12 +760,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(109,40,217,0.15)',
   },
   sortOptionText: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '500',
   },
   sortOptionTextActive: {
-    color: PURPLE_ACCENT,
+    color: colors.purpleAccent,
     fontWeight: '700',
   },
 
@@ -793,13 +793,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   listTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
   },
   listWriteup: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -823,7 +823,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   gridTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 14,
     fontWeight: '600',
     marginTop: 8,
@@ -837,14 +837,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 18,
     fontWeight: '700',
     marginTop: 16,
     textAlign: 'center',
   },
   emptySubtitle: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',

@@ -10,20 +10,23 @@ import {
   Alert,
 } from 'react-native';
 import { ArrowLeft, Trash2, Music, HardDrive } from 'lucide-react-native';
+import { useSettings } from '../../context/SettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const BG = '#0F0A1A';
-const CARD_BG = '#1A1425';
-const PURPLE = '#6D28D9';
-const PURPLE_ACCENT = '#A78BFA';
-const TEXT_WHITE = '#FFFFFF';
-const TEXT_MUTED = '#B8AFC9';
-const DIVIDER = 'rgba(255,255,255,0.06)';
+
+
+
+
+
+
+
 const DANGER = '#EF4444';
 
 const CACHE_KEY = '@offline_lyrics_cache';
 
 export default function StorageScreen({ navigation }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors);
   const [cache, setCache] = useState([]); // [{ id, title, category, dataSize }]
   const [loading, setLoading] = useState(true);
 
@@ -81,7 +84,7 @@ export default function StorageScreen({ navigation }) {
     <View style={styles.cacheRow}>
       <View style={styles.cacheLeft}>
         <View style={styles.musicIcon}>
-          <Music color={PURPLE_ACCENT} size={16} />
+          <Music color={colors.purpleAccent} size={16} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.cacheTitle} numberOfLines={1}>{item.title}</Text>
@@ -100,7 +103,7 @@ export default function StorageScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -110,7 +113,7 @@ export default function StorageScreen({ navigation }) {
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ArrowLeft color={TEXT_WHITE} size={22} />
+          <ArrowLeft color={colors.textWhite} size={22} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Offline Cache</Text>
         <View style={{ width: 34 }} />
@@ -119,7 +122,7 @@ export default function StorageScreen({ navigation }) {
       {/* Stats */}
       <View style={styles.statsCard}>
         <View style={styles.statItem}>
-          <HardDrive color={PURPLE_ACCENT} size={24} />
+          <HardDrive color={colors.purpleAccent} size={24} />
           <Text style={styles.statValue}>{cache.length}</Text>
           <Text style={styles.statLabel}>Songs cached</Text>
         </View>
@@ -133,7 +136,7 @@ export default function StorageScreen({ navigation }) {
       {/* Cache list */}
       {cache.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <HardDrive color={TEXT_MUTED} size={40} />
+          <HardDrive color={colors.textMuted} size={40} />
           <Text style={styles.emptyTitle}>No cached songs</Text>
           <Text style={styles.emptySub}>
             Enable "Auto-cache favorites" in Settings to automatically save lyrics for offline reading.
@@ -158,8 +161,8 @@ export default function StorageScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -177,14 +180,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 18,
     fontWeight: '800',
   },
   statsCard: {
     flexDirection: 'row',
     marginHorizontal: 16,
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
@@ -196,19 +199,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 24,
     fontWeight: '800',
     marginTop: 8,
   },
   statLabel: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 4,
   },
   statDivider: {
     width: 1,
-    backgroundColor: DIVIDER,
+    backgroundColor: 'rgba(150,150,150,0.15)',
     marginHorizontal: 16,
   },
   cacheRow: {
@@ -233,12 +236,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   cacheTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 14,
     fontWeight: '600',
   },
   cacheSub: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 2,
   },
@@ -247,7 +250,7 @@ const styles = StyleSheet.create({
   },
   listDivider: {
     height: 1,
-    backgroundColor: DIVIDER,
+    backgroundColor: 'rgba(150,150,150,0.15)',
   },
   clearAllBtn: {
     flexDirection: 'row',
@@ -274,13 +277,13 @@ const styles = StyleSheet.create({
     paddingBottom: 60,
   },
   emptyTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 18,
     fontWeight: '700',
     marginTop: 16,
   },
   emptySub: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 13,
     textAlign: 'center',
     marginTop: 8,

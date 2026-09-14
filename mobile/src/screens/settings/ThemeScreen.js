@@ -10,13 +10,13 @@ import {
 import { ArrowLeft, Check, Moon, Sun, Smartphone } from 'lucide-react-native';
 import { useSettings } from '../../context/SettingsContext';
 
-const BG = '#0F0A1A';
-const CARD_BG = '#1A1425';
-const PURPLE = '#6D28D9';
-const PURPLE_ACCENT = '#A78BFA';
-const TEXT_WHITE = '#FFFFFF';
-const TEXT_MUTED = '#B8AFC9';
-const DIVIDER = 'rgba(255,255,255,0.06)';
+
+
+
+
+
+
+
 
 const OPTIONS = [
   { key: 'dark', label: 'Dark', subtitle: 'Always use dark theme', icon: Moon },
@@ -25,11 +25,12 @@ const OPTIONS = [
 ];
 
 export default function ThemeScreen({ navigation }) {
-  const { theme, setTheme } = useSettings();
+  const { colors, isDark, theme, setTheme } = useSettings();
+  const styles = makeStyles(colors);
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -39,7 +40,7 @@ export default function ThemeScreen({ navigation }) {
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ArrowLeft color={TEXT_WHITE} size={22} />
+          <ArrowLeft color={colors.textWhite} size={22} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Theme</Text>
         <View style={{ width: 34 }} />
@@ -65,7 +66,7 @@ export default function ThemeScreen({ navigation }) {
                     <Icon color={selected ? '#FFF' : PURPLE_ACCENT} size={20} />
                   </View>
                   <View>
-                    <Text style={[styles.rowLabel, selected && { color: PURPLE_ACCENT }]}>
+                    <Text style={[styles.rowLabel, selected && { color: colors.purpleAccent }]}>
                       {opt.label}
                     </Text>
                     <Text style={styles.rowSubtitle}>{opt.subtitle}</Text>
@@ -89,8 +90,8 @@ export default function ThemeScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -108,13 +109,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 18,
     fontWeight: '800',
   },
   card: {
     marginHorizontal: 16,
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
@@ -142,33 +143,33 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   iconWrapActive: {
-    backgroundColor: PURPLE,
+    backgroundColor: colors.purple,
   },
   rowLabel: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 16,
     fontWeight: '600',
   },
   rowSubtitle: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 2,
   },
   divider: {
     height: 1,
-    backgroundColor: DIVIDER,
+    backgroundColor: 'rgba(150,150,150,0.15)',
     marginLeft: 70,
   },
   checkCircle: {
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: PURPLE,
+    backgroundColor: colors.purple,
     justifyContent: 'center',
     alignItems: 'center',
   },
   footerNote: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 12,
     textAlign: 'center',
     marginTop: 24,

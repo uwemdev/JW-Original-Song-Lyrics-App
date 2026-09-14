@@ -34,14 +34,7 @@ import { useSettings } from '../context/SettingsContext';
 
 const { width, height: SCREEN_H } = Dimensions.get('window');
 
-// ─── Palette ─────────────────────────────────────────────────────
-const BG = '#0F0A1A';
-const CARD_BG = '#1A1425';
-const PURPLE = '#6D28D9';
-const PURPLE_ACCENT = '#A78BFA';
-const TEXT_MUTED = '#B8AFC9';
-const TEXT_WHITE = '#FFFFFF';
-
+// ─── Palette (removed) ───
 // ─── Layout ──────────────────────────────────────────────────────
 const IMAGE_H = SCREEN_H * 0.45;
 const HEADER_COLLAPSED_H = Platform.OS === 'ios' ? 96 : 80;
@@ -52,6 +45,8 @@ const LINE_HEIGHTS = [30, 36, 44];
 
 // ─── Image with fallback ─────────────────────────────────────────
 function FallbackImage({ uri, style, iconSize = 28 }) {
+  const { colors } = useSettings();
+  const styles = makeStyles(colors);
   const [failed, setFailed] = useState(false);
   if (!uri || failed) {
     return (
@@ -71,6 +66,7 @@ function FallbackImage({ uri, style, iconSize = 28 }) {
 
 // ─── Shimmer ─────────────────────────────────────────────────────
 function Shimmer({ w, h, radius = 8, style }) {
+  const { isDark } = useSettings();
   const anim = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
     Animated.loop(
@@ -82,13 +78,15 @@ function Shimmer({ w, h, radius = 8, style }) {
   }, []);
   return (
     <Animated.View
-      style={[{ width: w, height: h, borderRadius: radius, backgroundColor: '#251B3A', opacity: anim }, style]}
+      style={[{ width: w, height: h, borderRadius: radius, backgroundColor: isDark ? '#251B3A' : '#E2E8F0', opacity: anim }, style]}
     />
   );
 }
 
 // ─── Toast ───────────────────────────────────────────────────────
 function Toast({ visible, message }) {
+  const { colors } = useSettings();
+  const styles = makeStyles(colors);
   const opacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (visible) {
@@ -111,6 +109,9 @@ function Toast({ visible, message }) {
 // SONG DETAIL SCREEN
 // ═══════════════════════════════════════════════════════════════════
 export default function SongScreen({ route, navigation }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors);
+  const DIVIDER = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const { song } = route.params;
   const scrollY = useRef(new Animated.Value(0)).current;
   const settings = useSettings();
@@ -304,7 +305,7 @@ export default function SongScreen({ route, navigation }) {
   // ═══════════════════════════════════════════════════════════════
   return (
     <View style={styles.container}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <StatusBar translucent backgroundColor="transparent" barStyle={isDark ? "light-content" : "dark-content"} />
 
       {/* ── Collapsing image ── */}
       <Animated.View style={[styles.imageWrap, { height: imageHeight }]}>
@@ -312,7 +313,7 @@ export default function SongScreen({ route, navigation }) {
           <FallbackImage uri={song.feature_image_url} style={{ width: '100%', height: '100%' }} iconSize={48} />
         </Animated.View>
         <LinearGradient
-          colors={['transparent', 'rgba(15, 10, 26, 0.4)', 'rgba(15, 10, 26, 0.95)', BG]}
+          colors={['transparent', 'rgba(15, 10, 26, 0.4)', 'rgba(15, 10, 26, 0.95)', colors.bg]}
           locations={[0.0, 0.5, 0.78, 1.0]}
           style={StyleSheet.absoluteFillObject}
         />
@@ -428,7 +429,7 @@ export default function SongScreen({ route, navigation }) {
               accessibilityRole="button"
               accessibilityLabel="Decrease lyrics font size"
             >
-              <Minus color={settings.fontSizeIdx === 0 ? '#4B3D6B' : TEXT_MUTED} size={16} />
+              <Minus color={settings.fontSizeIdx === 0 ? '#4B3D6B' : colors.textMuted} size={16} />
               <Text style={[styles.toolbarBtnLabel, settings.fontSizeIdx === 0 && { color: '#4B3D6B' }]}>A</Text>
             </TouchableOpacity>
 
@@ -439,7 +440,7 @@ export default function SongScreen({ route, navigation }) {
               accessibilityRole="button"
               accessibilityLabel="Increase lyrics font size"
             >
-              <Plus color={settings.fontSizeIdx === 2 ? '#4B3D6B' : TEXT_MUTED} size={16} />
+              <Plus color={settings.fontSizeIdx === 2 ? '#4B3D6B' : colors.textMuted} size={16} />
               <Text style={[styles.toolbarBtnLabel, settings.fontSizeIdx === 2 && { color: '#4B3D6B' }, { fontSize: 17 }]}>A</Text>
             </TouchableOpacity>
           </View>
@@ -451,7 +452,7 @@ export default function SongScreen({ route, navigation }) {
               accessibilityRole="button"
               accessibilityLabel="Copy lyrics to clipboard"
             >
-              <Copy color={TEXT_MUTED} size={18} />
+              <Copy color={colors.textMuted} size={18} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -460,7 +461,7 @@ export default function SongScreen({ route, navigation }) {
               accessibilityRole="button"
               accessibilityLabel="Share song"
             >
-              <Share2 color={TEXT_MUTED} size={18} />
+              <Share2 color={colors.textMuted} size={18} />
             </TouchableOpacity>
           </View>
         </View>
@@ -472,7 +473,7 @@ export default function SongScreen({ route, navigation }) {
               contentWidth={width - 48}
               source={{ html: song.lyrics }}
               baseStyle={{
-                color: TEXT_WHITE,
+                color: colors.textWhite,
                 fontSize: FONT_SIZES[settings.fontSizeIdx],
                 lineHeight: LINE_HEIGHTS[settings.fontSizeIdx],
               }}
@@ -483,7 +484,7 @@ export default function SongScreen({ route, navigation }) {
             />
           ) : (
             <View style={styles.lyricsComingSoon}>
-              <Music color={TEXT_MUTED} size={32} />
+              <Music color={colors.textMuted} size={32} />
               <Text style={styles.lyricsComingSoonText}>Lyrics coming soon</Text>
               <Text style={styles.lyricsComingSoonSub}>
                 This song has been published but the lyrics{'\n'}haven't been added yet.
@@ -504,7 +505,7 @@ export default function SongScreen({ route, navigation }) {
                 }
               >
                 <Text style={styles.seeAllText}>See all</Text>
-                <ChevronRight color={PURPLE_ACCENT} size={16} />
+                <ChevronRight color={colors.purpleAccent} size={16} />
               </TouchableOpacity>
             </View>
 
@@ -537,10 +538,10 @@ export default function SongScreen({ route, navigation }) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: colors.bg,
   },
 
   // ── Image ──
@@ -553,7 +554,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   imgFallback: {
-    backgroundColor: '#1F2937',
+    backgroundColor: isDark ? '#1F2937' : '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -575,7 +576,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(109, 40, 217, 0.15)',
   },
   stickyTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -607,7 +608,7 @@ const styles = StyleSheet.create({
   songTitle: {
     fontSize: 28,
     fontWeight: '900',
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     lineHeight: 34,
     letterSpacing: -0.3,
     marginBottom: 10,
@@ -621,14 +622,14 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   catPillText: {
-    color: PURPLE_ACCENT,
+    color: colors.purpleAccent,
     fontSize: 12,
     fontWeight: '600',
   },
   writeup: {
     fontSize: 15,
     lineHeight: 24,
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontStyle: 'italic',
   },
 
@@ -636,7 +637,7 @@ const styles = StyleSheet.create({
   playerCard: {
     marginHorizontal: 20,
     marginBottom: 16,
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
@@ -650,7 +651,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: PURPLE,
+    backgroundColor: colors.purple,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -675,7 +676,7 @@ const styles = StyleSheet.create({
   },
   seekFill: {
     height: '100%',
-    backgroundColor: PURPLE_ACCENT,
+    backgroundColor: colors.purple_ACCENT,
     borderRadius: 2,
   },
   seekTimes: {
@@ -684,13 +685,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   seekTime: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
   },
   audioComingSoon: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',
@@ -715,11 +716,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     gap: 4,
   },
   toolbarBtnLabel: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -730,7 +731,7 @@ const styles = StyleSheet.create({
   toolbarIconBtn: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
   },
 
   // ── Lyrics Body ──
@@ -743,7 +744,7 @@ const styles = StyleSheet.create({
     paddingVertical: 48,
   },
   lyricsComingSoonText: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 18,
     fontWeight: '700',
     marginTop: 14,
@@ -769,7 +770,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   moreSectionTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -778,7 +779,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   seeAllText: {
-    color: PURPLE_ACCENT,
+    color: colors.purpleAccent,
     fontSize: 13,
     fontWeight: '600',
     marginRight: 2,
@@ -794,7 +795,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   moreCardTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 13,
     fontWeight: '700',
   },

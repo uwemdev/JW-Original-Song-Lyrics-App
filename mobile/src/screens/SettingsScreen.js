@@ -30,20 +30,21 @@ import {
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 
-// ─── Palette ─────────────────────────────────────────────────────
-const BG = '#0F0A1A';
-const CARD_BG = '#1A1425';
-const PURPLE = '#6D28D9';
-const PURPLE_ACCENT = '#A78BFA';
-const TEXT_WHITE = '#FFFFFF';
-const TEXT_MUTED = '#B8AFC9';
-const DIVIDER = 'rgba(255,255,255,0.06)';
+
+
+
+
+
+
+
 const DANGER = '#EF4444';
 
 const FONT_LABELS = ['Small', 'Medium', 'Large'];
 
 // ─── Toast ───────────────────────────────────────────────────────
 function Toast({ visible, message }) {
+  const { colors } = useSettings();
+  const styles = makeStyles(colors);
   const opacity = useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
     if (visible) {
@@ -64,10 +65,14 @@ function Toast({ visible, message }) {
 
 // ─── Row Components ──────────────────────────────────────────────
 function SectionHeader({ title }) {
+  const { colors } = useSettings();
+  const styles = makeStyles(colors);
   return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
 function SettingsRow({ icon, label, subtitle, onPress, right, danger }) {
+  const { colors } = useSettings();
+  const styles = makeStyles(colors);
   return (
     <TouchableOpacity
       style={styles.row}
@@ -85,12 +90,14 @@ function SettingsRow({ icon, label, subtitle, onPress, right, danger }) {
           {subtitle ? <Text style={styles.rowSubtitle}>{subtitle}</Text> : null}
         </View>
       </View>
-      {right || <ChevronRight color={TEXT_MUTED} size={18} />}
+      {right || <ChevronRight color={colors.textMuted} size={18} />}
     </TouchableOpacity>
   );
 }
 
 function ToggleRow({ icon, label, subtitle, value, onValueChange }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors);
   return (
     <View style={styles.row}>
       <View style={styles.rowLeft}>
@@ -103,9 +110,9 @@ function ToggleRow({ icon, label, subtitle, value, onValueChange }) {
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: '#3E3456', true: PURPLE }}
+        trackColor={{ false: isDark ? '#3E3456' : '#D1D5DB', true: colors.purple }}
         thumbColor={value ? '#E9D5FF' : '#B8AFC9'}
-        ios_backgroundColor="#3E3456"
+        ios_backgroundColor={isDark ? '#3E3456' : '#D1D5DB'}
         accessibilityLabel={`${label} toggle, currently ${value ? 'on' : 'off'}`}
       />
     </View>
@@ -117,6 +124,8 @@ function ToggleRow({ icon, label, subtitle, value, onValueChange }) {
 // ═══════════════════════════════════════════════════════════════════
 export default function SettingsScreen({ navigation }) {
   const settings = useSettings();
+  const { colors, isDark } = settings;
+  const styles = makeStyles(colors);
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
@@ -154,7 +163,7 @@ export default function SettingsScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -169,14 +178,14 @@ export default function SettingsScreen({ navigation }) {
         <SectionHeader title="Appearance" />
         <View style={styles.card}>
           <SettingsRow
-            icon={<Palette color={PURPLE_ACCENT} size={20} />}
+            icon={<Palette color={colors.purpleAccent} size={20} />}
             label="Theme"
             subtitle={settings.theme === 'system' ? 'System' : settings.theme === 'light' ? 'Light' : 'Dark'}
             onPress={() => navigation.navigate('ThemeSettings')}
           />
           <View style={styles.divider} />
           <SettingsRow
-            icon={<Type color={PURPLE_ACCENT} size={20} />}
+            icon={<Type color={colors.purpleAccent} size={20} />}
             label="Lyrics Font Size"
             subtitle={FONT_LABELS[settings.fontSizeIdx]}
             onPress={() => navigation.navigate('FontSizeSettings')}
@@ -187,7 +196,7 @@ export default function SettingsScreen({ navigation }) {
         <SectionHeader title="Playback" />
         <View style={styles.card}>
           <ToggleRow
-            icon={<PlayCircle color={PURPLE_ACCENT} size={20} />}
+            icon={<PlayCircle color={colors.purpleAccent} size={20} />}
             label="Auto-play on open"
             subtitle="Auto-play songs when opening details"
             value={settings.autoPlay}
@@ -195,7 +204,7 @@ export default function SettingsScreen({ navigation }) {
           />
           <View style={styles.divider} />
           <ToggleRow
-            icon={<Wifi color={PURPLE_ACCENT} size={20} />}
+            icon={<Wifi color={colors.purpleAccent} size={20} />}
             label="Data Saver"
             subtitle="Only auto-play on Wi-Fi"
             value={settings.dataSaver}
@@ -207,14 +216,14 @@ export default function SettingsScreen({ navigation }) {
         <SectionHeader title="Storage & Offline" />
         <View style={styles.card}>
           <SettingsRow
-            icon={<HardDrive color={PURPLE_ACCENT} size={20} />}
+            icon={<HardDrive color={colors.purpleAccent} size={20} />}
             label="Offline Lyrics Cache"
             subtitle="Manage cached songs"
             onPress={() => navigation.navigate('StorageSettings')}
           />
           <View style={styles.divider} />
           <ToggleRow
-            icon={<Download color={PURPLE_ACCENT} size={20} />}
+            icon={<Download color={colors.purpleAccent} size={20} />}
             label="Auto-cache favorites"
             subtitle="Cache lyrics when you favorite a song"
             value={settings.autoCacheFavorites}
@@ -226,7 +235,7 @@ export default function SettingsScreen({ navigation }) {
         <SectionHeader title="Notifications" />
         <View style={styles.card}>
           <ToggleRow
-            icon={<Bell color={PURPLE_ACCENT} size={20} />}
+            icon={<Bell color={colors.purpleAccent} size={20} />}
             label="New song alerts"
             subtitle="Get notified when new songs are added"
             value={settings.newSongAlerts}
@@ -238,20 +247,20 @@ export default function SettingsScreen({ navigation }) {
         <SectionHeader title="About" />
         <View style={styles.card}>
           <SettingsRow
-            icon={<Info color={PURPLE_ACCENT} size={20} />}
+            icon={<Info color={colors.purpleAccent} size={20} />}
             label="About App"
             onPress={() => navigation.navigate('AboutApp')}
           />
           <View style={styles.divider} />
           <SettingsRow
-            icon={<Share2 color={PURPLE_ACCENT} size={20} />}
+            icon={<Share2 color={colors.purpleAccent} size={20} />}
             label="Share this app"
             onPress={handleShare}
             right={<View />}
           />
           <View style={styles.divider} />
           <SettingsRow
-            icon={<MessageSquare color={PURPLE_ACCENT} size={20} />}
+            icon={<MessageSquare color={colors.purpleAccent} size={20} />}
             label="Contact / Feedback"
             onPress={() => navigation.navigate('FeedbackScreen')}
           />
@@ -261,7 +270,7 @@ export default function SettingsScreen({ navigation }) {
         <SectionHeader title="Legal & Data" />
         <View style={styles.card}>
           <SettingsRow
-            icon={<Shield color={PURPLE_ACCENT} size={20} />}
+            icon={<Shield color={colors.purpleAccent} size={20} />}
             label="Privacy Note"
             onPress={() => navigation.navigate('PrivacyScreen')}
           />
@@ -285,10 +294,10 @@ export default function SettingsScreen({ navigation }) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: colors.bg,
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 58 : 44,
@@ -296,12 +305,12 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   headerTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 28,
     fontWeight: '800',
   },
   sectionHeader: {
-    color: PURPLE_ACCENT,
+    color: colors.purpleAccent,
     fontSize: 13,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -312,7 +321,7 @@ const styles = StyleSheet.create({
   },
   card: {
     marginHorizontal: 16,
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
@@ -344,22 +353,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rowLabel: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 15,
     fontWeight: '600',
   },
   rowSubtitle: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 2,
   },
   divider: {
     height: 1,
-    backgroundColor: DIVIDER,
+    backgroundColor: 'rgba(150,150,150,0.15)',
     marginLeft: 64,
   },
   versionText: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 12,
     textAlign: 'center',
     marginTop: 32,

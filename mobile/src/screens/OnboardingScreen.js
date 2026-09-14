@@ -14,17 +14,7 @@ import {
 import Svg, { Circle } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Music, BookOpen, Headphones } from 'lucide-react-native';
-
-const { width, height } = Dimensions.get('window');
-
-// ─── Brand Palette ───────────────────────────────────────────────
-const BG_DARK = '#0F0A1A';
-const PURPLE_PRIMARY = '#6D28D9';
-const PURPLE_ACCENT = '#A78BFA';
-const PURPLE_FAINT = '#C4B5FD';
-const TEXT_MUTED = '#B8AFC9';
-const CARD_BG = '#1A1425';
-const ICON_BG = '#251B3A';
+import { useSettings } from '../context/SettingsContext';
 
 // ─── Responsive sizing ───────────────────────────────────────────
 const isSmall = height < 800;
@@ -54,7 +44,7 @@ const SVG_SIZE = (OUTER_R + 20) * 2;
 const SVG_CENTER = SVG_SIZE / 2;
 
 // ─── Spinning Dots + Pulse Glow ──────────────────────────────────
-function LogoWithRings() {
+function LogoWithRings({ colors, styles }) {
   const spin1 = useRef(new Animated.Value(0)).current;
   const spin2 = useRef(new Animated.Value(0)).current;
   const spin3 = useRef(new Animated.Value(0)).current;
@@ -164,17 +154,17 @@ function LogoWithRings() {
 
       {/* Inner ring — clockwise */}
       <Animated.View style={[styles.ringLayer, { transform: [{ rotate: rot1 }] }]}>
-        {renderDotRing(innerDots, INNER_R, PURPLE_ACCENT)}
+        {renderDotRing(innerDots, INNER_R, colors.purpleAccent)}
       </Animated.View>
 
       {/* Middle ring — counter-clockwise */}
       <Animated.View style={[styles.ringLayer, { transform: [{ rotate: rot2 }] }]}>
-        {renderDotRing(midDots, MID_R, PURPLE_PRIMARY)}
+        {renderDotRing(midDots, MID_R, colors.purple)}
       </Animated.View>
 
       {/* Outer ring — clockwise */}
       <Animated.View style={[styles.ringLayer, { transform: [{ rotate: rot3 }] }]}>
-        {renderDotRing(outerDots, OUTER_R, PURPLE_FAINT)}
+        {renderDotRing(outerDots, OUTER_R, colors.purpleFaint)}
       </Animated.View>
 
       {/* Logo */}
@@ -190,7 +180,7 @@ function LogoWithRings() {
 }
 
 // ─── Feature Card ────────────────────────────────────────────────
-function FeatureCard({ icon: Icon, label, delay, parentAnim }) {
+function FeatureCard({ icon: Icon, label, delay, parentAnim, colors, styles }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(18)).current;
 
@@ -224,7 +214,7 @@ function FeatureCard({ icon: Icon, label, delay, parentAnim }) {
       ]}
     >
       <View style={styles.iconCircle}>
-        <Icon color={PURPLE_ACCENT} size={20} strokeWidth={2.5} />
+        <Icon color={colors.purpleAccent} size={20} strokeWidth={2.5} />
       </View>
       <Text style={styles.featureLabel}>{label}</Text>
     </Animated.View>
@@ -233,6 +223,14 @@ function FeatureCard({ icon: Icon, label, delay, parentAnim }) {
 
 // ─── Main Screen ─────────────────────────────────────────────────
 export default function OnboardingScreen({ navigation }) {
+  const { colors: baseColors, isDark } = useSettings();
+  const colors = {
+    ...baseColors,
+    purpleFaint: isDark ? '#C4B5FD' : '#DDD6FE',
+    iconBg: isDark ? '#251B3A' : '#EDE9FE',
+  };
+  const styles = makeStyles(colors);
+
   // Staggered entrance animations
   const headFade = useRef(new Animated.Value(0)).current;
   const headSlide = useRef(new Animated.Value(24)).current;
@@ -282,7 +280,7 @@ export default function OnboardingScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <StatusBar translucent backgroundColor="transparent" barStyle={isDark ? "light-content" : "dark-content"} />
 
       <View style={styles.content}>
         {/* ── Logo + spinning rings ── */}
@@ -291,9 +289,9 @@ export default function OnboardingScreen({ navigation }) {
         {/* ── Headline ── */}
         <Animated.View style={{ opacity: headFade, transform: [{ translateY: headSlide }] }}>
           <Text style={styles.heading}>
-            <Text style={{ color: '#FFFFFF' }}>Every song,{'\n'}</Text>
-            <Text style={{ color: PURPLE_ACCENT }}>every category</Text>
-            <Text style={{ color: '#FFFFFF' }}>, one app</Text>
+            <Text style={{ color: colors.textWhite }}>Every song,{'\n'}</Text>
+            <Text style={{ color: colors.purpleAccent }}>every category</Text>
+            <Text style={{ color: colors.textWhite }}>, one app</Text>
           </Text>
         </Animated.View>
 
@@ -306,9 +304,9 @@ export default function OnboardingScreen({ navigation }) {
 
         {/* ── Feature cards (staggered entrance) ── */}
         <View style={styles.featuresColumn}>
-          <FeatureCard icon={Music} label="Lyrics for every category" delay={700} />
-          <FeatureCard icon={BookOpen} label="The story behind each song" delay={830} />
-          <FeatureCard icon={Headphones} label="Listen online, read anytime" delay={960} />
+          <FeatureCard colors={colors} styles={styles} icon={Music} label="Lyrics for every category" delay={700} />
+          <FeatureCard colors={colors} styles={styles} icon={BookOpen} label="The story behind each song" delay={830} />
+          <FeatureCard colors={colors} styles={styles} icon={Headphones} label="Listen online, read anytime" delay={960} />
         </View>
 
         {/* ── CTA Button ── */}
@@ -339,10 +337,10 @@ export default function OnboardingScreen({ navigation }) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BG_DARK,
+    backgroundColor: colors.bg,
   },
   content: {
     flex: 1,
@@ -374,7 +372,7 @@ const styles = StyleSheet.create({
     height: 148 * scale,
     borderRadius: 74 * scale,
     borderWidth: 1.5,
-    borderColor: PURPLE_PRIMARY,
+    borderColor: colors.purple,
   },
   ringLayer: {
     position: 'absolute',
@@ -385,14 +383,14 @@ const styles = StyleSheet.create({
     width: 110 * scale,
     height: 110 * scale,
     borderRadius: 55 * scale,
-    backgroundColor: '#150E28',
+    backgroundColor: colors.cardBg,
     borderWidth: 1.5,
     borderColor: 'rgba(109, 40, 217, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: PURPLE_PRIMARY,
+        shadowColor: colors.purple,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.3,
         shadowRadius: 20,
@@ -418,7 +416,7 @@ const styles = StyleSheet.create({
   subtext: {
     fontSize: isSmall ? 13.5 : 14.5,
     fontWeight: '400',
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: isSmall ? 20 : 22,
     marginBottom: isSmall ? 18 : 24,
@@ -433,7 +431,7 @@ const styles = StyleSheet.create({
   featureCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     paddingVertical: isSmall ? 12 : 14,
     paddingHorizontal: isSmall ? 14 : 18,
@@ -443,7 +441,7 @@ const styles = StyleSheet.create({
     width: isSmall ? 36 : 40,
     height: isSmall ? 36 : 40,
     borderRadius: isSmall ? 18 : 20,
-    backgroundColor: ICON_BG,
+    backgroundColor: colors.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -488,7 +486,7 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: isSmall ? 10 : 14,
     fontSize: isSmall ? 12 : 13,
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontWeight: '400',
     opacity: 0.7,
   },

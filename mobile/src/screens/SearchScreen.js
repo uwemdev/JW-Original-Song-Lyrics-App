@@ -25,25 +25,14 @@ import {
   Music,
   ChevronRight,
 } from 'lucide-react-native';
+import { useSettings } from '../context/SettingsContext';
 
 const { width } = Dimensions.get('window');
 
-// ─── Palette ─────────────────────────────────────────────────────
-const BG = '#0F0A1A';
-const CARD_BG = '#1A1425';
-const PURPLE = '#6D28D9';
-const PURPLE_ACCENT = '#A78BFA';
-const TEXT_WHITE = '#FFFFFF';
-const TEXT_MUTED = '#B8AFC9';
-const PINK = '#F472B6';
-const STATUS_BAR_H = Platform.OS === 'ios' ? 50 : StatusBar.currentHeight || 32;
-
-const RECENT_KEY = '@recent_searches';
-const MAX_RECENT = 8;
-const DEBOUNCE_MS = 300;
-
+// ─── Palette (removed) ───
 // ─── Shimmer placeholder ────────────────────────────────────────
 function Shimmer({ w, h, radius = 8, style }) {
+  const { isDark } = useSettings();
   const anim = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
     Animated.loop(
@@ -55,13 +44,15 @@ function Shimmer({ w, h, radius = 8, style }) {
   }, []);
   return (
     <Animated.View
-      style={[{ width: w, height: h, borderRadius: radius, backgroundColor: '#1F2937', opacity: anim }, style]}
+      style={[{ width: w, height: h, borderRadius: radius, backgroundColor: isDark ? '#1F2937' : '#E2E8F0', opacity: anim }, style]}
     />
   );
 }
 
 // ─── Image with fallback ─────────────────────────────────────────
 function SongImage({ uri, style, iconSize = 20 }) {
+  const { colors } = useSettings();
+  const styles = makeStyles(colors);
   const [failed, setFailed] = useState(false);
   if (!uri || failed) {
     return (
@@ -101,8 +92,8 @@ function HeartButton({ isFav, onToggle }) {
       <Animated.View style={{ transform: [{ scale: bounceAnim }] }}>
         <Heart
           size={20}
-          color={isFav ? PINK : TEXT_MUTED}
-          fill={isFav ? PINK : 'transparent'}
+          color={isFav ? '#EC4899' : colors.textMuted}
+          fill={isFav ? '#EC4899' : 'transparent'}
         />
       </Animated.View>
     </TouchableOpacity>
@@ -110,7 +101,7 @@ function HeartButton({ isFav, onToggle }) {
 }
 
 // ─── Highlighted text helper ─────────────────────────────────────
-function HighlightedText({ text, highlight, style }) {
+function HighlightedText({ text, highlight, style, colors }) {
   if (!highlight || !highlight.trim()) {
     return <Text style={style} numberOfLines={1}>{text}</Text>;
   }
@@ -122,7 +113,7 @@ function HighlightedText({ text, highlight, style }) {
     <Text style={style} numberOfLines={1}>
       {parts.map((part, i) =>
         regex.test(part) ? (
-          <Text key={i} style={{ color: PURPLE_ACCENT }}>{part}</Text>
+          <Text key={i} style={{ color: colors.purpleAccent }}>{part}</Text>
         ) : (
           <Text key={i}>{part}</Text>
         ),
@@ -135,6 +126,9 @@ function HighlightedText({ text, highlight, style }) {
 // SEARCH SCREEN
 // ═══════════════════════════════════════════════════════════════════
 export default function SearchScreen({ navigation, route }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors);
+  const DIVIDER = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   // Scoped search context (if opened from a specific category)
   const scopedCategoryId = route?.params?.categoryId || null;
   const scopedCategoryName = route?.params?.categoryName || null;
@@ -332,7 +326,7 @@ export default function SearchScreen({ navigation, route }) {
         >
           <SongImage uri={song.feature_image_url} style={styles.songRowImg} iconSize={18} />
           <View style={styles.songRowInfo}>
-            <HighlightedText
+            <HighlightedText colors={colors}
               text={song.title || 'Untitled'}
               highlight={query}
               style={styles.songRowTitle}
@@ -370,7 +364,7 @@ export default function SearchScreen({ navigation, route }) {
             accessibilityRole="button"
             accessibilityLabel={`Search for ${term}`}
           >
-            <Clock size={16} color={TEXT_MUTED} style={{ marginRight: 12 }} />
+            <Clock size={16} color={colors.textMuted} style={{ marginRight: 12 }} />
             <Text style={styles.recentItemText} numberOfLines={1}>
               {term}
             </Text>
@@ -402,7 +396,7 @@ export default function SearchScreen({ navigation, route }) {
     return (
       <View style={styles.emptyWrap}>
         <View style={styles.emptyIconCircle}>
-          <SearchIcon size={40} color={PURPLE_ACCENT} strokeWidth={1.5} />
+          <SearchIcon size={40} color={colors.purpleAccent} strokeWidth={1.5} />
         </View>
         <Text style={styles.emptyTitle}>No songs found</Text>
         <Text style={styles.emptySubtext}>
@@ -426,7 +420,7 @@ export default function SearchScreen({ navigation, route }) {
   // ── Main render ──
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
 
       {/* ── Search header ── */}
       <View style={styles.searchHeader}>
@@ -442,11 +436,11 @@ export default function SearchScreen({ navigation, route }) {
           }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <ArrowLeft size={22} color={TEXT_WHITE} />
+          <ArrowLeft size={22} color={colors.textWhite} />
         </TouchableOpacity>
 
         <View style={styles.searchInputWrap}>
-          <SearchIcon size={18} color={TEXT_MUTED} style={{ marginRight: 10 }} />
+          <SearchIcon size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
           <TextInput
             ref={inputRef}
             style={styles.searchInput}
@@ -455,7 +449,7 @@ export default function SearchScreen({ navigation, route }) {
                 ? `Search in ${scopedCategoryName}...`
                 : 'Search songs, lyrics...'
             }
-            placeholderTextColor={TEXT_MUTED}
+            placeholderTextColor={colors.textMuted}
             value={query}
             onChangeText={handleQueryChange}
             returnKeyType="search"
@@ -464,7 +458,7 @@ export default function SearchScreen({ navigation, route }) {
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={handleClear}>
-              <X size={18} color={TEXT_MUTED} />
+              <X size={18} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -474,7 +468,7 @@ export default function SearchScreen({ navigation, route }) {
       {scopedCategoryName && (
         <View style={styles.scopeLabel}>
           <Text style={styles.scopeLabelText}>
-            Searching in <Text style={{ color: PURPLE_ACCENT, fontWeight: '700' }}>{scopedCategoryName}</Text>
+            Searching in <Text style={{ color: colors.purpleAccent, fontWeight: '700' }}>{scopedCategoryName}</Text>
           </Text>
         </View>
       )}
@@ -510,10 +504,10 @@ export default function SearchScreen({ navigation, route }) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: colors.bg,
   },
 
   // ── Search header ──
@@ -537,7 +531,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: Platform.OS === 'ios' ? 12 : 6,
@@ -547,7 +541,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontWeight: '500',
   },
 
@@ -558,7 +552,7 @@ const styles = StyleSheet.create({
   },
   scopeLabelText: {
     fontSize: 13,
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontWeight: '500',
   },
 
@@ -576,12 +570,12 @@ const styles = StyleSheet.create({
   recentTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: TEXT_WHITE,
+    color: colors.textWhite,
   },
   clearAllText: {
     fontSize: 13,
     fontWeight: '600',
-    color: PURPLE_ACCENT,
+    color: colors.purpleAccent,
   },
   recentItem: {
     flexDirection: 'row',
@@ -592,7 +586,7 @@ const styles = StyleSheet.create({
   },
   recentItemText: {
     fontSize: 15,
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontWeight: '500',
     flex: 1,
   },
@@ -609,10 +603,10 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 12,
-    backgroundColor: '#1F2937',
+    backgroundColor: isDark ? '#1F2937' : '#E2E8F0',
   },
   imgFallback: {
-    backgroundColor: '#1F2937',
+    backgroundColor: isDark ? '#1F2937' : '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -624,19 +618,19 @@ const styles = StyleSheet.create({
   songRowTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     marginBottom: 3,
   },
   songRowCat: {
     fontSize: 13,
     fontWeight: '500',
-    color: PURPLE_ACCENT,
+    color: colors.purpleAccent,
   },
 
   // ── Result count ──
   resultCount: {
     fontSize: 13,
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontWeight: '600',
     marginBottom: 8,
     marginTop: 4,
@@ -664,12 +658,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 15,
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
@@ -677,7 +671,7 @@ const styles = StyleSheet.create({
   emptyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PURPLE,
+    backgroundColor: colors.purple,
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 28,

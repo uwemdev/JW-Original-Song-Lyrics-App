@@ -20,7 +20,7 @@ import StorageScreen from './src/screens/settings/StorageScreen';
 import AboutScreen from './src/screens/settings/AboutScreen';
 import FeedbackScreen from './src/screens/settings/FeedbackScreen';
 import PrivacyScreen from './src/screens/settings/PrivacyScreen';
-import { SettingsProvider } from './src/context/SettingsContext';
+import { SettingsProvider, useSettings } from './src/context/SettingsContext';
 
 const Tab = createBottomTabNavigator();
 const HomeStackNav = createNativeStackNavigator();
@@ -30,32 +30,22 @@ const SearchStackNav = createNativeStackNavigator();
 const SettingsStackNav = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
 
-// ─── Theme ───────────────────────────────────────────────────────
-const MyDarkTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: '#030712',
-    card: '#030712',
-    text: '#FFFFFF',
-    border: 'transparent',
-    primary: '#8B5CF6',
-  },
-};
+// ─── Theme is now dynamic ─────────────────────────────────────────
 
 // ─── Stack configs ───────────────────────────────────────────────
-const stackScreenOptions = {
-  headerStyle: { backgroundColor: 'rgba(3, 7, 18, 0.85)' },
+const getStackScreenOptions = (colors) => ({
+  headerStyle: { backgroundColor: colors.bg },
   headerTransparent: true,
   headerBlurEffect: 'dark',
-  headerTintColor: '#fff',
+  headerTintColor: colors.textWhite,
   headerTitleStyle: { fontWeight: '800', fontSize: 22 },
   headerShadowVisible: false,
-};
+});
 
 function HomeStackScreen() {
+  const { colors } = useSettings();
   return (
-    <HomeStackNav.Navigator screenOptions={stackScreenOptions}>
+    <HomeStackNav.Navigator screenOptions={getStackScreenOptions(colors)}>
       <HomeStackNav.Screen
         name="HomeMain"
         component={HomeScreen}
@@ -81,8 +71,9 @@ function HomeStackScreen() {
 }
 
 function CategoriesStackScreen() {
+  const { colors } = useSettings();
   return (
-    <CategoriesStackNav.Navigator screenOptions={stackScreenOptions}>
+    <CategoriesStackNav.Navigator screenOptions={getStackScreenOptions(colors)}>
       <CategoriesStackNav.Screen
         name="CategoriesMain"
         component={CategoriesScreen}
@@ -103,8 +94,9 @@ function CategoriesStackScreen() {
 }
 
 function FavoritesStackScreen() {
+  const { colors } = useSettings();
   return (
-    <FavoritesStackNav.Navigator screenOptions={stackScreenOptions}>
+    <FavoritesStackNav.Navigator screenOptions={getStackScreenOptions(colors)}>
       <FavoritesStackNav.Screen
         name="FavoritesMain"
         component={FavoritesScreen}
@@ -125,8 +117,9 @@ function FavoritesStackScreen() {
 }
 
 function SearchStackScreen() {
+  const { colors } = useSettings();
   return (
-    <SearchStackNav.Navigator screenOptions={stackScreenOptions}>
+    <SearchStackNav.Navigator screenOptions={getStackScreenOptions(colors)}>
       <SearchStackNav.Screen
         name="SearchMain"
         component={SearchScreen}
@@ -147,8 +140,9 @@ function SearchStackScreen() {
 }
 
 function SettingsStackScreen() {
+  const { colors } = useSettings();
   return (
-    <SettingsStackNav.Navigator screenOptions={stackScreenOptions}>
+    <SettingsStackNav.Navigator screenOptions={getStackScreenOptions(colors)}>
       <SettingsStackNav.Screen
         name="SettingsMain"
         component={SettingsScreen}
@@ -188,19 +182,20 @@ function SettingsStackScreen() {
   );
 }
 
-// ─── Tab colours ─────────────────────────────────────────────────
-const ACTIVE_COLOR = '#8B5CF6';
-const INACTIVE_COLOR = '#4B5563';
-
 // ─── Main Tabs ───────────────────────────────────────────────────
 function MainTabs() {
+  const { colors, isDark } = useSettings();
+  const ACTIVE_COLOR = colors.purpleAccent;
+  const INACTIVE_COLOR = colors.textMuted;
+  const tabBg = isDark ? 'rgba(12, 10, 24, 0.97)' : 'rgba(255, 255, 255, 0.97)';
+
   return (
     <Tab.Navigator
       initialRouteName="Home"
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: 'rgba(12, 10, 24, 0.97)',
+          backgroundColor: tabBg,
           borderTopWidth: 0,
           elevation: 0,
           position: 'absolute',
@@ -229,7 +224,7 @@ function MainTabs() {
           if (route.name === 'Home') {
             return (
               <View style={styles.homeTabWrap}>
-                <View style={[styles.homeTabCircle, focused && styles.homeTabCircleActive]}>
+                <View style={[styles.homeTabCircle, focused && { backgroundColor: colors.purple, ...Platform.select({ ios: { shadowColor: colors.purple, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 10 }, android: { elevation: 8 } }) }]}>
                   <IconComponent color="#FFF" size={size} strokeWidth={2.5} />
                 </View>
               </View>
@@ -250,15 +245,35 @@ function MainTabs() {
 }
 
 // ─── Root ────────────────────────────────────────────────────────
+function MainNavigation() {
+  const { isDark, colors } = useSettings();
+
+  const MyTheme = {
+    ...(isDark ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
+      background: colors.bg,
+      card: colors.bg,
+      text: colors.textWhite,
+      border: 'transparent',
+      primary: colors.purpleAccent,
+    },
+  };
+
+  return (
+    <NavigationContainer theme={MyTheme}>
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
+        <RootStack.Screen name="MainApp" component={MainTabs} />
+      </RootStack.Navigator>
+    </NavigationContainer>
+  );
+}
+
 export default function App() {
   return (
     <SettingsProvider>
-      <NavigationContainer theme={MyDarkTheme}>
-        <RootStack.Navigator screenOptions={{ headerShown: false }}>
-          <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
-          <RootStack.Screen name="MainApp" component={MainTabs} />
-        </RootStack.Navigator>
-      </NavigationContainer>
+      <MainNavigation />
     </SettingsProvider>
   );
 }
@@ -278,17 +293,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#4B5563',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  homeTabCircleActive: {
-    backgroundColor: '#6D28D9',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#6D28D9',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.5,
-        shadowRadius: 10,
-      },
-      android: { elevation: 8 },
-    }),
   },
 });

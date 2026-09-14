@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SettingsContext = createContext(null);
@@ -23,6 +24,28 @@ const DEFAULTS = {
   newSongAlerts: true,
 };
 
+export const DarkColors = {
+  bg: '#0F0A1A',
+  cardBg: '#1A1425',
+  purple: '#6D28D9',
+  purpleAccent: '#A78BFA',
+  textWhite: '#FFFFFF',
+  textMuted: '#B8AFC9',
+  divider: 'rgba(255,255,255,0.06)',
+  danger: '#EF4444',
+};
+
+export const LightColors = {
+  bg: '#F8FAFC', // Slate 50
+  cardBg: '#FFFFFF',
+  purple: '#6D28D9',
+  purpleAccent: '#8B5CF6',
+  textWhite: '#0F172A', // Slate 900 (Dark text)
+  textMuted: '#64748B', // Slate 500
+  divider: 'rgba(0,0,0,0.06)',
+  danger: '#EF4444',
+};
+
 export function SettingsProvider({ children }) {
   const [theme, setThemeState] = useState(DEFAULTS.theme);
   const [fontSizeIdx, setFontSizeIdxState] = useState(DEFAULTS.fontSizeIdx);
@@ -31,6 +54,8 @@ export function SettingsProvider({ children }) {
   const [autoCacheFavorites, setAutoCacheFavoritesState] = useState(DEFAULTS.autoCacheFavorites);
   const [newSongAlerts, setNewSongAlertsState] = useState(DEFAULTS.newSongAlerts);
   const [loaded, setLoaded] = useState(false);
+
+  const systemTheme = useColorScheme(); // 'light' or 'dark'
 
   // Load all settings from AsyncStorage on mount
   useEffect(() => {
@@ -43,7 +68,10 @@ export function SettingsProvider({ children }) {
         });
 
         if (map[KEYS.theme]) setThemeState(map[KEYS.theme]);
-        if (map[KEYS.fontSizeIdx]) setFontSizeIdxState(parseInt(map[KEYS.fontSizeIdx], 10));
+        if (map[KEYS.fontSizeIdx]) {
+          const parsed = parseInt(map[KEYS.fontSizeIdx], 10);
+          if (!isNaN(parsed)) setFontSizeIdxState(parsed);
+        }
         if (map[KEYS.autoPlay]) setAutoPlayState(map[KEYS.autoPlay] === 'true');
         if (map[KEYS.dataSaver]) setDataSaverState(map[KEYS.dataSaver] === 'true');
         if (map[KEYS.autoCacheFavorites]) setAutoCacheFavoritesState(map[KEYS.autoCacheFavorites] === 'true');
@@ -116,6 +144,10 @@ export function SettingsProvider({ children }) {
     newSongAlerts, setNewSongAlerts,
     resetAllData,
   };
+
+  const isDark = theme === 'dark' || (theme === 'system' && systemTheme === 'dark');
+  value.isDark = isDark;
+  value.colors = isDark ? DarkColors : LightColors;
 
   return (
     <SettingsContext.Provider value={value}>

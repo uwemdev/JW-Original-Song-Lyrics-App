@@ -9,18 +9,21 @@ import {
   Image,
 } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
+import { useSettings } from '../../context/SettingsContext';
 
-const BG = '#0F0A1A';
-const CARD_BG = '#1A1425';
-const PURPLE = '#6D28D9';
-const PURPLE_ACCENT = '#A78BFA';
-const TEXT_WHITE = '#FFFFFF';
-const TEXT_MUTED = '#B8AFC9';
+
+
+
+
+
+
 
 export default function AboutScreen({ navigation }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors);
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -30,7 +33,7 @@ export default function AboutScreen({ navigation }) {
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ArrowLeft color={TEXT_WHITE} size={22} />
+          <ArrowLeft color={colors.textWhite} size={22} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>About App</Text>
         <View style={{ width: 34 }} />
@@ -61,8 +64,8 @@ export default function AboutScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -80,7 +83,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -97,14 +100,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 22,
     fontWeight: '800',
     marginBottom: 32,
     textAlign: 'center',
   },
   card: {
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     padding: 24,
     borderWidth: 1,
@@ -112,19 +115,19 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   paragraph: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 15,
     lineHeight: 24,
     textAlign: 'center',
   },
   version: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 14,
     fontWeight: '600',
     marginTop: 40,
   },
   credit: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 13,
     marginTop: 8,
     opacity: 0.6,

@@ -10,13 +10,13 @@ import {
 import { ArrowLeft, Check } from 'lucide-react-native';
 import { useSettings } from '../../context/SettingsContext';
 
-const BG = '#0F0A1A';
-const CARD_BG = '#1A1425';
-const PURPLE = '#6D28D9';
-const PURPLE_ACCENT = '#A78BFA';
-const TEXT_WHITE = '#FFFFFF';
-const TEXT_MUTED = '#B8AFC9';
-const DIVIDER = 'rgba(255,255,255,0.06)';
+
+
+
+
+
+
+
 
 // Must match SongScreen.js FONT_SIZES / LINE_HEIGHTS
 const FONT_SIZES = [16, 19, 23];
@@ -31,11 +31,12 @@ const OPTIONS = [
 const SAMPLE_LYRIC = 'Praise Jah for all of his works...';
 
 export default function FontSizeScreen({ navigation }) {
-  const { fontSizeIdx, setFontSizeIdx } = useSettings();
+  const { colors, isDark, fontSizeIdx, setFontSizeIdx } = useSettings();
+  const styles = makeStyles(colors);
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -45,7 +46,7 @@ export default function FontSizeScreen({ navigation }) {
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ArrowLeft color={TEXT_WHITE} size={22} />
+          <ArrowLeft color={colors.textWhite} size={22} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Lyrics Font Size</Text>
         <View style={{ width: 34 }} />
@@ -67,7 +68,7 @@ export default function FontSizeScreen({ navigation }) {
               >
                 <View style={styles.rowContent}>
                   <View style={styles.rowTop}>
-                    <Text style={[styles.rowLabel, selected && { color: PURPLE_ACCENT }]}>
+                    <Text style={[styles.rowLabel, selected && { color: colors.purpleAccent }]}>
                       {opt.label}
                     </Text>
                     {selected && (
@@ -84,7 +85,7 @@ export default function FontSizeScreen({ navigation }) {
                         fontSize: FONT_SIZES[opt.idx],
                         lineHeight: LINE_HEIGHTS[opt.idx],
                       },
-                      selected && { color: TEXT_WHITE },
+                      selected && { color: colors.textWhite },
                     ]}
                     numberOfLines={1}
                   >
@@ -104,8 +105,8 @@ export default function FontSizeScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -123,13 +124,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 18,
     fontWeight: '800',
   },
   card: {
     marginHorizontal: 16,
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
@@ -149,7 +150,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   rowLabel: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -157,21 +158,21 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: PURPLE,
+    backgroundColor: colors.purple,
     justifyContent: 'center',
     alignItems: 'center',
   },
   preview: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
   divider: {
     height: 1,
-    backgroundColor: DIVIDER,
+    backgroundColor: 'rgba(150,150,150,0.15)',
     marginLeft: 16,
   },
   footerNote: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 12,
     textAlign: 'center',
     marginTop: 24,

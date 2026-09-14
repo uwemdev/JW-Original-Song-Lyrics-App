@@ -12,14 +12,15 @@ import {
   Animated,
 } from 'react-native';
 import { ArrowLeft, Send } from 'lucide-react-native';
+import { useSettings } from '../../context/SettingsContext';
 import { supabase } from '../../lib/supabase';
 
-const BG = '#0F0A1A';
-const CARD_BG = '#1A1425';
-const PURPLE = '#6D28D9';
-const PURPLE_ACCENT = '#A78BFA';
-const TEXT_WHITE = '#FFFFFF';
-const TEXT_MUTED = '#B8AFC9';
+
+
+
+
+
+
 
 function Toast({ visible, message }) {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -41,6 +42,8 @@ function Toast({ visible, message }) {
 }
 
 export default function FeedbackScreen({ navigation }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
@@ -86,7 +89,7 @@ export default function FeedbackScreen({ navigation }) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -96,7 +99,7 @@ export default function FeedbackScreen({ navigation }) {
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ArrowLeft color={TEXT_WHITE} size={22} />
+          <ArrowLeft color={colors.textWhite} size={22} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Contact / Feedback</Text>
         <View style={{ width: 34 }} />
@@ -166,8 +169,8 @@ export default function FeedbackScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -185,7 +188,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -195,7 +198,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   introText: {
-    color: TEXT_MUTED,
+    color: colors.textMuted,
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 32,
@@ -204,19 +207,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   label: {
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
     borderColor: 'rgba(139,92,246,0.15)',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: TEXT_WHITE,
+    color: colors.textWhite,
     fontSize: 15,
   },
   textArea: {
@@ -227,7 +230,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: PURPLE,
+    backgroundColor: colors.purple,
     borderRadius: 12,
     paddingVertical: 16,
     marginTop: 12,
