@@ -164,7 +164,7 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
   },
   preview: {
     color: colors.textMuted,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    marginTop: 4,
   },
   divider: {
     height: 1,
