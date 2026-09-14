@@ -128,7 +128,7 @@ export default function SongScreen({ route, navigation }) {
   const [duration, setDuration] = useState(0);
   
   // Heart bounce
-
+  const heartScale = useRef(new Animated.Value(1)).current;
   // Fade-in
   const contentFade = useRef(new Animated.Value(0)).current;
   const contentSlide = useRef(new Animated.Value(20)).current;

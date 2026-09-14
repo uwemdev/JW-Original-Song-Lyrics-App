@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Bell, Music, Edit3, FolderPlus, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft, Bell, Music, Edit3, FolderPlus, ChevronRight, CheckCheck } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const timeAgo = (date) => {
@@ -77,6 +77,19 @@ export default function NotificationsScreen({ navigation }) {
   const onRefresh = () => {
     setRefreshing(true);
     fetchNotifications();
+  };
+
+  const clearAll = async () => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Deletes all
+      if (error) console.error(error);
+      setNotifications([]);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handlePress = async (notif) => {
@@ -162,7 +175,14 @@ export default function NotificationsScreen({ navigation }) {
           <ArrowLeft size={22} color={TEXT_WHITE} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <View style={{ width: 22 }} /> 
+        <TouchableOpacity
+          onPress={clearAll}
+          style={styles.clearBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Clear all notifications"
+        >
+          <CheckCheck color={TEXT_MUTED} size={20} />
+        </TouchableOpacity>
       </LinearGradient>
 
       {/* ── List ── */}
@@ -213,11 +233,19 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     width: 40,
+  backBtn: {
+    width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  clearBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     color: TEXT_WHITE,
