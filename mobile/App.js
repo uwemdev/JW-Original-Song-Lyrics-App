@@ -1,5 +1,7 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, LogBox } from 'react-native';
+
+LogBox.ignoreLogs(['setLayoutAnimationEnabledExperimental']);
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -170,11 +172,6 @@ function SettingsStackScreen() {
         options={{ headerShown: false }}
       />
       <SettingsStackNav.Screen
-        name="FeedbackScreen"
-        component={FeedbackScreen}
-        options={{ headerShown: false }}
-      />
-      <SettingsStackNav.Screen
         name="PrivacyScreen"
         component={PrivacyScreen}
         options={{ headerShown: false }}
@@ -279,6 +276,7 @@ function MainNavigation() {
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
         <RootStack.Screen name="MainApp" component={MainTabs} />
+        <RootStack.Screen name="FeedbackScreen" component={FeedbackScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
   );

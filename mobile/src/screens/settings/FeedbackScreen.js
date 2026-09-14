@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { ArrowLeft, Send } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSettings } from '../../context/SettingsContext';
 import { supabase } from '../../lib/supabase';
 
@@ -38,6 +39,7 @@ function Toast({ visible, message }) {
 
 export default function FeedbackScreen({ navigation }) {
   const { colors, isDark, deviceId } = useSettings();
+  const insets = useSafeAreaInsets();
   const styles = makeStyles(colors, isDark);
   
   const [message, setMessage] = useState('');
@@ -139,6 +141,7 @@ export default function FeedbackScreen({ navigation }) {
         device_id: deviceId,
         message: msg,
         is_admin_reply: false,
+        device_meta: { os: Platform.OS, version: Platform.Version }
       }]).select();
 
       if (error) throw error;
@@ -179,7 +182,8 @@ export default function FeedbackScreen({ navigation }) {
   return (
     <KeyboardAvoidingView 
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
     >
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
 
@@ -223,7 +227,7 @@ export default function FeedbackScreen({ navigation }) {
       )}
 
       {/* Input Area */}
-      <View style={styles.inputContainer}>
+      <View style={[styles.inputContainer, { paddingBottom: Platform.OS === 'android' ? Math.max(insets.bottom, 24) : Math.max(insets.bottom, 12) }]}>
         <TextInput
           style={styles.input}
           placeholder="Type a message..."

@@ -7,20 +7,20 @@ import {
   Platform,
   StatusBar,
   Image,
+  ScrollView,
+  Linking,
 } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { useSettings } from '../../context/SettingsContext';
 
-
-
-
-
-
-
-
 export default function AboutScreen({ navigation }) {
   const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
+  
+  const openLink = (url) => {
+    Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
@@ -39,27 +39,48 @@ export default function AboutScreen({ navigation }) {
         <View style={{ width: 34 }} />
       </View>
 
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Image
           source={require('../../../assets/icon.png')}
           style={styles.logo}
           resizeMode="contain"
         />
         
-        <Text style={styles.title}>JW Original Song Lyrics</Text>
+        <Text style={styles.title}>Original Song Lyrics</Text>
         
         <View style={styles.card}>
           <Text style={styles.paragraph}>
-            This app is inspired by jw.org's Original Songs library. It was built to make lyrics and audio accessible in one beautiful place across all song categories.
+            Jehovah's Witnesses' original songs, and their lyrics, are available on{' '}
+            <Text style={styles.link} onPress={() => openLink('https://jw.org')}>jw.org</Text>. 
+            But they're spread out. Different pages for different categories, no single place to browse them all, search across them, or read the lyrics without hunting through a video or a specific song page. If you wanted to quickly find the words to a song, teach a child the verses, or sit with the lyrics during personal reflection, there was no easy way to do that in one place.
           </Text>
-          <Text style={[styles.paragraph, { marginTop: 16 }]}>
-            Whether you want to read lyrics offline, practice singing along, or just enjoy the beautiful music, everything you need is right here.
+
+          <Text style={styles.paragraph}>
+            That's what this app makes easy.
+          </Text>
+
+          <Text style={styles.paragraph}>
+            Original Song Lyrics brings together the full lyrics for every original song across all categories: Original Songs, Become Jehovah's Friend, Sing With Us, and International Music. Every song includes its complete lyrics, a short write-up explaining the story or scripture behind it, and the audio itself when you're connected, so you can listen and read at the same time.
+          </Text>
+
+          <Text style={styles.paragraph}>
+            The lyrics stay with you even without an internet connection. New songs are added regularly and show up automatically, no app update required. You can save your favorites, search across every song, and adjust the text size to however you read best.
+          </Text>
+
+          <Text style={styles.paragraph}>
+            All songs featured in this app are based on the official original songs library published by Jehovah's Witnesses at{' '}
+            <Text style={styles.link} onPress={() => openLink('https://jw.org/en/library/music-songs/original-songs/')}>
+              jw.org
+            </Text>. This app is an independent project, built by a fellow Witness who wanted this to exist. It is not affiliated with, endorsed by, or officially connected to the Watch Tower Bible and Tract Society or jw.org. It simply brings everything into one place.
+          </Text>
+
+          <Text style={[styles.paragraph, { fontWeight: '700', marginTop: 8, marginBottom: 0, color: colors.textWhite }]}>
+            This app is free, and always will be. No ads, ever.
           </Text>
         </View>
 
         <Text style={styles.version}>Version 1.0.0</Text>
-        <Text style={styles.credit}>Built for the brotherhood.</Text>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -88,22 +109,22 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     fontWeight: '800',
   },
   content: {
-    flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 40,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 60,
   },
   logo: {
-    width: 100,
-    height: 100,
-    borderRadius: 24,
-    marginBottom: 24,
+    width: 80,
+    height: 80,
+    borderRadius: 18,
+    marginBottom: 20,
   },
   title: {
     color: colors.textWhite,
     fontSize: 22,
     fontWeight: '800',
-    marginBottom: 32,
+    marginBottom: 20,
     textAlign: 'center',
   },
   card: {
@@ -116,20 +137,18 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
   },
   paragraph: {
     color: colors.textMuted,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 24,
-    textAlign: 'center',
+    marginBottom: 16,
+  },
+  link: {
+    color: colors.purpleAccent,
+    textDecorationLine: 'underline',
   },
   version: {
-    color: colors.textWhite,
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 40,
-  },
-  credit: {
     color: colors.textMuted,
     fontSize: 13,
-    marginTop: 8,
-    opacity: 0.6,
+    fontWeight: '600',
+    marginTop: 32,
   },
 });

@@ -146,9 +146,19 @@ export default function FeedbackTab() {
         <div style={s.chatPane}>
           {selectedDevice ? (
             <>
-              <div style={{ padding: '16px', borderBottom: '1px solid #2d293b', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <MessageSquare size={18} color="#A78BFA" />
-                Chatting with {selectedDevice === 'anonymous' ? 'Anonymous' : 'User ' + selectedDevice.substring(selectedDevice.length - 4)}
+              <div style={{ padding: '16px', borderBottom: '1px solid #2d293b', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <MessageSquare size={18} color="#A78BFA" />
+                  Chatting with {selectedDevice === 'anonymous' ? 'Anonymous' : 'User ' + selectedDevice.substring(selectedDevice.length - 4)}
+                </div>
+                {messages.slice().reverse().find(m => m.device_meta)?.device_meta && (() => {
+                  const meta = messages.slice().reverse().find(m => m.device_meta).device_meta;
+                  return (
+                    <div style={{ fontSize: '12px', color: '#9CA3AF', marginLeft: '30px' }}>
+                      Device: {meta.os === 'ios' ? 'iOS' : meta.os === 'android' ? 'Android' : meta.os} {meta.version && `(v${meta.version})`}
+                    </div>
+                  );
+                })()}
               </div>
               <div style={s.chatScroll}>
                 {messages.map((m, i) => (
