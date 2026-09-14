@@ -28,6 +28,7 @@ import {
 import { useSettings } from '../context/SettingsContext';
 
 const { width } = Dimensions.get('window');
+const STATUS_BAR_H = Platform.OS === 'ios' ? 50 : StatusBar.currentHeight || 32;
 
 // ─── Palette (removed) ───
 // ─── Shimmer placeholder ────────────────────────────────────────
