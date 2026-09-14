@@ -199,7 +199,7 @@ export default function NotificationsScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={PURPLE_ACCENT}
+            tintColor={colors.purpleAccent}
           />
         }
         ListEmptyComponent={

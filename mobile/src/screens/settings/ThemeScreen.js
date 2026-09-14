@@ -63,7 +63,7 @@ export default function ThemeScreen({ navigation }) {
               >
                 <View style={styles.rowLeft}>
                   <View style={[styles.iconWrap, selected && styles.iconWrapActive]}>
-                    <Icon color={selected ? '#FFF' : PURPLE_ACCENT} size={20} />
+                    <Icon color={selected ? '#FFF' : colors.purpleAccent} size={20} />
                   </View>
                   <View>
                     <Text style={[styles.rowLabel, selected && { color: colors.purpleAccent }]}>

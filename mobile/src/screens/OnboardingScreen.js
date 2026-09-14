@@ -463,12 +463,12 @@ const makeStyles = (colors) => StyleSheet.create({
     width: '100%',
     height: isSmall ? 48 : 56,
     borderRadius: isSmall ? 24 : 28,
-    backgroundColor: PURPLE_PRIMARY,
+    backgroundColor: colors.purple,
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: PURPLE_PRIMARY,
+        shadowColor: colors.purple,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.45,
         shadowRadius: 16,

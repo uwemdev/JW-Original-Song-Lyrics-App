@@ -513,7 +513,7 @@ export default function HomeScreen({ navigation }) {
       id: 'continue',
       title: lastPlayed ? lastPlayed.title : 'Continue Listening',
       subtitle: lastPlayed ? getCatName(lastPlayed) : 'Pick up where you left off',
-      icon: <Play color={colors.purpleAccent} size={18} fill={PURPLE_ACCENT} />,
+      icon: <Play color={colors.purpleAccent} size={18} fill={colors.purpleAccent} />,
       image: lastPlayed?.feature_image_url,
       onPress: lastPlayed
         ? () => navigateToSong(lastPlayed)

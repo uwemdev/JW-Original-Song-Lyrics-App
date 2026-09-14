@@ -444,7 +444,7 @@ export default function CategoryScreen({ route, navigation }) {
           <Image source={{ uri: bannerUri }} style={styles.bannerImg} resizeMode="cover" />
         ) : (
           <LinearGradient
-            colors={[PURPLE, '#3B0764']}
+            colors={[colors.purple, '#3B0764']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.bannerImg}
@@ -589,8 +589,8 @@ export default function CategoryScreen({ route, navigation }) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={PURPLE_ACCENT}
-              colors={[PURPLE_ACCENT]}
+              tintColor={colors.purpleAccent}
+              colors={[colors.purpleAccent]}
             />
           }
           onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
@@ -613,8 +613,8 @@ export default function CategoryScreen({ route, navigation }) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={PURPLE_ACCENT}
-              colors={[PURPLE_ACCENT]}
+              tintColor={colors.purpleAccent}
+              colors={[colors.purpleAccent]}
             />
           }
         />

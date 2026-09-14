@@ -657,7 +657,7 @@ const makeStyles = (colors) => StyleSheet.create({
     marginRight: 14,
     ...Platform.select({
       ios: {
-        shadowColor: PURPLE,
+        shadowColor: colors.purple,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.4,
         shadowRadius: 8,
