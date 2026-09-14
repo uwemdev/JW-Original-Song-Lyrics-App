@@ -290,7 +290,7 @@ export default function SettingsScreen({ navigation }) {
           />
           <View style={styles.divider} />
           <SettingsRow
-            icon={<WhatsAppIcon color="#25D366" size={20} />}
+            icon={<WhatsAppIcon color={colors.purpleAccent} size={20} />}
             label="WhatsApp Community"
             onPress={handleWhatsApp}
           />
