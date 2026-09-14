@@ -453,7 +453,7 @@ export default function CategoryScreen({ route, navigation }) {
         )}
         {/* Gradient overlay */}
         <LinearGradient
-          colors={['transparent', 'rgba(15,10,26,0.6)', colors.bg]}
+          colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.95)']}
           locations={[0, 0.6, 1]}
           style={styles.bannerOverlay}
         />
@@ -466,7 +466,7 @@ export default function CategoryScreen({ route, navigation }) {
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <ArrowLeft color={colors.textWhite} size={22} />
+            <ArrowLeft color={'#FFFFFF'} size={22} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -475,20 +475,20 @@ export default function CategoryScreen({ route, navigation }) {
             accessibilityRole="button"
             accessibilityLabel="Search in this category"
           >
-            <Search color={colors.textWhite} size={20} />
+            <Search color={'#FFFFFF'} size={20} />
           </TouchableOpacity>
         </View>
-      </View>
 
-      {/* ── Category info ── */}
-      <View style={styles.catInfo}>
-        <Text style={styles.catName}>{categoryName}</Text>
-        <Text style={styles.catCount}>
-          {totalCount} {totalCount === 1 ? 'song' : 'songs'}
-        </Text>
-        {categoryInfo?.description ? (
-          <Text style={styles.catDesc}>{categoryInfo.description}</Text>
-        ) : null}
+        {/* ── Category info (Moved inside banner) ── */}
+        <View style={styles.catInfo}>
+          <Text style={styles.catName}>{categoryName}</Text>
+          <Text style={styles.catCount}>
+            {totalCount} {totalCount === 1 ? 'song' : 'songs'}
+          </Text>
+          {categoryInfo?.description ? (
+            <Text style={styles.catDesc}>{categoryInfo.description}</Text>
+          ) : null}
+        </View>
       </View>
 
       {/* ── Search bar (conditional) ── */}
@@ -667,28 +667,36 @@ const makeStyles = (colors) => StyleSheet.create({
 
   // ── Category info ──
   catInfo: {
-    marginTop: -20,
-    marginBottom: 8,
+    position: 'absolute',
+    bottom: 24,
+    left: 20,
+    right: 20,
   },
   catName: {
-    color: colors.textWhite,
-    fontSize: 28,
+    color: '#FFFFFF',
+    fontSize: 34,
     fontWeight: '900',
-    letterSpacing: -0.5,
+    letterSpacing: -1,
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   catCount: {
-    color: colors.textMuted,
+    color: 'rgba(255,255,255,0.8)',
     fontSize: 14,
-    fontWeight: '600',
-    marginTop: 4,
+    fontWeight: '700',
+    marginTop: 6,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 1.5,
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   catDesc: {
-    color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 8,
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 10,
   },
 
   // ── Search bar ──

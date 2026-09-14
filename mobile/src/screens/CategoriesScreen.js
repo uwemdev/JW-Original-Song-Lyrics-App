@@ -105,7 +105,7 @@ export default function CategoriesScreen({ navigation }) {
           </LinearGradient>
         )}
         <LinearGradient
-          colors={['transparent', isDark ? 'rgba(15,10,26,0.8)' : 'rgba(255,255,255,0.7)', isDark ? 'rgba(15,10,26,0.95)' : 'rgba(255,255,255,0.95)']}
+          colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.9)']}
           locations={[0, 0.6, 1]}
           style={styles.cardOverlay}
         />
