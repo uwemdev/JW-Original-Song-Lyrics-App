@@ -105,8 +105,8 @@ export default function CategoriesScreen({ navigation }) {
           </LinearGradient>
         )}
         <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.9)']}
-          locations={[0, 0.6, 1]}
+          colors={['transparent', 'rgba(0,0,0,0.6)', '#000000']}
+          locations={[0.4, 0.75, 1]}
           style={styles.cardOverlay}
         />
         <View style={styles.cardContent}>
@@ -206,16 +206,23 @@ const makeStyles = (colors) => StyleSheet.create({
     padding: 14,
   },
   cardTitle: {
-    color: colors.textWhite,
-    fontSize: 15,
-    fontWeight: '700',
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
     marginBottom: 4,
     lineHeight: 20,
+    textShadowColor: 'rgba(0,0,0,1)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
   cardCount: {
-    color: colors.textMuted,
+    color: 'rgba(255,255,255,0.85)',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0,0,0,1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
 });

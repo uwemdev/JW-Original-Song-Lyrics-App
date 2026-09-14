@@ -453,8 +453,8 @@ export default function CategoryScreen({ route, navigation }) {
         )}
         {/* Gradient overlay */}
         <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.95)']}
-          locations={[0, 0.6, 1]}
+          colors={['transparent', 'rgba(0,0,0,0.7)', '#000000']}
+          locations={[0.3, 0.7, 1]}
           style={styles.bannerOverlay}
         />
 
@@ -677,9 +677,9 @@ const makeStyles = (colors) => StyleSheet.create({
     fontSize: 34,
     fontWeight: '900',
     letterSpacing: -1,
-    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowColor: 'rgba(0,0,0,1)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadowRadius: 10,
   },
   catCount: {
     color: 'rgba(255,255,255,0.8)',
@@ -688,15 +688,18 @@ const makeStyles = (colors) => StyleSheet.create({
     marginTop: 6,
     textTransform: 'uppercase',
     letterSpacing: 1.5,
-    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowColor: 'rgba(0,0,0,1)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    textShadowRadius: 6,
   },
   catDesc: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 15,
     lineHeight: 22,
     marginTop: 10,
+    textShadowColor: 'rgba(0,0,0,1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
 
   // ── Search bar ──
