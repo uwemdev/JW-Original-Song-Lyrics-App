@@ -10,7 +10,6 @@
     "@supabase/supabase-js": "^2.116.0",
     "expo": "~57.0.22",
     "expo-asset": "~57.0.17",
-    "expo-audio": "~57.0.5",
     "expo-av": "^16.0.8",
     "expo-build-properties": "~57.0.17",
     "expo-clipboard": "~57.0.2",

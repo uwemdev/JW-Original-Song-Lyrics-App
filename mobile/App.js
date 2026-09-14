@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Platform, LogBox } from 'react-native';
 
-LogBox.ignoreLogs(['setLayoutAnimationEnabledExperimental']);
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -32,6 +31,8 @@ const FavoritesStackNav = createNativeStackNavigator();
 const SearchStackNav = createNativeStackNavigator();
 const SettingsStackNav = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
+
+LogBox.ignoreLogs(['setLayoutAnimationEnabledExperimental']);
 
 // ─── Theme is now dynamic ─────────────────────────────────────────
 

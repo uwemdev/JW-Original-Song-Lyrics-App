@@ -22,7 +22,6 @@
     },
     "plugins": [
       "expo-asset",
-      "expo-audio",
       [
         "expo-build-properties",
         {
