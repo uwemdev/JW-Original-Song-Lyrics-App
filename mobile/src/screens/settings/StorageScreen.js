@@ -17,7 +17,7 @@ const CACHE_KEY = '@offline_lyrics_cache';
 
 export default function StorageScreen({ navigation }) {
   const { colors, isDark } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   const [cache, setCache] = useState([]); // [{ id, title, category, dataSize }]
   const [loading, setLoading] = useState(true);
 
@@ -152,7 +152,7 @@ export default function StorageScreen({ navigation }) {
   );
 }
 
-const makeStyles = (colors) => StyleSheet.create({
+const makeStyles = (colors, isDark) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',

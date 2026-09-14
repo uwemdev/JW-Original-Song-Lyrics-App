@@ -230,7 +230,7 @@ export default function OnboardingScreen({ navigation }) {
     purpleFaint: isDark ? '#C4B5FD' : '#DDD6FE',
     iconBg: isDark ? '#251B3A' : '#EDE9FE',
   };
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
 
   // Staggered entrance animations
   const headFade = useRef(new Animated.Value(0)).current;
@@ -338,7 +338,7 @@ export default function OnboardingScreen({ navigation }) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────
-const makeStyles = (colors) => StyleSheet.create({
+const makeStyles = (colors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,

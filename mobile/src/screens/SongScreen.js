@@ -46,7 +46,7 @@ const LINE_HEIGHTS = [30, 36, 44];
 // ─── Image with fallback ─────────────────────────────────────────
 function FallbackImage({ uri, style, iconSize = 28 }) {
   const { colors } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   const [failed, setFailed] = useState(false);
   if (!uri || failed) {
     return (
@@ -86,7 +86,7 @@ function Shimmer({ w, h, radius = 8, style }) {
 // ─── Toast ───────────────────────────────────────────────────────
 function Toast({ visible, message }) {
   const { colors } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   const opacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (visible) {

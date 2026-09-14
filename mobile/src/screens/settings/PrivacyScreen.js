@@ -18,7 +18,7 @@ import { useSettings } from '../../context/SettingsContext';
 
 export default function PrivacyScreen({ navigation }) {
   const { colors, isDark } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   return (
     <View style={styles.container}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
@@ -68,7 +68,7 @@ export default function PrivacyScreen({ navigation }) {
   );
 }
 
-const makeStyles = (colors) => StyleSheet.create({
+const makeStyles = (colors, isDark) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',

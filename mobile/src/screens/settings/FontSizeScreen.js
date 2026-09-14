@@ -32,7 +32,7 @@ const SAMPLE_LYRIC = 'Praise Jah for all of his works...';
 
 export default function FontSizeScreen({ navigation }) {
   const { colors, isDark, fontSizeIdx, setFontSizeIdx } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
 
   return (
     <View style={styles.container}>
@@ -105,7 +105,7 @@ export default function FontSizeScreen({ navigation }) {
   );
 }
 
-const makeStyles = (colors) => StyleSheet.create({
+const makeStyles = (colors, isDark) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',

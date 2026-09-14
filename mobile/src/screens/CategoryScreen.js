@@ -75,7 +75,7 @@ function Shimmer({ w, h, radius = 8, style }) {
 // ─── Image with fallback ─────────────────────────────────────────
 function SongImage({ uri, style, iconSize = 20 }) {
   const { colors } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   const [failed, setFailed] = useState(false);
   if (!uri || failed) {
     return (
@@ -143,7 +143,7 @@ function HeartButton({ isFav, onToggle }) {
 // ═══════════════════════════════════════════════════════════════════
 export default function CategoryScreen({ route, navigation }) {
   const { colors, isDark } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   const { categoryId, categoryName, categoryImage } = route.params;
 
   // ── State ──
@@ -625,7 +625,7 @@ export default function CategoryScreen({ route, navigation }) {
 // ═══════════════════════════════════════════════════════════════════
 // STYLES
 // ═══════════════════════════════════════════════════════════════════
-const makeStyles = (colors) => StyleSheet.create({
+const makeStyles = (colors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,

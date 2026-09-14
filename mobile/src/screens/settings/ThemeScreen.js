@@ -26,7 +26,7 @@ const OPTIONS = [
 
 export default function ThemeScreen({ navigation }) {
   const { colors, isDark, theme, setTheme } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
 
   return (
     <View style={styles.container}>
@@ -90,7 +90,7 @@ export default function ThemeScreen({ navigation }) {
   );
 }
 
-const makeStyles = (colors) => StyleSheet.create({
+const makeStyles = (colors, isDark) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',

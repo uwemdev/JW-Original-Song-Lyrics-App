@@ -71,7 +71,7 @@ function Shimmer({ w, h, radius = 8, style }) {
 // ─── Image with fallback ─────────────────────────────────────────
 function SongImage({ uri, style, iconSize = 20 }) {
   const { colors } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   const [failed, setFailed] = useState(false);
   if (!uri || failed) {
     return (
@@ -117,7 +117,7 @@ function PressCard({ onPress, style, children }) {
 // ─── Section header ──────────────────────────────────────────────
 function SectionHeader({ title, onSeeAll }) {
   const { colors } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -138,7 +138,7 @@ function SectionHeader({ title, onSeeAll }) {
 // ─── Horizontal song card ────────────────────────────────────────
 function HScrollCard({ song, categoryName, onPress }) {
   const { colors } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   return (
     <PressCard onPress={onPress} style={styles.hCard}>
       <SongImage uri={song.feature_image_url} style={styles.hCardImg} iconSize={24} />
@@ -153,7 +153,7 @@ function HScrollCard({ song, categoryName, onPress }) {
 // ═══════════════════════════════════════════════════════════════════
 export default function HomeScreen({ navigation }) {
   const { colors, isDark } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
 
   const [categories, setCategories] = useState([]);
   const [songs, setSongs] = useState([]);
@@ -629,7 +629,7 @@ export default function HomeScreen({ navigation }) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────
-const makeStyles = (colors) => StyleSheet.create({
+const makeStyles = (colors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,

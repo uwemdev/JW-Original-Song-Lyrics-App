@@ -35,7 +35,7 @@ const FONT_LABELS = ['Small', 'Medium', 'Large'];
 // ─── Toast ───────────────────────────────────────────────────────
 function Toast({ visible, message }) {
   const { colors } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   const opacity = useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
     if (visible) {
@@ -57,13 +57,13 @@ function Toast({ visible, message }) {
 // ─── Row Components ──────────────────────────────────────────────
 function SectionHeader({ title }) {
   const { colors } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
 function SettingsRow({ icon, label, subtitle, onPress, right, danger }) {
   const { colors } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   return (
     <TouchableOpacity
       style={styles.row}
@@ -88,7 +88,7 @@ function SettingsRow({ icon, label, subtitle, onPress, right, danger }) {
 
 function ToggleRow({ icon, label, subtitle, value, onValueChange }) {
   const { colors, isDark } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   return (
     <View style={styles.row}>
       <View style={styles.rowLeft}>
@@ -116,7 +116,7 @@ function ToggleRow({ icon, label, subtitle, value, onValueChange }) {
 export default function SettingsScreen({ navigation }) {
   const settings = useSettings();
   const { colors, isDark } = settings;
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
@@ -285,7 +285,7 @@ export default function SettingsScreen({ navigation }) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────
-const makeStyles = (colors) => StyleSheet.create({
+const makeStyles = (colors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,

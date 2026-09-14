@@ -39,7 +39,7 @@ function PressCard({ onPress, style, children }) {
 
 export default function CategoriesScreen({ navigation }) {
   const { colors, isDark } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
 
   const [categories, setCategories] = useState([]);
   const [songCounts, setSongCounts] = useState({});
@@ -153,7 +153,7 @@ export default function CategoriesScreen({ navigation }) {
   );
 }
 
-const makeStyles = (colors) => StyleSheet.create({
+const makeStyles = (colors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
