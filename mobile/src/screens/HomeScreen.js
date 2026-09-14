@@ -26,6 +26,8 @@ import {
   Disc3,
   Bell,
   Shuffle,
+  X,
+  Megaphone,
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 
@@ -153,7 +155,7 @@ function HScrollCard({ song, categoryName, onPress }) {
 // HOME SCREEN
 // ═══════════════════════════════════════════════════════════════════
 export default function HomeScreen({ navigation }) {
-  const { colors, isDark } = useSettings();
+  const { colors, isDark, installDate, dismissedNotifs, dismissNotification } = useSettings();
   const styles = makeStyles(colors, isDark);
 
   const [categories, setCategories] = useState([]);
@@ -163,6 +165,7 @@ export default function HomeScreen({ navigation }) {
   const [activeFilter, setActiveFilter] = useState('all');
   const [lastPlayed, setLastPlayed] = useState(null);
   const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
+  const [activeBanner, setActiveBanner] = useState(null);
 
   // ── Data fetch ──
   const fetchData = useCallback(async () => {
@@ -205,10 +208,31 @@ export default function HomeScreen({ navigation }) {
       } else {
         setHasUnreadNotifs(false);
       }
+      
+      // Fetch active banner
+      if (installDate) {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const { data: bannerData } = await supabase
+          .from('app_notifications')
+          .select('*')
+          .gte('created_at', installDate)
+          .gte('created_at', thirtyDaysAgo.toISOString())
+          .order('created_at', { ascending: false });
+
+        if (bannerData) {
+          // find first notification not in dismissedNotifs
+          const active = bannerData.find(b => !dismissedNotifs.includes(b.id));
+          setActiveBanner(active || null);
+        } else {
+          setActiveBanner(null);
+        }
+      }
     } catch (err) {
       // ignore
     }
-  }, []);
+  }, [installDate, dismissedNotifs]);
 
   const loadLastPlayed = useCallback(async () => {
     try {
@@ -351,6 +375,11 @@ export default function HomeScreen({ navigation }) {
 
   // 1️⃣ Header
   sections.push({ key: 'header' });
+  
+  // 1.5️⃣ Banner
+  if (activeBanner) {
+    sections.push({ key: 'banner', banner: activeBanner });
+  }
 
   // 2️⃣ Filter pills
   sections.push({ key: 'pills' });
@@ -413,6 +442,40 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             </View>
           </View>
+        );
+
+      case 'banner':
+        return (
+          <TouchableOpacity 
+            style={styles.bannerContainer}
+            activeOpacity={0.9}
+            onPress={() => {
+              dismissNotification(item.banner.id);
+              navigation.navigate('Notifications');
+            }}
+          >
+            <LinearGradient
+              colors={['#8B5CF6', '#6D28D9']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.bannerGradient}
+            >
+              <View style={styles.bannerIconWrap}>
+                <Megaphone size={20} color="#FFF" />
+              </View>
+              <View style={styles.bannerContent}>
+                <Text style={styles.bannerTitle} numberOfLines={1}>{item.banner.title}</Text>
+                <Text style={styles.bannerMessage} numberOfLines={2}>{item.banner.message}</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.bannerCloseBtn}
+                onPress={() => dismissNotification(item.banner.id)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <X size={18} color="rgba(255,255,255,0.7)" />
+              </TouchableOpacity>
+            </LinearGradient>
+          </TouchableOpacity>
         );
 
       case 'pills':
@@ -691,7 +754,59 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     fontWeight: '800',
   },
   headerSearchBtn: {
-    padding: 6,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // ── Banner ──
+  bannerContainer: {
+    paddingHorizontal: GRID_PAD,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  bannerGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    padding: 16,
+    elevation: 4,
+    shadowColor: '#6D28D9',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  bannerIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  bannerContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  bannerTitle: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  bannerMessage: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  bannerCloseBtn: {
+    padding: 4,
+    marginLeft: 8,
+    alignSelf: 'flex-start',
   },
 
   // ── Pills ──

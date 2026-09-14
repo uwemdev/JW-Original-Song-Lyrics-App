@@ -5,6 +5,7 @@ import { Plus, Edit2, Trash2, Save, ArrowLeft, X } from 'lucide-react';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import FeedbackTab from './FeedbackTab';
+import NotificationsTab from './NotificationsTab';
 
 // ReactQuill toolbar config
 const quillModules = {
@@ -753,6 +754,10 @@ export default function AdminDashboard() {
         </div>
       </div>
     );
+  }
+
+  if (currentTab === 'notifications') {
+    return <NotificationsTab />;
   }
 
   // ═══════════════════════════════════════

@@ -7,10 +7,11 @@ import {
   TouchableOpacity,
   StatusBar,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Bell, Music, Edit3, FolderPlus, ChevronRight, CheckCheck } from 'lucide-react-native';
+import { ArrowLeft, Bell, Music, Edit3, FolderPlus, ChevronRight, CheckCheck, Megaphone, ExternalLink } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -37,7 +38,7 @@ const timeAgo = (date) => {
 
 
 export default function NotificationsScreen({ navigation }) {
-  const { colors, isDark } = useSettings();
+  const { colors, isDark, installDate } = useSettings();
   const styles = makeStyles(colors, isDark);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,18 +50,37 @@ export default function NotificationsScreen({ navigation }) {
 
   const fetchNotifications = async () => {
     try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
+      const [autoRes, pushRes] = await Promise.all([
+        supabase
+          .from('notifications')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50),
+        supabase
+          .from('app_notifications')
+          .select('*')
+          .gte('created_at', installDate || new Date(0).toISOString())
+          .order('created_at', { ascending: false })
+          .limit(50)
+      ]);
         
-      if (error && error.code !== '42P01') {
-        // Ignore 42P01 (relation does not exist) in case they haven't applied migration yet
-        console.error('Error fetching notifications:', error);
+      let fetched = [];
+      if (autoRes.data) fetched = [...fetched, ...autoRes.data];
+      if (pushRes.data) {
+        const mappedPush = pushRes.data.map(p => ({
+          id: p.id,
+          type: 'admin_push',
+          title: p.title,
+          message: p.message,
+          link_url: p.link_url,
+          created_at: p.created_at,
+        }));
+        fetched = [...fetched, ...mappedPush];
       }
       
-      const fetched = data || [];
+      fetched.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      fetched = fetched.slice(0, 50);
+      
       setNotifications(fetched);
       
       if (fetched.length > 0) {
@@ -95,6 +115,13 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   const handlePress = async (notif) => {
+    if (notif.type === 'admin_push') {
+      if (notif.link_url) {
+        Linking.openURL(notif.link_url).catch(err => console.error("Couldn't open URL", err));
+      }
+      return;
+    }
+
     if (!notif.reference_id) return;
 
     if (notif.type === 'new_category') {
@@ -130,6 +157,8 @@ export default function NotificationsScreen({ navigation }) {
         return <Edit3 size={20} color="#38BDF8" />; // Blue for edits
       case 'new_category':
         return <FolderPlus size={20} color="#10B981" />; // Green for new categories
+      case 'admin_push':
+        return <Megaphone size={20} color={colors.purpleAccent} />;
       default:
         return <Bell size={20} color={colors.textMuted} />;
     }
@@ -153,7 +182,13 @@ export default function NotificationsScreen({ navigation }) {
         <View style={styles.contentContainer}>
           <Text style={styles.title}>{item.title}</Text>
           <Text style={styles.message}>{item.message}</Text>
-          <Text style={styles.time}>{dateStr}</Text>
+          {item.type === 'admin_push' && item.link_url && (
+            <View style={styles.linkWrap}>
+              <Text style={[styles.time, { color: colors.purpleAccent }]}>View Link</Text>
+              <ExternalLink size={12} color={colors.purpleAccent} style={{ marginLeft: 4 }} />
+            </View>
+          )}
+          <Text style={[styles.time, (item.type === 'admin_push' && item.link_url) && { marginTop: 4 }]}>{dateStr}</Text>
         </View>
         <ChevronRight size={16} color="rgba(255,255,255,0.2)" />
       </TouchableOpacity>
@@ -320,5 +355,10 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  linkWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
   },
 });

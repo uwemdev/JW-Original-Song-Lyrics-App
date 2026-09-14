@@ -94,7 +94,7 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingTop: 32,
-    paddingBottom: 40,
+    paddingBottom: 140,
     alignItems: 'center',
   },
   iconWrap: {

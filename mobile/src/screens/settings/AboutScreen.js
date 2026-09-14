@@ -112,7 +112,7 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 60,
+    paddingBottom: 140,
   },
   logo: {
     width: 80,

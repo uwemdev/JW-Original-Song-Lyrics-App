@@ -14,6 +14,8 @@ const KEYS = {
   autoCacheFavorites: '@settings_auto_cache_favorites',
   newSongAlerts: '@settings_new_song_alerts',
   deviceId: '@settings_device_id',
+  installDate: '@settings_install_date',
+  dismissedNotifs: '@settings_dismissed_notifs',
 };
 
 // Defaults
@@ -57,6 +59,8 @@ export function SettingsProvider({ children }) {
   const [newSongAlerts, setNewSongAlertsState] = useState(DEFAULTS.newSongAlerts);
   const [deviceId, setDeviceIdState] = useState(null);
   const [hasUnreadFeedback, setHasUnreadFeedback] = useState(false);
+  const [installDate, setInstallDate] = useState(null);
+  const [dismissedNotifs, setDismissedNotifs] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
   const systemTheme = useColorScheme(); // 'light' or 'dark'
@@ -91,6 +95,20 @@ export function SettingsProvider({ children }) {
           const newId = generateDeviceId();
           await AsyncStorage.setItem(KEYS.deviceId, newId);
           setDeviceIdState(newId);
+        }
+
+        if (map[KEYS.installDate]) {
+          setInstallDate(map[KEYS.installDate]);
+        } else {
+          const now = new Date().toISOString();
+          await AsyncStorage.setItem(KEYS.installDate, now);
+          setInstallDate(now);
+        }
+
+        if (map[KEYS.dismissedNotifs]) {
+          try {
+            setDismissedNotifs(JSON.parse(map[KEYS.dismissedNotifs]));
+          } catch (_) {}
         }
       } catch (_) {}
       setLoaded(true);
@@ -168,7 +186,16 @@ export function SettingsProvider({ children }) {
 
   const setNewSongAlerts = useCallback(async (val) => {
     setNewSongAlertsState(val);
-    await AsyncStorage.setItem(KEYS.newSongAlerts, String(val));
+    await AsyncStorage.setItem(KEYS.newSongAlerts, val ? 'true' : 'false');
+  }, []);
+
+  const dismissNotification = useCallback(async (id) => {
+    setDismissedNotifs(prev => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      AsyncStorage.setItem(KEYS.dismissedNotifs, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
   }, []);
 
   // Reset all settings + app data
@@ -202,6 +229,8 @@ export function SettingsProvider({ children }) {
     autoCacheFavorites, setAutoCacheFavorites,
     newSongAlerts, setNewSongAlerts,
     deviceId,
+    installDate,
+    dismissedNotifs, dismissNotification,
     hasUnreadFeedback, setHasUnreadFeedback,
     resetAllData,
   };

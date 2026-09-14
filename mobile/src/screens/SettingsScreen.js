@@ -232,6 +232,13 @@ export default function SettingsScreen({ navigation }) {
             value={settings.newSongAlerts}
             onValueChange={settings.setNewSongAlerts}
           />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon={<Bell color={colors.purpleAccent} size={20} />}
+            label="Notification History"
+            subtitle="View past announcements and alerts"
+            onPress={() => navigation.navigate('Notifications')}
+          />
         </View>
 
         {/* ── About ── */}
