@@ -450,7 +450,7 @@ const makeStyles = (colors) => StyleSheet.create({
   featureLabel: {
     fontSize: isSmall ? 14 : 15,
     fontWeight: '500',
-    color: '#E2DFF0',
+    color: colors.textWhite,
     flex: 1,
   },
 
