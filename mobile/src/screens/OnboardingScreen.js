@@ -285,7 +285,7 @@ export default function OnboardingScreen({ navigation }) {
 
       <View style={styles.content}>
         {/* ── Logo + spinning rings ── */}
-        <LogoWithRings />
+        <LogoWithRings colors={colors} styles={styles} />
 
         {/* ── Headline ── */}
         <Animated.View style={{ opacity: headFade, transform: [{ translateY: headSlide }] }}>
