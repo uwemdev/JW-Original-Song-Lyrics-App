@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
+import { Audio } from 'expo-av';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -123,9 +124,11 @@ export default function SongScreen({ route, navigation }) {
   const [toastMsg, setToastMsg] = useState('');
 
   // Audio State
+  const [sound, setSound] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isBuffering, setIsBuffering] = useState(false);
   
   // Heart bounce
   const heartScale = useRef(new Animated.Value(1)).current;
@@ -146,11 +149,37 @@ export default function SongScreen({ route, navigation }) {
     loadFavoriteStatus();
     fetchMoreSongs();
     saveLastPlayed();
-    
-    // Auto-play logic
+
+    return () => {
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (song.mp3_url && settings.autoPlay) {
-      setIsPlaying(true);
-      setDuration(180000); // Fake duration 3 mins
+      handlePlayPause();
+    }
+  }, [song.mp3_url]);
+
+  const onPlaybackStatusUpdate = useCallback((status) => {
+    if (status.isLoaded) {
+      setPosition(status.positionMillis);
+      setDuration(status.durationMillis || 0);
+      setIsPlaying(status.isPlaying);
+      setIsBuffering(status.isBuffering);
+
+      if (status.didJustFinish) {
+        setIsPlaying(false);
+        setPosition(0);
+      }
+    } else {
+      if (status.error) {
+        console.log('Audio Error:', status.error);
+        setToastMsg('Failed to load audio');
+        setShowToast(true);
+      }
     }
   }, []);
 
@@ -160,32 +189,30 @@ export default function SongScreen({ route, navigation }) {
       setShowToast(true);
       return;
     }
-    
-    // Fake audio playback for preview purposes
-    if (isPlaying) {
-      setIsPlaying(false);
-    } else {
-      setIsPlaying(true);
-      setDuration(180000);
+
+    try {
+      if (sound) {
+        if (isPlaying) {
+          await sound.pauseAsync();
+        } else {
+          await sound.playAsync();
+        }
+      } else {
+        // Load and play
+        setIsBuffering(true);
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: song.mp3_url },
+          { shouldPlay: true },
+          onPlaybackStatusUpdate
+        );
+        setSound(newSound);
+      }
+    } catch (error) {
+      console.log('Playback error:', error);
+      setToastMsg('Error playing audio');
+      setShowToast(true);
     }
   }
-
-  // Fake progress timer
-  useEffect(() => {
-    let interval;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setPosition((prev) => {
-          if (prev >= duration) {
-            setIsPlaying(false);
-            return 0;
-          }
-          return prev + 1000;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, duration]);
 
   const formatTime = (millis) => {
     if (!millis) return '0:00';
@@ -410,6 +437,9 @@ export default function SongScreen({ route, navigation }) {
                   <Text style={styles.seekTime}>{formatTime(position)}</Text>
                   <Text style={styles.seekTime}>{formatTime(duration)}</Text>
                 </View>
+                {isBuffering && (
+                  <Text style={{color: colors.textMuted, fontSize: 10, textAlign: 'center', marginTop: 4}}>Buffering...</Text>
+                )}
               </View>
             </View>
           </View>
