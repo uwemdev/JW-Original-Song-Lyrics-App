@@ -45,7 +45,6 @@ export default function NotificationsScreen({ navigation }) {
 
   useEffect(() => {
     fetchNotifications();
-    markAsRead();
   }, []);
 
   const fetchNotifications = async () => {
@@ -60,20 +59,20 @@ export default function NotificationsScreen({ navigation }) {
         // Ignore 42P01 (relation does not exist) in case they haven't applied migration yet
         console.error('Error fetching notifications:', error);
       }
-      setNotifications(data || []);
+      
+      const fetched = data || [];
+      setNotifications(fetched);
+      
+      if (fetched.length > 0) {
+        await AsyncStorage.setItem('@last_read_notification_time', fetched[0].created_at);
+      } else {
+        await AsyncStorage.setItem('@last_read_notification_time', new Date().toISOString());
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
       setRefreshing(false);
-    }
-  };
-
-  const markAsRead = async () => {
-    try {
-      await AsyncStorage.setItem('@last_read_notification_time', new Date().toISOString());
-    } catch (e) {
-      // ignore
     }
   };
 
