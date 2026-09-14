@@ -114,6 +114,7 @@ export default function AdminDashboard() {
 
   // Category form
   const [catForm, setCatForm] = useState({ name: '', slug: '', sort_order: 0 });
+  const [catImageFile, setCatImageFile] = useState(null);
 
   // Reset to list when tab changes
   useEffect(() => {
@@ -253,6 +254,7 @@ export default function AdminDashboard() {
   function openAddCategory() {
     setEditingCategory(null);
     setCatForm({ name: '', slug: '', sort_order: 0 });
+    setCatImageFile(null);
     setErrorMsg('');
     setSuccessMsg('');
     setView('category-form');
@@ -261,6 +263,7 @@ export default function AdminDashboard() {
   function openEditCategory(cat) {
     setEditingCategory(cat);
     setCatForm({ name: cat.name || '', slug: cat.slug || '', sort_order: cat.sort_order || 0 });
+    setCatImageFile(null);
     setErrorMsg('');
     setSuccessMsg('');
     setView('category-form');
@@ -272,11 +275,32 @@ export default function AdminDashboard() {
     setErrorMsg('');
 
     try {
+      let image_url = editingCategory?.image_url || '';
+
+      if (catImageFile) {
+        const fileExt = catImageFile.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('images')
+          .upload(fileName, catImageFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('images')
+          .getPublicUrl(fileName);
+
+        image_url = publicUrlData.publicUrl;
+      }
+
+      const payload = { ...catForm, image_url };
+
       if (editingCategory) {
-        const { error } = await supabase.from('categories').update(catForm).eq('id', editingCategory.id);
+        const { error } = await supabase.from('categories').update(payload).eq('id', editingCategory.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('categories').insert([catForm]);
+        const { error } = await supabase.from('categories').insert([payload]);
         if (error) throw error;
       }
       await fetchData();
@@ -523,6 +547,21 @@ export default function AdminDashboard() {
               />
             </div>
 
+            <div style={s.formGroup}>
+              <label style={s.label}>Category Image</label>
+              {editingCategory?.image_url && !catImageFile && (
+                <div style={{ marginBottom: '8px' }}>
+                  <img src={editingCategory.image_url} alt="Current" style={{ width: '120px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #2d293b' }} />
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setCatImageFile(e.target.files[0])}
+                style={{ ...s.input, padding: '8px' }}
+              />
+            </div>
+
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #2d293b' }}>
               <button type="button" onClick={() => setView('list')} style={s.btnSecondary}>Cancel</button>
               <button type="submit" disabled={saving} style={{ ...s.btnPrimary, opacity: saving ? 0.6 : 1 }}>
@@ -661,6 +700,7 @@ export default function AdminDashboard() {
             <table style={s.table}>
               <thead>
                 <tr>
+                  <th style={s.th}></th>
                   <th style={s.th}>Name</th>
                   <th style={s.th}>Slug</th>
                   <th style={s.th}>Sort Order</th>
@@ -673,6 +713,15 @@ export default function AdminDashboard() {
                   const songCount = songs.filter(s => s.category_id === cat.id).length;
                   return (
                     <tr key={cat.id}>
+                      <td style={s.td}>
+                        {cat.image_url ? (
+                          <img src={cat.image_url} alt="" style={s.imgThumb} />
+                        ) : (
+                          <div style={{ ...s.imgThumb, background: '#2d293b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ fontSize: '10px', color: '#6B7280' }}>N/A</span>
+                          </div>
+                        )}
+                      </td>
                       <td style={{ ...s.td, color: '#fff', fontWeight: '500' }}>{cat.name}</td>
                       <td style={s.td}>{cat.slug}</td>
                       <td style={s.td}>{cat.sort_order}</td>
