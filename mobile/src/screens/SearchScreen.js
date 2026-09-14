@@ -128,7 +128,7 @@ function HighlightedText({ text, highlight, style, colors }) {
 // ═══════════════════════════════════════════════════════════════════
 export default function SearchScreen({ navigation, route }) {
   const { colors, isDark } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   // Scoped search context (if opened from a specific category)
   const scopedCategoryId = route?.params?.categoryId || null;
   const scopedCategoryName = route?.params?.categoryName || null;
@@ -504,7 +504,7 @@ export default function SearchScreen({ navigation, route }) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────
-const makeStyles = (colors) => StyleSheet.create({
+const makeStyles = (colors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
