@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { Plus, Edit2, Trash2, Save, ArrowLeft, X } from 'lucide-react';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
+import FeedbackTab from './FeedbackTab';
 
 // ReactQuill toolbar config
 const quillModules = {
@@ -323,6 +324,13 @@ export default function AdminDashboard() {
     } catch (err) {
       setErrorMsg(err.message);
     }
+  }
+
+  // ═══════════════════════════════════════
+  //  RENDER: FEEDBACK TAB
+  // ═══════════════════════════════════════
+  if (currentTab === 'feedback') {
+    return <FeedbackTab />;
   }
 
   // ═══════════════════════════════════════

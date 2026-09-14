@@ -3,6 +3,7 @@ import { View, StyleSheet, Platform } from 'react-native';
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, LayoutGrid, Home, Heart, Settings } from 'lucide-react-native';
 
 import HomeScreen from './src/screens/HomeScreen';
@@ -184,10 +185,14 @@ function SettingsStackScreen() {
 
 // ─── Main Tabs ───────────────────────────────────────────────────
 function MainTabs() {
-  const { colors, isDark } = useSettings();
+  const { colors, isDark, hasUnreadFeedback } = useSettings();
+  const insets = useSafeAreaInsets();
   const ACTIVE_COLOR = colors.purpleAccent;
   const INACTIVE_COLOR = colors.textMuted;
   const tabBg = isDark ? 'rgba(12, 10, 24, 0.97)' : 'rgba(255, 255, 255, 0.97)';
+
+  const tabHeight = (Platform.OS === 'ios' ? 88 : 72) + insets.bottom;
+  const paddingBottom = (Platform.OS === 'ios' ? 28 : 12) + insets.bottom;
 
   return (
     <Tab.Navigator
@@ -199,8 +204,8 @@ function MainTabs() {
           borderTopWidth: 0,
           elevation: 0,
           position: 'absolute',
-          height: Platform.OS === 'ios' ? 88 : 72,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+          height: tabHeight,
+          paddingBottom: paddingBottom,
           paddingTop: 8,
         },
         tabBarActiveTintColor: ACTIVE_COLOR,
@@ -235,11 +240,20 @@ function MainTabs() {
         },
       })}
     >
-      <Tab.Screen name="Search" component={SearchStackScreen} />
-      <Tab.Screen name="Categories" component={CategoriesStackScreen} />
-      <Tab.Screen name="Home" component={HomeStackScreen} />
-      <Tab.Screen name="Favorites" component={FavoritesStackScreen} />
-      <Tab.Screen name="Settings" component={SettingsStackScreen} />
+      <Tab.Screen name="Search" component={SearchStackScreen} options={{ tabBarShowLabel: true, tabBarLabel: 'Search' }} />
+      <Tab.Screen name="Categories" component={CategoriesStackScreen} options={{ tabBarShowLabel: true, tabBarLabel: 'Categories' }} />
+      <Tab.Screen name="Home" component={HomeStackScreen} options={{ tabBarLabel: () => null }} />
+      <Tab.Screen name="Favorites" component={FavoritesStackScreen} options={{ tabBarShowLabel: true, tabBarLabel: 'Favorites' }} />
+      <Tab.Screen 
+        name="Settings" 
+        component={SettingsStackScreen} 
+        options={{ 
+          tabBarShowLabel: true, 
+          tabBarLabel: 'Settings',
+          tabBarBadge: hasUnreadFeedback ? '!' : null,
+          tabBarBadgeStyle: { backgroundColor: colors.danger, color: '#FFF', fontSize: 10, minWidth: 14, height: 14, lineHeight: 14 }
+        }} 
+      />
     </Tab.Navigator>
   );
 }
@@ -272,9 +286,11 @@ function MainNavigation() {
 
 export default function App() {
   return (
-    <SettingsProvider>
-      <MainNavigation />
-    </SettingsProvider>
+    <SafeAreaProvider>
+      <SettingsProvider>
+        <MainNavigation />
+      </SettingsProvider>
+    </SafeAreaProvider>
   );
 }
 

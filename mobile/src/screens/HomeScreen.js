@@ -25,6 +25,7 @@ import {
   Music,
   Disc3,
   Bell,
+  Shuffle,
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 
@@ -34,7 +35,7 @@ const { width } = Dimensions.get('window');
 const CARD_GAP = 8;
 const GRID_PAD = 16;
 const GRID_CARD_W = (width - GRID_PAD * 2 - CARD_GAP) / 2;
-const SCROLL_CARD_W = 140;
+const SCROLL_CARD_W = 100;
 
 // ─── Category gradient colours for fallback ──────────────────────
 const CAT_GRADIENTS = [
@@ -70,7 +71,7 @@ function Shimmer({ w, h, radius = 8, style }) {
 
 // ─── Image with fallback ─────────────────────────────────────────
 function SongImage({ uri, style, iconSize = 20 }) {
-  const { colors } = useSettings();
+  const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
   const [failed, setFailed] = useState(false);
   if (!uri || failed) {
@@ -116,7 +117,7 @@ function PressCard({ onPress, style, children }) {
 
 // ─── Section header ──────────────────────────────────────────────
 function SectionHeader({ title, onSeeAll }) {
-  const { colors } = useSettings();
+  const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
   return (
     <View style={styles.sectionHeader}>
@@ -137,7 +138,7 @@ function SectionHeader({ title, onSeeAll }) {
 
 // ─── Horizontal song card ────────────────────────────────────────
 function HScrollCard({ song, categoryName, onPress }) {
-  const { colors } = useSettings();
+  const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
   return (
     <PressCard onPress={onPress} style={styles.hCard}>
@@ -452,7 +453,7 @@ export default function HomeScreen({ navigation }) {
       case 'recent':
         return (
           <View style={styles.sectionWrap}>
-            <SectionHeader title="Recently Added" onSeeAll={() => {}} />
+            <SectionHeader title="Recently Added" />
             <FlatList
               horizontal
               data={recentSongs}
@@ -479,7 +480,6 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.sectionWrap}>
               <SectionHeader
                 title={`Popular in ${cat.name}`}
-                onSeeAll={() => navigateToCategory(cat)}
               />
               <FlatList
                 horizontal
@@ -514,9 +514,13 @@ export default function HomeScreen({ navigation }) {
       subtitle: lastPlayed ? getCatName(lastPlayed) : 'Pick up where you left off',
       icon: <Play color={colors.purpleAccent} size={18} fill={colors.purpleAccent} />,
       image: lastPlayed?.feature_image_url,
-      onPress: lastPlayed
-        ? () => navigateToSong(lastPlayed)
-        : undefined,
+      onPress: () => {
+        if (lastPlayed) {
+          navigateToSong(lastPlayed);
+        } else if (recentSongs.length > 0) {
+          navigateToSong(recentSongs[0]);
+        }
+      },
     });
 
     // 2. Favorites
@@ -529,14 +533,18 @@ export default function HomeScreen({ navigation }) {
       onPress: () => navigation.navigate('Favorites'),
     });
 
-    // 3. Recently Added
+    // 3. Random Song
     gridItems.push({
-      id: 'recent-grid',
-      title: 'Recently Added',
-      subtitle: 'Latest songs...',
-      icon: <Clock color={colors.purpleAccent} size={18} />,
-      image: recentSongs[0]?.feature_image_url,
-      onPress: () => {},
+      id: 'random-song',
+      title: 'Random Song',
+      subtitle: 'Discover new lyrics',
+      icon: <Shuffle color={colors.purpleAccent} size={18} />,
+      onPress: () => {
+        if (songs && songs.length > 0) {
+          const randomSong = songs[Math.floor(Math.random() * songs.length)];
+          navigateToSong(randomSong);
+        }
+      },
     });
 
     // 4–6. First 3 categories
@@ -564,7 +572,7 @@ export default function HomeScreen({ navigation }) {
                   {item.solidPurple ? (
                     <View style={[styles.gridCardInner, { backgroundColor: colors.purple }]}>
                       <View style={styles.gridThumbWrap}>
-                        <View style={[styles.gridThumb, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                        <View style={[styles.gridThumb, { backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' }]}>
                           {item.icon}
                         </View>
                       </View>
@@ -751,11 +759,11 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
   },
   playOverlay: {
     position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    top: 9,
+    left: 9,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: 'rgba(109,40,217,0.85)',
     justifyContent: 'center',
     alignItems: 'center',

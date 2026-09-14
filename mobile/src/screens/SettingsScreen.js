@@ -34,7 +34,7 @@ const FONT_LABELS = ['Small', 'Medium', 'Large'];
 
 // ─── Toast ───────────────────────────────────────────────────────
 function Toast({ visible, message }) {
-  const { colors } = useSettings();
+  const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
   const opacity = useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
@@ -56,13 +56,13 @@ function Toast({ visible, message }) {
 
 // ─── Row Components ──────────────────────────────────────────────
 function SectionHeader({ title }) {
-  const { colors } = useSettings();
+  const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
   return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
 function SettingsRow({ icon, label, subtitle, onPress, right, danger }) {
-  const { colors } = useSettings();
+  const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
   return (
     <TouchableOpacity

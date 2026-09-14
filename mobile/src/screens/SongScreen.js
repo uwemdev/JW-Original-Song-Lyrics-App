@@ -45,7 +45,7 @@ const LINE_HEIGHTS = [30, 36, 44];
 
 // ─── Image with fallback ─────────────────────────────────────────
 function FallbackImage({ uri, style, iconSize = 28 }) {
-  const { colors } = useSettings();
+  const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
   const [failed, setFailed] = useState(false);
   if (!uri || failed) {
@@ -85,7 +85,7 @@ function Shimmer({ w, h, radius = 8, style }) {
 
 // ─── Toast ───────────────────────────────────────────────────────
 function Toast({ visible, message }) {
-  const { colors } = useSettings();
+  const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
   const opacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -148,9 +148,9 @@ export default function SongScreen({ route, navigation }) {
     saveLastPlayed();
     
     // Auto-play logic
-    if (settings.autoPlay) {
+    if (song.mp3_url && settings.autoPlay) {
       setIsPlaying(true);
-      setDuration(180000);
+      setDuration(180000); // Fake duration 3 mins
     }
   }, []);
 
@@ -161,13 +161,12 @@ export default function SongScreen({ route, navigation }) {
       return;
     }
     
-    // Fake audio playback for preview purposes since expo-av crashes Expo Go
+    // Fake audio playback for preview purposes
     if (isPlaying) {
       setIsPlaying(false);
     } else {
       setIsPlaying(true);
-      // Optional: Fake progress
-      setDuration(180000); // 3 minutes
+      setDuration(180000);
     }
   }
 
@@ -238,7 +237,7 @@ export default function SongScreen({ route, navigation }) {
     try {
       await AsyncStorage.setItem(
         '@last_played_song',
-        JSON.stringify({ id: song.id, title: song.title, feature_image_url: song.feature_image_url, category_id: song.category_id, categories: song.categories }),
+        JSON.stringify(song),
       );
     } catch (_) {}
   };
@@ -312,7 +311,9 @@ export default function SongScreen({ route, navigation }) {
           <FallbackImage uri={song.feature_image_url} style={{ width: '100%', height: '100%' }} iconSize={48} />
         </Animated.View>
         <LinearGradient
-          colors={['transparent', 'rgba(15, 10, 26, 0.4)', 'rgba(15, 10, 26, 0.95)', colors.bg]}
+          colors={isDark 
+            ? ['rgba(15, 10, 26, 0)', 'rgba(15, 10, 26, 0.4)', 'rgba(15, 10, 26, 0.95)', colors.bg]
+            : ['rgba(248, 250, 252, 0)', 'rgba(248, 250, 252, 0.4)', 'rgba(248, 250, 252, 0.95)', colors.bg]}
           locations={[0.0, 0.5, 0.78, 1.0]}
           style={StyleSheet.absoluteFillObject}
         />
@@ -565,7 +566,7 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     left: 0,
     right: 0,
     height: HEADER_COLLAPSED_H,
-    backgroundColor: 'rgba(15, 10, 26, 0.95)',
+    backgroundColor: isDark ? 'rgba(15, 10, 26, 0.95)' : 'rgba(248, 250, 252, 0.95)',
     justifyContent: 'flex-end',
     alignItems: 'center',
     paddingBottom: 12,

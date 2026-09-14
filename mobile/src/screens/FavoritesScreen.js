@@ -63,7 +63,7 @@ function Shimmer({ w, h, radius = 8, style }) {
 
 // ─── Image with fallback ─────────────────────────────────────────
 function SongImage({ uri, style, iconSize = 20 }) {
-  const { colors } = useSettings();
+  const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
   const [failed, setFailed] = useState(false);
   if (!uri || failed) {
@@ -84,6 +84,7 @@ function SongImage({ uri, style, iconSize = 20 }) {
 
 // ─── Heart button with bounce ────────────────────────────────────
 function HeartButton({ isFav, onToggle }) {
+  const { colors } = useSettings();
   const bounceAnim = useRef(new Animated.Value(1)).current;
 
   const handlePress = () => {
@@ -114,6 +115,8 @@ function HeartButton({ isFav, onToggle }) {
 
 // ─── Undo toast ──────────────────────────────────────────────────
 function UndoToast({ visible, onUndo }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors, isDark);
   const opacity = useRef(new Animated.Value(0)).current;
   const slideY = useRef(new Animated.Value(30)).current;
 

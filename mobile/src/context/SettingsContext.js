@@ -12,13 +12,14 @@ const KEYS = {
   dataSaver: '@settings_data_saver',
   autoCacheFavorites: '@settings_auto_cache_favorites',
   newSongAlerts: '@settings_new_song_alerts',
+  deviceId: '@settings_device_id',
 };
 
 // Defaults
 const DEFAULTS = {
-  theme: 'dark', // 'dark' | 'light' | 'system'
+  theme: 'system', // 'dark' | 'light' | 'system'
   fontSizeIdx: 1, // 0=small, 1=medium, 2=large
-  autoPlay: false,
+  autoPlay: true,
   dataSaver: false,
   autoCacheFavorites: false,
   newSongAlerts: true,
@@ -53,9 +54,15 @@ export function SettingsProvider({ children }) {
   const [dataSaver, setDataSaverState] = useState(DEFAULTS.dataSaver);
   const [autoCacheFavorites, setAutoCacheFavoritesState] = useState(DEFAULTS.autoCacheFavorites);
   const [newSongAlerts, setNewSongAlertsState] = useState(DEFAULTS.newSongAlerts);
+  const [deviceId, setDeviceIdState] = useState(null);
+  const [hasUnreadFeedback, setHasUnreadFeedback] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   const systemTheme = useColorScheme(); // 'light' or 'dark'
+
+  const generateDeviceId = () => {
+    return 'dev_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+  };
 
   // Load all settings from AsyncStorage on mount
   useEffect(() => {
@@ -76,10 +83,61 @@ export function SettingsProvider({ children }) {
         if (map[KEYS.dataSaver]) setDataSaverState(map[KEYS.dataSaver] === 'true');
         if (map[KEYS.autoCacheFavorites]) setAutoCacheFavoritesState(map[KEYS.autoCacheFavorites] === 'true');
         if (map[KEYS.newSongAlerts] !== undefined) setNewSongAlertsState(map[KEYS.newSongAlerts] !== 'false');
+
+        if (map[KEYS.deviceId]) {
+          setDeviceIdState(map[KEYS.deviceId]);
+        } else {
+          const newId = generateDeviceId();
+          await AsyncStorage.setItem(KEYS.deviceId, newId);
+          setDeviceIdState(newId);
+        }
       } catch (_) {}
       setLoaded(true);
     })();
   }, []);
+
+  // Listen for unread feedback
+  useEffect(() => {
+    if (!deviceId) return;
+    
+    const checkUnread = async () => {
+      const { count } = await supabase
+        .from('feedback')
+        .select('*', { count: 'exact', head: true })
+        .eq('device_id', deviceId)
+        .eq('is_admin_reply', true)
+        .eq('is_read', false);
+      setHasUnreadFeedback(count > 0);
+    };
+    checkUnread();
+
+    const channel = supabase.channel('global_feedback')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'feedback',
+        filter: `device_id=eq.${deviceId}`
+      }, (payload) => {
+        if (payload.new.is_admin_reply) {
+          setHasUnreadFeedback(true);
+        }
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'feedback',
+        filter: `device_id=eq.${deviceId}`
+      }, (payload) => {
+        if (payload.new.is_read) {
+          checkUnread();
+        }
+      })
+      .subscribe();
+      
+    return () => {
+       supabase.removeChannel(channel);
+    };
+  }, [deviceId]);
 
   // Setter helpers — update state immediately + persist
   const setTheme = useCallback(async (val) => {
@@ -142,6 +200,8 @@ export function SettingsProvider({ children }) {
     dataSaver, setDataSaver,
     autoCacheFavorites, setAutoCacheFavorites,
     newSongAlerts, setNewSongAlerts,
+    deviceId,
+    hasUnreadFeedback, setHasUnreadFeedback,
     resetAllData,
   };
 

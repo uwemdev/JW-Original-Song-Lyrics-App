@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,23 +8,18 @@ import {
   Platform,
   StatusBar,
   KeyboardAvoidingView,
-  ScrollView,
+  FlatList,
   Animated,
+  Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { useSettings } from '../../context/SettingsContext';
 import { supabase } from '../../lib/supabase';
 
-
-
-
-
-
-
-
 function Toast({ visible, message }) {
   const opacity = useRef(new Animated.Value(0)).current;
-  React.useEffect(() => {
+  useEffect(() => {
     if (visible) {
       Animated.sequence([
         Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
@@ -42,46 +37,143 @@ function Toast({ visible, message }) {
 }
 
 export default function FeedbackScreen({ navigation }) {
-  const { colors, isDark } = useSettings();
+  const { colors, isDark, deviceId } = useSettings();
   const styles = makeStyles(colors, isDark);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [message, setMessage] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   
+  const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+  
+  const flatListRef = useRef(null);
 
-  const submitDisabled = !message.trim() || submitting;
+  useEffect(() => {
+    if (!deviceId) return;
+
+    fetchMessages();
+    markAsRead();
+
+    // Subscribe to realtime replies
+    const channel = supabase
+      .channel('feedback_chat')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'feedback',
+        filter: `device_id=eq.${deviceId}`,
+      }, (payload) => {
+        setMessages((prev) => {
+          // Prevent duplicates if we already optimistically added it
+          if (prev.find(m => m.id === payload.new.id)) return prev;
+          return [...prev, payload.new];
+        });
+        markAsRead(); // Mark new as read if we are on the screen
+        
+        // Scroll to bottom
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [deviceId]);
+
+  const fetchMessages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('feedback')
+        .select('*')
+        .eq('device_id', deviceId)
+        .order('created_at', { ascending: true });
+        
+      if (!error && data) {
+        setMessages(data);
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: false });
+        }, 200);
+      }
+    } catch (err) {
+      console.log('Error fetching chat', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAsRead = async () => {
+    if (!deviceId) return;
+    try {
+      await supabase
+        .from('feedback')
+        .update({ is_read: true })
+        .eq('device_id', deviceId)
+        .eq('is_admin_reply', true)
+        .eq('is_read', false);
+    } catch(err){}
+  };
 
   const handleSubmit = async () => {
-    if (submitDisabled) return;
+    if (!message.trim() || submitting || !deviceId) return;
     setSubmitting(true);
+    const msg = message.trim();
+    setMessage('');
+    
+    // Optimistic UI update
+    const optimisticMsg = {
+      id: Date.now().toString(), // temp ID
+      message: msg,
+      is_admin_reply: false,
+      created_at: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    setTimeout(() => {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 100);
 
     try {
-      const { error } = await supabase.from('feedback').insert([{
-        name: name.trim() || null,
-        email: email.trim() || null,
-        message: message.trim(),
-      }]);
+      const { data, error } = await supabase.from('feedback').insert([{
+        device_id: deviceId,
+        message: msg,
+        is_admin_reply: false,
+      }]).select();
 
       if (error) throw error;
-
-      setName('');
-      setEmail('');
-      setMessage('');
       
-      setToastMsg('Thank you! Your feedback has been sent.');
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 2500);
-
+      // Replace optimistic message with real one
+      if (data && data[0]) {
+        setMessages(prev => prev.map(m => m.id === optimisticMsg.id ? data[0] : m));
+      }
     } catch (err) {
-      setToastMsg('Failed to send feedback. Try again later.');
+      setToastMsg('Failed to send. Try again.');
       setShowToast(true);
       setTimeout(() => setShowToast(false), 2500);
+      // Remove optimistic msg and restore text
+      setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+      setMessage(msg);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const renderItem = ({ item }) => {
+    const isAdmin = item.is_admin_reply;
+    
+    // Format time: HH:MM
+    const date = new Date(item.created_at);
+    const timeString = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    return (
+      <View style={[styles.bubbleWrapper, isAdmin ? styles.bubbleLeft : styles.bubbleRight]}>
+        <View style={[styles.bubble, isAdmin ? styles.bubbleAdmin : styles.bubbleUser]}>
+          <Text style={styles.bubbleText}>{item.message}</Text>
+          <Text style={styles.bubbleTime}>{timeString}</Text>
+        </View>
+      </View>
+    );
   };
 
   return (
@@ -97,72 +189,58 @@ export default function FeedbackScreen({ navigation }) {
           onPress={() => navigation.goBack()}
           style={styles.backBtn}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
         >
           <ArrowLeft color={colors.textWhite} size={22} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Contact / Feedback</Text>
+        <View>
+          <Text style={styles.headerTitle}>Contact & Feedback</Text>
+          <Text style={styles.headerSubtitle}>We usually reply quickly</Text>
+        </View>
         <View style={{ width: 34 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <Text style={styles.introText}>
-          Have a suggestion, found a bug, or just want to say hi? Let us know below.
-        </Text>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Name (optional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Your name"
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            value={name}
-            onChangeText={setName}
-            editable={!submitting}
-          />
+      {/* Chat Area */}
+      {loading ? (
+        <View style={styles.loadingCenter}>
+          <ActivityIndicator size="large" color={colors.purpleAccent} />
         </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.chatContent}
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>
+                Have a suggestion, found a bug, or just want to say hi? Send us a message below!
+              </Text>
+            </View>
+          }
+        />
+      )}
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Email (optional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Your email address"
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            editable={!submitting}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Message *</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="What's on your mind?"
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            value={message}
-            onChangeText={setMessage}
-            multiline
-            numberOfLines={5}
-            textAlignVertical="top"
-            editable={!submitting}
-          />
-        </View>
-
+      {/* Input Area */}
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Type a message..."
+          placeholderTextColor="rgba(255,255,255,0.4)"
+          value={message}
+          onChangeText={setMessage}
+          multiline
+          maxLength={1000}
+        />
         <TouchableOpacity
-          style={[styles.submitBtn, submitDisabled && styles.submitBtnDisabled]}
+          style={[styles.sendBtn, (!message.trim() || submitting) && styles.sendBtnDisabled]}
           onPress={handleSubmit}
-          disabled={submitDisabled}
-          accessibilityRole="button"
+          disabled={!message.trim() || submitting}
         >
-          <Send color={submitDisabled ? 'rgba(255,255,255,0.5)' : '#FFF'} size={18} />
-          <Text style={[styles.submitText, submitDisabled && { color: 'rgba(255,255,255,0.5)' }]}>
-            {submitting ? 'Sending...' : 'Send Feedback'}
-          </Text>
+          <Send color="#FFF" size={20} />
         </TouchableOpacity>
-      </ScrollView>
+      </View>
 
       <Toast visible={showToast} message={toastMsg} />
     </KeyboardAvoidingView>
@@ -178,6 +256,8 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 58 : 44,
     paddingHorizontal: 16,
     paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
   },
   backBtn: {
     width: 34,
@@ -191,61 +271,109 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     color: colors.textWhite,
     fontSize: 18,
     fontWeight: '800',
+    textAlign: 'center',
   },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
-  },
-  introText: {
+  headerSubtitle: {
     color: colors.textMuted,
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 32,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 2,
   },
-  formGroup: {
-    marginBottom: 20,
+  loadingCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  label: {
-    color: colors.textWhite,
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: colors.cardBg,
-    borderWidth: 1,
-    borderColor: 'rgba(139,92,246,0.15)',
-    borderRadius: 12,
+  chatContent: {
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: colors.textWhite,
-    fontSize: 15,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
-  textArea: {
-    minHeight: 120,
-  },
-  submitBtn: {
-    flexDirection: 'row',
+  emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.purple,
-    borderRadius: 12,
-    paddingVertical: 16,
-    marginTop: 12,
+    marginTop: 40,
+    paddingHorizontal: 20,
   },
-  submitBtnDisabled: {
-    backgroundColor: 'rgba(109,40,217,0.4)',
+  emptyText: {
+    color: colors.textMuted,
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
   },
-  submitText: {
+  bubbleWrapper: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    width: '100%',
+  },
+  bubbleLeft: {
+    justifyContent: 'flex-start',
+  },
+  bubbleRight: {
+    justifyContent: 'flex-end',
+  },
+  bubble: {
+    maxWidth: '80%',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  bubbleAdmin: {
+    backgroundColor: 'rgba(139,92,246,0.15)', // Purple tint for admin
+    borderBottomLeftRadius: 4,
+  },
+  bubbleUser: {
+    backgroundColor: colors.purple, // Solid purple for user
+    borderBottomRightRadius: 4,
+  },
+  bubbleText: {
     color: '#FFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  bubbleTime: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 11,
+    alignSelf: 'flex-end',
+    marginTop: 4,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: colors.cardBg,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    minHeight: 44,
+    maxHeight: 120,
+    color: colors.textWhite,
+    fontSize: 15,
+    marginRight: 12,
+  },
+  sendBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.purple,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 0,
+  },
+  sendBtnDisabled: {
+    backgroundColor: 'rgba(109,40,217,0.4)',
   },
   toast: {
     position: 'absolute',
-    bottom: 40,
+    top: 100, // Show at top to avoid covering input
     alignSelf: 'center',
     backgroundColor: 'rgba(109,40,217,0.95)',
     paddingHorizontal: 20,

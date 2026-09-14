@@ -74,7 +74,7 @@ function Shimmer({ w, h, radius = 8, style }) {
 
 // ─── Image with fallback ─────────────────────────────────────────
 function SongImage({ uri, style, iconSize = 20 }) {
-  const { colors } = useSettings();
+  const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
   const [failed, setFailed] = useState(false);
   if (!uri || failed) {

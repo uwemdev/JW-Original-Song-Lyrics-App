@@ -30,7 +30,11 @@ import { useSettings } from '../context/SettingsContext';
 const { width } = Dimensions.get('window');
 const STATUS_BAR_H = Platform.OS === 'ios' ? 50 : StatusBar.currentHeight || 32;
 
-// ─── Palette (removed) ───
+// ─── Constants ───
+const DEBOUNCE_MS = 300;
+const RECENT_KEY = '@recent_searches';
+const MAX_RECENT = 10;
+
 // ─── Shimmer placeholder ────────────────────────────────────────
 function Shimmer({ w, h, radius = 8, style }) {
   const { isDark } = useSettings();
@@ -52,7 +56,7 @@ function Shimmer({ w, h, radius = 8, style }) {
 
 // ─── Image with fallback ─────────────────────────────────────────
 function SongImage({ uri, style, iconSize = 20 }) {
-  const { colors } = useSettings();
+  const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
   const [failed, setFailed] = useState(false);
   if (!uri || failed) {
@@ -73,6 +77,7 @@ function SongImage({ uri, style, iconSize = 20 }) {
 
 // ─── Heart button with bounce ────────────────────────────────────
 function HeartButton({ isFav, onToggle }) {
+  const { colors } = useSettings();
   const bounceAnim = useRef(new Animated.Value(1)).current;
 
   const handlePress = () => {

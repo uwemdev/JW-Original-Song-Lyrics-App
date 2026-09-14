@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { LogOut, Music, FolderTree, LayoutDashboard, Music2 } from 'lucide-react';
+import { LogOut, Music, FolderTree, LayoutDashboard, Music2, MessageSquare } from 'lucide-react';
 
 export default function AdminLayout() {
   const [session, setSession] = useState(null);
@@ -60,6 +60,7 @@ export default function AdminLayout() {
   const navItems = [
     { key: 'songs', label: 'Songs', icon: Music },
     { key: 'categories', label: 'Categories', icon: FolderTree },
+    { key: 'feedback', label: 'Feedback & Chat', icon: MessageSquare },
   ];
 
   return (
