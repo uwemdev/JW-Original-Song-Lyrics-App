@@ -110,7 +110,7 @@ function Toast({ visible, message }) {
 // ═══════════════════════════════════════════════════════════════════
 export default function SongScreen({ route, navigation }) {
   const { colors, isDark } = useSettings();
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, isDark);
   const { song } = route.params;
   const scrollY = useRef(new Animated.Value(0)).current;
   const settings = useSettings();
@@ -537,7 +537,7 @@ export default function SongScreen({ route, navigation }) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────
-const makeStyles = (colors) => StyleSheet.create({
+const makeStyles = (colors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
