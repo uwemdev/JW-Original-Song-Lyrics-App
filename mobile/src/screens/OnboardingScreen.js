@@ -17,6 +17,7 @@ import { Music, BookOpen, Headphones } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 
 // ─── Responsive sizing ───────────────────────────────────────────
+const { height } = Dimensions.get('window');
 const isSmall = height < 800;
 const scale = isSmall ? 0.75 : 1;
 
