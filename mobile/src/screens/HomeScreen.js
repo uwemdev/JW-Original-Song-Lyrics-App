@@ -183,7 +183,6 @@ export default function HomeScreen({ navigation }) {
 
   const checkUnreadNotifs = useCallback(async () => {
     try {
-      // Get the latest notification from Supabase
       const { data, error } = await supabase
         .from('notifications')
         .select('created_at')
@@ -192,7 +191,6 @@ export default function HomeScreen({ navigation }) {
         .maybeSingle();
 
       if (error && error.code !== '42P01') {
-        console.error('Error checking notifications:', error);
         return;
       }
 
@@ -201,7 +199,8 @@ export default function HomeScreen({ navigation }) {
         const lastReadTimeStr = await AsyncStorage.getItem('@last_read_notification_time');
         const lastReadTime = lastReadTimeStr ? new Date(lastReadTimeStr).getTime() : 0;
         
-        setHasUnreadNotifs(latestTime > lastReadTime);
+        // Add a small 1000ms buffer in case of parsing discrepancies
+        setHasUnreadNotifs(latestTime > lastReadTime + 1000);
       } else {
         setHasUnreadNotifs(false);
       }
@@ -235,9 +234,9 @@ export default function HomeScreen({ navigation }) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchData();
+    await Promise.all([fetchData(), checkUnreadNotifs()]);
     setRefreshing(false);
-  }, [fetchData]);
+  }, [fetchData, checkUnreadNotifs]);
 
   // ── Derived data ──
   const categoryMap = {};
