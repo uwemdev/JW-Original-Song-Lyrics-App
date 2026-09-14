@@ -149,7 +149,6 @@ function UndoToast({ visible, onUndo }) {
 export default function FavoritesScreen({ navigation }) {
   const { colors, isDark } = useSettings();
   const styles = makeStyles(colors);
-  const DIVIDER = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const [favSongs, setFavSongs] = useState([]);
   const [favIds, setFavIds] = useState([]);
   const [loading, setLoading] = useState(true);

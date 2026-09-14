@@ -128,7 +128,6 @@ function HighlightedText({ text, highlight, style, colors }) {
 export default function SearchScreen({ navigation, route }) {
   const { colors, isDark } = useSettings();
   const styles = makeStyles(colors);
-  const DIVIDER = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   // Scoped search context (if opened from a specific category)
   const scopedCategoryId = route?.params?.categoryId || null;
   const scopedCategoryName = route?.params?.categoryName || null;

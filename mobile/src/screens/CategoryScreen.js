@@ -144,7 +144,6 @@ function HeartButton({ isFav, onToggle }) {
 export default function CategoryScreen({ route, navigation }) {
   const { colors, isDark } = useSettings();
   const styles = makeStyles(colors);
-  const DIVIDER = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const { categoryId, categoryName, categoryImage } = route.params;
 
   // ── State ──
@@ -754,7 +753,7 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: DIVIDER,
+    borderBottomColor: colors.divider,
   },
   sortOptionActive: {
     backgroundColor: 'rgba(109,40,217,0.15)',
@@ -775,7 +774,7 @@ const makeStyles = (colors) => StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: DIVIDER,
+    borderBottomColor: colors.divider,
   },
   listThumb: {
     width: 64,

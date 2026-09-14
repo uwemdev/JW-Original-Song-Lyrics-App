@@ -111,7 +111,6 @@ function Toast({ visible, message }) {
 export default function SongScreen({ route, navigation }) {
   const { colors, isDark } = useSettings();
   const styles = makeStyles(colors);
-  const DIVIDER = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const { song } = route.params;
   const scrollY = useRef(new Animated.Value(0)).current;
   const settings = useSettings();

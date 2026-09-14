@@ -30,15 +30,6 @@ import {
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 
-
-
-
-
-
-
-
-const DANGER = '#EF4444';
-
 const FONT_LABELS = ['Small', 'Medium', 'Large'];
 
 // ─── Toast ───────────────────────────────────────────────────────
@@ -86,7 +77,7 @@ function SettingsRow({ icon, label, subtitle, onPress, right, danger }) {
           {icon}
         </View>
         <View style={styles.rowTextWrap}>
-          <Text style={[styles.rowLabel, danger && { color: DANGER }]}>{label}</Text>
+          <Text style={[styles.rowLabel, danger && { color: colors.danger }]}>{label}</Text>
           {subtitle ? <Text style={styles.rowSubtitle}>{subtitle}</Text> : null}
         </View>
       </View>
@@ -276,7 +267,7 @@ export default function SettingsScreen({ navigation }) {
           />
           <View style={styles.divider} />
           <SettingsRow
-            icon={<Trash2 color={DANGER} size={20} />}
+            icon={<Trash2 color={colors.danger} size={20} />}
             label="Reset App Data"
             danger
             onPress={handleResetData}

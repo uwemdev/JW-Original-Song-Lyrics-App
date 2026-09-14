@@ -13,15 +13,6 @@ import { ArrowLeft, Trash2, Music, HardDrive } from 'lucide-react-native';
 import { useSettings } from '../../context/SettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-
-
-
-
-
-
-
-const DANGER = '#EF4444';
-
 const CACHE_KEY = '@offline_lyrics_cache';
 
 export default function StorageScreen({ navigation }) {
@@ -96,7 +87,7 @@ export default function StorageScreen({ navigation }) {
         style={styles.removeBtn}
         accessibilityLabel={`Remove ${item.title} from cache`}
       >
-        <Trash2 color={DANGER} size={16} />
+        <Trash2 color={colors.danger} size={16} />
       </TouchableOpacity>
     </View>
   );
@@ -265,7 +256,7 @@ const makeStyles = (colors) => StyleSheet.create({
     borderColor: 'rgba(239,68,68,0.2)',
   },
   clearAllText: {
-    color: DANGER,
+    color: colors.danger,
     fontSize: 14,
     fontWeight: '600',
   },
