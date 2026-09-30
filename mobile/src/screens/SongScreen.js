@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -15,7 +16,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -123,12 +124,9 @@ export default function SongScreen({ route, navigation }) {
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
-  // Audio State
-  const [sound, setSound] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isBuffering, setIsBuffering] = useState(false);
+  // Audio State using expo-audio
+  const player = useAudioPlayer(song.mp3_url);
+  const status = useAudioPlayerStatus(player);
   
   // Heart bounce
   const heartScale = useRef(new Animated.Value(1)).current;
@@ -149,39 +147,23 @@ export default function SongScreen({ route, navigation }) {
     loadFavoriteStatus();
     fetchMoreSongs();
     saveLastPlayed();
-
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
   }, []);
+
+  // Stop audio when navigating away to another song
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('blur', () => {
+      try {
+        player.pause();
+      } catch (_) {}
+    });
+    return unsubscribe;
+  }, [navigation, player]);
 
   useEffect(() => {
     if (song.mp3_url && settings.autoPlay) {
-      handlePlayPause();
+      player.play();
     }
   }, [song.mp3_url]);
-
-  const onPlaybackStatusUpdate = useCallback((status) => {
-    if (status.isLoaded) {
-      setPosition(status.positionMillis);
-      setDuration(status.durationMillis || 0);
-      setIsPlaying(status.isPlaying);
-      setIsBuffering(status.isBuffering);
-
-      if (status.didJustFinish) {
-        setIsPlaying(false);
-        setPosition(0);
-      }
-    } else {
-      if (status.error) {
-        console.log('Audio Error:', status.error);
-        setToastMsg('Failed to load audio');
-        setShowToast(true);
-      }
-    }
-  }, []);
 
   async function handlePlayPause() {
     if (!song.mp3_url) {
@@ -190,36 +172,21 @@ export default function SongScreen({ route, navigation }) {
       return;
     }
 
-    try {
-      if (sound) {
-        if (isPlaying) {
-          await sound.pauseAsync();
-        } else {
-          await sound.playAsync();
-        }
-      } else {
-        // Load and play
-        setIsBuffering(true);
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: song.mp3_url },
-          { shouldPlay: true },
-          onPlaybackStatusUpdate
-        );
-        setSound(newSound);
-      }
-    } catch (error) {
-      console.log('Playback error:', error);
-      setToastMsg('Error playing audio');
-      setShowToast(true);
+    if (player.playing) {
+      player.pause();
+    } else {
+      player.play();
     }
   }
 
-  const formatTime = (millis) => {
-    if (!millis) return '0:00';
-    const totalSeconds = Math.floor(millis / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+
+  const formatTime = (seconds) => {
+    if (!seconds) return '0:00';
+    const totalSeconds = Math.floor(seconds);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
   // ── Favorites ──
@@ -422,7 +389,7 @@ export default function SongScreen({ route, navigation }) {
                 accessibilityLabel="Play or pause audio"
                 onPress={handlePlayPause}
               >
-                {isPlaying ? (
+                {player.playing ? (
                   <Pause color="#FFF" size={20} fill="#FFF" style={{ marginLeft: 2 }} />
                 ) : (
                   <Play color="#FFF" size={20} fill="#FFF" style={{ marginLeft: 2 }} />
@@ -431,13 +398,13 @@ export default function SongScreen({ route, navigation }) {
 
               <View style={styles.seekBarWrap}>
                 <View style={styles.seekTrack}>
-                  <View style={[styles.seekFill, { width: `${duration > 0 ? (position / duration) * 100 : 0}%` }]} />
+                  <View style={[styles.seekFill, { width: `${status.duration > 0 ? (status.currentTime / status.duration) * 100 : 0}%` }]} />
                 </View>
                 <View style={styles.seekTimes}>
-                  <Text style={styles.seekTime}>{formatTime(position)}</Text>
-                  <Text style={styles.seekTime}>{formatTime(duration)}</Text>
+                  <Text style={styles.seekTime}>{formatTime(status.currentTime)}</Text>
+                  <Text style={styles.seekTime}>{formatTime(status.duration)}</Text>
                 </View>
-                {isBuffering && (
+                {status.isBuffering && (
                   <Text style={{color: colors.textMuted, fontSize: 10, textAlign: 'center', marginTop: 4}}>Buffering...</Text>
                 )}
               </View>
@@ -706,7 +673,7 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
   },
   seekFill: {
     height: '100%',
-    backgroundColor: colors.purple_ACCENT,
+    backgroundColor: colors.purpleAccent,
     borderRadius: 2,
   },
   seekTimes: {

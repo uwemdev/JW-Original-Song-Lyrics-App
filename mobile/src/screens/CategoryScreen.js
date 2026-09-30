@@ -584,14 +584,8 @@ export default function CategoryScreen({ route, navigation }) {
           ListFooterComponent={renderFooter}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: SIDE_PAD, paddingBottom: 120 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.purpleAccent}
-              colors={[colors.purpleAccent]}
-            />
-          }
+          onRefresh={onRefresh}
+          refreshing={refreshing}
           onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
             useNativeDriver: false,
           })}
@@ -608,14 +602,8 @@ export default function CategoryScreen({ route, navigation }) {
           ListFooterComponent={renderFooter}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: SIDE_PAD, paddingBottom: 120 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.purpleAccent}
-              colors={[colors.purpleAccent]}
-            />
-          }
+          onRefresh={onRefresh}
+          refreshing={refreshing}
         />
       )}
     </View>

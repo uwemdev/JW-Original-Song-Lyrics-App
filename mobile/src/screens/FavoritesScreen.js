@@ -499,14 +499,8 @@ export default function FavoritesScreen({ navigation }) {
           renderItem={renderSongRow}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120, paddingTop: 4 }}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.purpleAccent}
-              colors={[colors.purple]}
-            />
-          }
+          onRefresh={onRefresh}
+          refreshing={refreshing}
         />
       )}
 

@@ -228,13 +228,8 @@ export default function NotificationsScreen({ navigation }) {
         keyExtractor={item => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.purpleAccent}
-          />
-        }
+        onRefresh={onRefresh}
+        refreshing={refreshing}
         ListEmptyComponent={
           !loading && (
             <View style={styles.emptyContainer}>

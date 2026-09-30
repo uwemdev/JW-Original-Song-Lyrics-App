@@ -2,37 +2,28 @@
   "expo": {
     "name": "JW Original Song Lyrics",
     "slug": "mobile",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.uwemdev.jwlyrics"
+      "bundleIdentifier": "com.jworiginalsongslyrics.app"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/adaptive-icon.png"
       },
-      "package": "com.uwemdev.jwlyrics"
+      "package": "com.jworiginalsongslyrics.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-asset",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "newArchEnabled": false
-          },
-          "ios": {
-            "newArchEnabled": false
-          }
-        }
-      ]
+      "expo-build-properties",
+      "expo-audio"
     ],
     "extra": {
       "eas": {

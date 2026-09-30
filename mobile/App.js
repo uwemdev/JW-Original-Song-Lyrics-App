@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, StyleSheet, Platform, LogBox } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, Platform, LogBox, ActivityIndicator, Text } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -248,7 +249,7 @@ function MainTabs() {
         options={{ 
           tabBarShowLabel: true, 
           tabBarLabel: 'Settings',
-          tabBarBadge: hasUnreadFeedback ? '!' : null,
+          tabBarBadge: hasUnreadFeedback ? '!' : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.danger, color: '#FFF', fontSize: 10, minWidth: 14, height: 14, lineHeight: 14 }
         }} 
       />
@@ -258,7 +259,20 @@ function MainTabs() {
 
 // ─── Root ────────────────────────────────────────────────────────
 function MainNavigation() {
-  const { isDark, colors } = useSettings();
+  const { isDark, colors, loaded } = useSettings();
+  const [initialRoute, setInitialRoute] = React.useState(null);
+
+  // On mount: determine if onboarding was already completed
+  React.useEffect(() => {
+    if (!loaded) return;
+    AsyncStorage.getItem('@onboarding_complete')
+      .then((val) => {
+        setInitialRoute(val === 'true' ? 'MainApp' : 'Onboarding');
+      })
+      .catch(() => {
+        setInitialRoute('Onboarding');
+      });
+  }, [loaded]);
 
   const MyTheme = {
     ...(isDark ? DarkTheme : DefaultTheme),
@@ -272,9 +286,18 @@ function MainNavigation() {
     },
   };
 
+  // Don't render the navigation tree until both settings and initialRoute are ready
+  if (!loaded || !initialRoute) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={colors.purpleAccent} />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer theme={MyTheme}>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
         <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
         <RootStack.Screen name="MainApp" component={MainTabs} />
         <RootStack.Screen name="FeedbackScreen" component={FeedbackScreen} />
@@ -283,13 +306,43 @@ function MainNavigation() {
   );
 }
 
+class GlobalErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // You can also log the error to an error reporting service here
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: 'red', justifyContent: 'center', padding: 20 }}>
+          <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>FATAL ERROR</Text>
+          <Text style={{ color: 'white', marginTop: 10 }}>{this.state.error?.message}</Text>
+          <Text style={{ color: 'white', marginTop: 10, fontSize: 10 }}>{this.state.error?.stack}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <SettingsProvider>
-        <MainNavigation />
-      </SettingsProvider>
-    </SafeAreaProvider>
+    <GlobalErrorBoundary>
+      <SafeAreaProvider>
+        <SettingsProvider>
+          <MainNavigation />
+        </SettingsProvider>
+      </SafeAreaProvider>
+    </GlobalErrorBoundary>
   );
 }
 

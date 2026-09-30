@@ -140,14 +140,8 @@ export default function CategoriesScreen({ navigation }) {
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.purpleAccent}
-            colors={[colors.purple]}
-          />
-        }
+        onRefresh={onRefresh}
+        refreshing={refreshing}
       />
     </View>
   );

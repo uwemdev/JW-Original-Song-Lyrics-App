@@ -686,14 +686,8 @@ export default function HomeScreen({ navigation }) {
         renderItem={renderSection}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 140 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.purpleAccent}
-            colors={[colors.purple]}
-          />
-        }
+        onRefresh={onRefresh}
+        refreshing={refreshing}
       />
     </View>
   );

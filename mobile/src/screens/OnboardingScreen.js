@@ -15,11 +15,11 @@ import Svg, { Circle } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Music, BookOpen, Headphones } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // ─── Responsive sizing ───────────────────────────────────────────
 const { height } = Dimensions.get('window');
-const isSmall = height < 800;
-const scale = isSmall ? 0.75 : 1;
+const isSmall = height < 900; // Most phones with nav bar need compact layout
+const scale = 0.7; // Always use compact scale to fit with status+nav bars
 
 // ─── Dot ring generation ─────────────────────────────────────────
 function makeDots(count, radius) {
@@ -225,6 +225,7 @@ function FeatureCard({ icon: Icon, label, delay, parentAnim, colors, styles }) {
 // ─── Main Screen ─────────────────────────────────────────────────
 export default function OnboardingScreen({ navigation }) {
   const { colors: baseColors, isDark } = useSettings();
+  const insets = useSafeAreaInsets();
   const colors = {
     ...baseColors,
     purpleFaint: isDark ? '#C4B5FD' : '#DDD6FE',
@@ -283,7 +284,10 @@ export default function OnboardingScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle={isDark ? "light-content" : "dark-content"} />
 
-      <View style={styles.content}>
+      <View style={[styles.content, { 
+        paddingTop: Math.max(insets.top, Platform.OS === 'ios' ? 50 : 60), 
+        paddingBottom: Math.max(insets.bottom + 20, Platform.OS === 'ios' ? 36 : 46) 
+      }]}>
         {/* ── Logo + spinning rings ── */}
         <LogoWithRings colors={colors} styles={styles} />
 
@@ -348,8 +352,6 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 28,
-    paddingTop: Platform.OS === 'ios' ? 50 : 60,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 46,
   },
 
   // ── Logo area ──
@@ -358,7 +360,7 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     height: SVG_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: isSmall ? 16 : 24,
+    marginBottom: 10,
   },
   radialGlow: {
     position: 'absolute',
@@ -407,48 +409,48 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
 
   // ── Typography ──
   heading: {
-    fontSize: isSmall ? 26 : 30,
+    fontSize: 26,
     fontWeight: '900',
     textAlign: 'center',
-    lineHeight: isSmall ? 32 : 38,
+    lineHeight: 32,
     letterSpacing: -0.4,
-    marginBottom: isSmall ? 6 : 10,
+    marginBottom: 4,
   },
   subtext: {
-    fontSize: isSmall ? 13.5 : 14.5,
+    fontSize: 13,
     fontWeight: '400',
     color: colors.textMuted,
     textAlign: 'center',
-    lineHeight: isSmall ? 20 : 22,
-    marginBottom: isSmall ? 18 : 24,
+    lineHeight: 19,
+    marginBottom: 12,
     paddingHorizontal: 4,
   },
 
   // ── Feature cards ──
   featuresColumn: {
     width: '100%',
-    marginBottom: isSmall ? 4 : 8,
+    marginBottom: 2,
   },
   featureCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.cardBg,
-    borderRadius: 16,
-    paddingVertical: isSmall ? 12 : 14,
-    paddingHorizontal: isSmall ? 14 : 18,
-    marginBottom: isSmall ? 8 : 10,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 6,
   },
   iconCircle: {
-    width: isSmall ? 36 : 40,
-    height: isSmall ? 36 : 40,
-    borderRadius: isSmall ? 18 : 20,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: colors.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
   featureLabel: {
-    fontSize: isSmall ? 14 : 15,
+    fontSize: 14,
     fontWeight: '500',
     color: colors.textWhite,
     flex: 1,
@@ -457,12 +459,12 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
   // ── CTA ──
   ctaWrapper: {
     width: '100%',
-    marginTop: isSmall ? 10 : 16,
+    marginTop: 8,
   },
   ctaButton: {
     width: '100%',
-    height: isSmall ? 48 : 56,
-    borderRadius: isSmall ? 24 : 28,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.purple,
     justifyContent: 'center',
     alignItems: 'center',
@@ -478,15 +480,15 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
   },
   ctaText: {
     color: '#FFFFFF',
-    fontSize: isSmall ? 15 : 17,
+    fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
 
   // ── Footer ──
   footer: {
-    marginTop: isSmall ? 10 : 14,
-    fontSize: isSmall ? 12 : 13,
+    marginTop: 8,
+    fontSize: 12,
     color: colors.textMuted,
     fontWeight: '400',
     opacity: 0.7,
