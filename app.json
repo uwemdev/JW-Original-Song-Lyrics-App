@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "385bb2c7-832b-4a99-903d-d176df7a616e"
+      }
+    },
+    "android": {
+      "package": "com.uwemdev.jworiginalsonglyricsapp"
+    }
+  }
+}

@@ -574,38 +574,25 @@ export default function CategoryScreen({ route, navigation }) {
     <View style={styles.container}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
 
-      {viewMode === 'list' ? (
-        <FlatList
-          data={displayedSongs}
-          keyExtractor={(item) => item.id}
-          renderItem={renderListItem}
-          ListHeaderComponent={ListHeader}
-          ListEmptyComponent={renderEmpty}
-          ListFooterComponent={renderFooter}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: SIDE_PAD, paddingBottom: 120 }}
-          onRefresh={onRefresh}
-          refreshing={refreshing}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-            useNativeDriver: false,
-          })}
-        />
-      ) : (
-        <FlatList
-          data={displayedSongs}
-          keyExtractor={(item) => item.id}
-          renderItem={renderGridItem}
-          numColumns={2}
-          columnWrapperStyle={styles.gridRow}
-          ListHeaderComponent={ListHeader}
-          ListEmptyComponent={renderEmpty}
-          ListFooterComponent={renderFooter}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: SIDE_PAD, paddingBottom: 120 }}
-          onRefresh={onRefresh}
-          refreshing={refreshing}
-        />
-      )}
+      <FlatList
+        key={viewMode}
+        data={displayedSongs}
+        keyExtractor={(item) => item.id}
+        renderItem={viewMode === 'list' ? renderListItem : renderGridItem}
+        numColumns={viewMode === 'grid' ? 2 : 1}
+        columnWrapperStyle={viewMode === 'grid' ? styles.gridRow : undefined}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: SIDE_PAD, paddingBottom: 120 }}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: false,
+        })}
+        scrollEventThrottle={16}
+      />
     </View>
   );
 }

@@ -23,6 +23,7 @@ import StorageScreen from './src/screens/settings/StorageScreen';
 import AboutScreen from './src/screens/settings/AboutScreen';
 import FeedbackScreen from './src/screens/settings/FeedbackScreen';
 import PrivacyScreen from './src/screens/settings/PrivacyScreen';
+import AppUpdateChecker from './src/components/AppUpdateChecker';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
 
 const Tab = createBottomTabNavigator();
@@ -302,6 +303,7 @@ function MainNavigation() {
         <RootStack.Screen name="MainApp" component={MainTabs} />
         <RootStack.Screen name="FeedbackScreen" component={FeedbackScreen} />
       </RootStack.Navigator>
+      <AppUpdateChecker />
     </NavigationContainer>
   );
 }

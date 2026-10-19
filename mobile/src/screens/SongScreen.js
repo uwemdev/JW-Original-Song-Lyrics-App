@@ -13,6 +13,10 @@ import {
   Animated,
   Share,
   FlatList,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
@@ -30,6 +34,12 @@ import {
   Copy,
   Share2,
   ChevronRight,
+  SkipBack,
+  SkipForward,
+  Flag,
+  X,
+  ChevronRight as ChevronRightSm,
+  CheckCircle,
 } from 'lucide-react-native';
 import RenderHTML from 'react-native-render-html';
 import { useSettings } from '../context/SettingsContext';
@@ -124,6 +134,22 @@ export default function SongScreen({ route, navigation }) {
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
+  // ── Report state ──
+  const [showReport, setShowReport] = useState(false);
+  const [reportIssue, setReportIssue] = useState(null);
+  const [reportNote, setReportNote] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportDone, setReportDone] = useState(false);
+
+  const REPORT_ISSUES = [
+    { key: 'no_audio', label: 'No audio available' },
+    { key: 'wrong_audio', label: 'Wrong audio' },
+    { key: 'wrong_lyrics', label: 'Wrong lyrics' },
+    { key: 'spelling_mistakes', label: 'Spelling mistakes' },
+    { key: 'missing_lyrics', label: 'Missing lyrics' },
+    { key: 'others', label: 'Other issue' },
+  ];
+
   // Audio State using expo-audio
   const player = useAudioPlayer(song.mp3_url);
   const status = useAudioPlayerStatus(player);
@@ -179,7 +205,13 @@ export default function SongScreen({ route, navigation }) {
     }
   }
 
-
+  const seekBy = (seconds) => {
+    if (!song.mp3_url) return;
+    const current = status.currentTime || 0;
+    const duration = status.duration || 0;
+    const newPos = Math.max(0, Math.min(duration, current + seconds));
+    player.seekTo(newPos);
+  };
 
   const formatTime = (seconds) => {
     if (!seconds) return '0:00';
@@ -261,6 +293,37 @@ export default function SongScreen({ route, navigation }) {
     setToastMsg('Lyrics copied');
     setShowToast(true);
     setTimeout(() => setShowToast(false), 2200);
+  };
+
+  // ── Report ──
+  const submitReport = async () => {
+    if (!reportIssue || reportSubmitting) return;
+    setReportSubmitting(true);
+    try {
+      const issueLabel = REPORT_ISSUES.find((i) => i.key === reportIssue)?.label || reportIssue;
+      const msg = `[SONG REPORT] "${song.title}" (ID: ${song.id})\nIssue: ${issueLabel}${reportNote.trim() ? `\nNote: ${reportNote.trim()}` : ''}`;
+      await supabase.from('feedback').insert([{
+        message: msg,
+        is_admin_reply: false,
+        device_meta: { os: Platform.OS, song_id: song.id, song_title: song.title, issue: reportIssue },
+      }]);
+      setReportDone(true);
+      setTimeout(() => {
+        setShowReport(false);
+        setReportIssue(null);
+        setReportNote('');
+        setReportDone(false);
+        setToastMsg('Report sent — thank you!');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2500);
+      }, 1800);
+    } catch (_) {
+      setToastMsg('Failed to send report. Try again.');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2500);
+    } finally {
+      setReportSubmitting(false);
+    }
   };
 
   // ── Share ──
@@ -382,7 +445,32 @@ export default function SongScreen({ route, navigation }) {
         {/* ── Audio Player ── */}
         {song.mp3_url ? (
           <View style={styles.playerCard}>
-            <View style={styles.playerRow}>
+            {/* Seek bar */}
+            <View style={styles.seekBarWrap}>
+              <View style={styles.seekTrack}>
+                <View style={[styles.seekFill, { width: `${status.duration > 0 ? (status.currentTime / status.duration) * 100 : 0}%` }]} />
+              </View>
+              <View style={styles.seekTimes}>
+                <Text style={styles.seekTime}>{formatTime(status.currentTime)}</Text>
+                <Text style={styles.seekTime}>{formatTime(status.duration)}</Text>
+              </View>
+              {status.isBuffering && (
+                <Text style={{color: colors.textMuted, fontSize: 10, textAlign: 'center', marginTop: 4}}>Buffering...</Text>
+              )}
+            </View>
+
+            {/* Controls row */}
+            <View style={styles.playerControls}>
+              <TouchableOpacity
+                style={styles.skipBtn}
+                onPress={() => seekBy(-10)}
+                accessibilityRole="button"
+                accessibilityLabel="Skip back 10 seconds"
+              >
+                <SkipBack color={colors.textMuted} size={22} />
+                <Text style={styles.skipLabel}>10</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={styles.playBtn}
                 accessibilityRole="button"
@@ -390,24 +478,21 @@ export default function SongScreen({ route, navigation }) {
                 onPress={handlePlayPause}
               >
                 {player.playing ? (
-                  <Pause color="#FFF" size={20} fill="#FFF" style={{ marginLeft: 2 }} />
+                  <Pause color="#FFF" size={22} fill="#FFF" />
                 ) : (
-                  <Play color="#FFF" size={20} fill="#FFF" style={{ marginLeft: 2 }} />
+                  <Play color="#FFF" size={22} fill="#FFF" style={{ marginLeft: 2 }} />
                 )}
               </TouchableOpacity>
 
-              <View style={styles.seekBarWrap}>
-                <View style={styles.seekTrack}>
-                  <View style={[styles.seekFill, { width: `${status.duration > 0 ? (status.currentTime / status.duration) * 100 : 0}%` }]} />
-                </View>
-                <View style={styles.seekTimes}>
-                  <Text style={styles.seekTime}>{formatTime(status.currentTime)}</Text>
-                  <Text style={styles.seekTime}>{formatTime(status.duration)}</Text>
-                </View>
-                {status.isBuffering && (
-                  <Text style={{color: colors.textMuted, fontSize: 10, textAlign: 'center', marginTop: 4}}>Buffering...</Text>
-                )}
-              </View>
+              <TouchableOpacity
+                style={styles.skipBtn}
+                onPress={() => seekBy(10)}
+                accessibilityRole="button"
+                accessibilityLabel="Skip forward 10 seconds"
+              >
+                <SkipForward color={colors.textMuted} size={22} />
+                <Text style={styles.skipLabel}>10</Text>
+              </TouchableOpacity>
             </View>
           </View>
         ) : (
@@ -460,6 +545,15 @@ export default function SongScreen({ route, navigation }) {
             >
               <Share2 color={colors.textMuted} size={18} />
             </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => { setShowReport(true); setReportIssue(null); setReportNote(''); setReportDone(false); }}
+              style={styles.toolbarIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Report an issue with this song"
+            >
+              <Flag color="#F87171" size={18} />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -473,11 +567,17 @@ export default function SongScreen({ route, navigation }) {
                 color: colors.textWhite,
                 fontSize: FONT_SIZES[settings.fontSizeIdx],
                 lineHeight: LINE_HEIGHTS[settings.fontSizeIdx],
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
               }}
               tagsStyles={{
                 p: { marginBottom: 18 },
                 br: { height: 8 },
               }}
+              renderersProps={{
+                p: { allowFontScaling: false },
+              }}
+              defaultTextProps={{ allowFontScaling: false }}
             />
           ) : (
             <View style={styles.lyricsComingSoon}>
@@ -527,6 +627,83 @@ export default function SongScreen({ route, navigation }) {
           </View>
         )}
       </Animated.ScrollView>
+
+      {/* ── Report Modal ── */}
+      <Modal
+        visible={showReport}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowReport(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.reportOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <TouchableOpacity style={styles.reportBackdrop} activeOpacity={1} onPress={() => setShowReport(false)} />
+          <View style={styles.reportSheet}>
+            {/* Handle */}
+            <View style={styles.reportHandle} />
+
+            {/* Header */}
+            <View style={styles.reportHeader}>
+              <Flag color="#F87171" size={20} />
+              <Text style={styles.reportTitle}>Report an Issue</Text>
+              <TouchableOpacity onPress={() => setShowReport(false)} style={styles.reportCloseBtn}>
+                <X color={colors.textMuted} size={20} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.reportSubtitle}>What's wrong with "{song.title}"?</Text>
+
+            {reportDone ? (
+              <View style={styles.reportSuccessWrap}>
+                <CheckCircle color="#4ADE80" size={48} />
+                <Text style={styles.reportSuccessText}>Report sent!</Text>
+                <Text style={styles.reportSuccessSub}>Thank you for helping us improve.</Text>
+              </View>
+            ) : (
+              <>
+                {/* Issue options */}
+                {REPORT_ISSUES.map((issue) => (
+                  <TouchableOpacity
+                    key={issue.key}
+                    style={[styles.reportOption, reportIssue === issue.key && styles.reportOptionSelected]}
+                    onPress={() => setReportIssue(issue.key)}
+                  >
+                    <Text style={[styles.reportOptionText, reportIssue === issue.key && styles.reportOptionTextSelected]}>
+                      {issue.label}
+                    </Text>
+                    {reportIssue === issue.key && <CheckCircle color={colors.purpleAccent} size={18} />}
+                  </TouchableOpacity>
+                ))}
+
+                {/* Optional note */}
+                <TextInput
+                  style={styles.reportNoteInput}
+                  placeholder="Add a note (optional)..."
+                  placeholderTextColor={colors.textMuted}
+                  value={reportNote}
+                  onChangeText={setReportNote}
+                  multiline
+                  maxLength={300}
+                />
+
+                {/* Submit */}
+                <TouchableOpacity
+                  style={[styles.reportSubmitBtn, (!reportIssue || reportSubmitting) && styles.reportSubmitBtnDisabled]}
+                  onPress={submitReport}
+                  disabled={!reportIssue || reportSubmitting}
+                >
+                  {reportSubmitting ? (
+                    <ActivityIndicator color="#FFF" size="small" />
+                  ) : (
+                    <Text style={styles.reportSubmitText}>Send Report</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* ── Toast notification ── */}
       <Toast visible={showToast} message={toastMsg} />
@@ -640,18 +817,32 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(109, 40, 217, 0.15)',
   },
-  playerRow: {
+  playerControls: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    gap: 24,
+  },
+  skipBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 48,
+    height: 48,
+  },
+  skipLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 1,
   },
   playBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.purple,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
     ...Platform.select({
       ios: {
         shadowColor: colors.purple,
@@ -736,6 +927,117 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     paddingHorizontal: 22,
     minHeight: 200,
   },
+  // ── Report modal ──
+  reportOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  reportBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  reportSheet: {
+    backgroundColor: isDark ? '#1A1030' : '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    paddingTop: 12,
+  },
+  reportHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  reportHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 6,
+  },
+  reportTitle: {
+    flex: 1,
+    color: colors.textWhite,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  reportCloseBtn: {
+    padding: 4,
+  },
+  reportSubtitle: {
+    color: colors.textMuted,
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  reportOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  reportOptionSelected: {
+    borderColor: colors.purpleAccent,
+    backgroundColor: 'rgba(109,40,217,0.12)',
+  },
+  reportOptionText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  reportOptionTextSelected: {
+    color: colors.textWhite,
+    fontWeight: '700',
+  },
+  reportNoteInput: {
+    backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: colors.textWhite,
+    fontSize: 14,
+    minHeight: 72,
+    marginTop: 4,
+    marginBottom: 14,
+    textAlignVertical: 'top',
+  },
+  reportSubmitBtn: {
+    backgroundColor: '#EF4444',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  reportSubmitBtnDisabled: {
+    opacity: 0.4,
+  },
+  reportSubmitText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  reportSuccessWrap: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    gap: 10,
+  },
+  reportSuccessText: {
+    color: colors.textWhite,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  reportSuccessSub: {
+    color: colors.textMuted,
+    fontSize: 14,
+  },
+
   lyricsComingSoon: {
     alignItems: 'center',
     paddingVertical: 48,

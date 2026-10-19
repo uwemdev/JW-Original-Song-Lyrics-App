@@ -59,7 +59,7 @@ export default function FontSizeScreen({ navigation }) {
             <React.Fragment key={opt.idx}>
               {i > 0 && <View style={styles.divider} />}
               <TouchableOpacity
-                style={styles.row}
+                style={[styles.row, selected && styles.rowSelected]}
                 onPress={() => setFontSizeIdx(opt.idx)}
                 activeOpacity={0.6}
                 accessibilityRole="radio"
@@ -68,9 +68,12 @@ export default function FontSizeScreen({ navigation }) {
               >
                 <View style={styles.rowContent}>
                   <View style={styles.rowTop}>
-                    <Text style={[styles.rowLabel, selected && { color: colors.purpleAccent }]}>
-                      {opt.label}
-                    </Text>
+                    <View style={styles.rowLeft}>
+                      <Text style={[styles.rowLabel, selected && { color: colors.purpleAccent }]}>
+                        {opt.label}
+                      </Text>
+                      <Text style={styles.sizeHint}>{FONT_SIZES[opt.idx]}pt</Text>
+                    </View>
                     {selected && (
                       <View style={styles.checkCircle}>
                         <Check color="#FFF" size={14} strokeWidth={3} />
@@ -84,8 +87,8 @@ export default function FontSizeScreen({ navigation }) {
                       {
                         fontSize: FONT_SIZES[opt.idx],
                         lineHeight: LINE_HEIGHTS[opt.idx],
+                        color: selected ? '#FFFFFF' : 'rgba(255,255,255,0.55)',
                       },
-                      selected && { color: colors.textWhite },
                     ]}
                     numberOfLines={1}
                   >
@@ -140,6 +143,9 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
   },
+  rowSelected: {
+    backgroundColor: 'rgba(109,40,217,0.08)',
+  },
   rowContent: {
     flex: 1,
   },
@@ -149,10 +155,24 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
+  rowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   rowLabel: {
-    color: colors.textWhite,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  sizeHint: {
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 12,
+    fontWeight: '500',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   checkCircle: {
     width: 26,
@@ -163,7 +183,6 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     alignItems: 'center',
   },
   preview: {
-    color: colors.textMuted,
     marginTop: 4,
   },
   divider: {

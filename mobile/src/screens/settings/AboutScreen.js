@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,16 +9,52 @@ import {
   Image,
   ScrollView,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, RefreshCw, CheckCircle2 } from 'lucide-react-native';
 import { useSettings } from '../../context/SettingsContext';
+import { CURRENT_APP_VERSION, fetchVersionConfig, compareVersions } from '../../lib/versionCheck';
+import UpdateModal from '../../components/UpdateModal';
 
 export default function AboutScreen({ navigation }) {
   const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
+
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState(null); // 'latest' | 'has_update' | null
+  const [versionConfig, setVersionConfig] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [isForced, setIsForced] = useState(false);
   
   const openLink = (url) => {
     Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
+  };
+
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    setUpdateStatus(null);
+    try {
+      const config = await fetchVersionConfig();
+      if (config && config.latest_version) {
+        setVersionConfig(config);
+        const hasNew = compareVersions(CURRENT_APP_VERSION, config.latest_version) < 0;
+        const forced = Boolean(config.force_update || compareVersions(CURRENT_APP_VERSION, config.min_required_version) < 0);
+        setIsForced(forced);
+
+        if (hasNew) {
+          setUpdateStatus('has_update');
+          setShowModal(true);
+        } else {
+          setUpdateStatus('latest');
+        }
+      } else {
+        setUpdateStatus('latest');
+      }
+    } catch (_) {
+      setUpdateStatus('latest');
+    } finally {
+      setCheckingUpdate(false);
+    }
   };
 
   return (
@@ -79,8 +115,42 @@ export default function AboutScreen({ navigation }) {
           </Text>
         </View>
 
-        <Text style={styles.version}>Version 1.0.0</Text>
+        {/* Version & Update check section */}
+        <View style={styles.versionContainer}>
+          <Text style={styles.version}>Version {CURRENT_APP_VERSION}</Text>
+
+          {updateStatus === 'latest' ? (
+            <View style={styles.upToDateBadge}>
+              <CheckCircle2 size={15} color="#10B981" />
+              <Text style={styles.upToDateText}>You're using the latest version</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.checkUpdateBtn}
+              onPress={handleCheckUpdate}
+              disabled={checkingUpdate}
+              activeOpacity={0.7}
+            >
+              {checkingUpdate ? (
+                <ActivityIndicator size="small" color={colors.purpleAccent} />
+              ) : (
+                <>
+                  <RefreshCw size={14} color={colors.purpleAccent} />
+                  <Text style={styles.checkUpdateText}>Check for Updates</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
       </ScrollView>
+
+      {/* Update Modal */}
+      <UpdateModal
+        visible={showModal}
+        config={versionConfig}
+        isForced={isForced}
+        onDismiss={() => setShowModal(false)}
+      />
     </View>
   );
 }
@@ -145,10 +215,46 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     color: colors.purpleAccent,
     textDecorationLine: 'underline',
   },
+  versionContainer: {
+    alignItems: 'center',
+    marginTop: 28,
+    gap: 12,
+  },
   version: {
     color: colors.textMuted,
     fontSize: 13,
     fontWeight: '600',
-    marginTop: 32,
+  },
+  checkUpdateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: isDark ? 'rgba(167, 139, 250, 0.1)' : 'rgba(109, 40, 217, 0.08)',
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(167, 139, 250, 0.2)' : 'rgba(109, 40, 217, 0.15)',
+  },
+  checkUpdateText: {
+    color: colors.purpleAccent,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  upToDateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+  },
+  upToDateText: {
+    color: '#10B981',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

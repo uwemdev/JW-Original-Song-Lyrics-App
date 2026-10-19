@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { LogOut, Music, FolderTree, LayoutDashboard, Music2, MessageSquare, Megaphone } from 'lucide-react';
+import { LogOut, Music, FolderTree, LayoutDashboard, Music2, MessageSquare, Megaphone, Smartphone } from 'lucide-react';
 
 export default function AdminLayout() {
   const [session, setSession] = useState(null);
@@ -62,6 +62,7 @@ export default function AdminLayout() {
     { key: 'categories', label: 'Categories', icon: FolderTree },
     { key: 'feedback', label: 'Feedback & Chat', icon: MessageSquare },
     { key: 'notifications', label: 'Push Notifications', icon: Megaphone },
+    { key: 'updates', label: 'App Updates', icon: Smartphone },
   ];
 
   return (

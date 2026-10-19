@@ -6,6 +6,7 @@ import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import FeedbackTab from './FeedbackTab';
 import NotificationsTab from './NotificationsTab';
+import AppUpdatesTab from './AppUpdatesTab';
 
 // ReactQuill toolbar config
 const quillModules = {
@@ -756,8 +757,16 @@ export default function AdminDashboard() {
     );
   }
 
+  if (currentTab === 'feedback') {
+    return <FeedbackTab />;
+  }
+
   if (currentTab === 'notifications') {
     return <NotificationsTab />;
+  }
+
+  if (currentTab === 'updates') {
+    return <AppUpdatesTab />;
   }
 
   // ═══════════════════════════════════════
