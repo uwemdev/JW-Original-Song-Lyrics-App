@@ -29,6 +29,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
+import AdBanner from '../components/AdBanner';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -593,6 +594,7 @@ export default function CategoryScreen({ route, navigation }) {
         })}
         scrollEventThrottle={16}
       />
+      <AdBanner />
     </View>
   );
 }

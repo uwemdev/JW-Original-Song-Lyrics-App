@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import {
   View,
@@ -43,6 +43,8 @@ import {
 } from 'lucide-react-native';
 import RenderHTML from 'react-native-render-html';
 import { useSettings } from '../context/SettingsContext';
+import AdBanner from '../components/AdBanner';
+import NativeAdCard from '../components/NativeAdCard';
 
 const { width, height: SCREEN_H } = Dimensions.get('window');
 
@@ -355,6 +357,39 @@ export default function SongScreen({ route, navigation }) {
     extrapolate: 'clamp',
   });
 
+  // ── Split lyrics for mid-lyrics native ad insertion ──
+  const cleanLyrics = useMemo(() => {
+    if (!song.lyrics) return '';
+    // Replace non-breaking spaces with standard space so words wrap naturally
+    return song.lyrics.replace(/&nbsp;/gi, ' ');
+  }, [song.lyrics]);
+
+  const splitLyrics = useMemo(() => {
+    if (!cleanLyrics) return { part1: '', part2: '' };
+
+    // Check if lyrics contain multiple <p> tags
+    const pMatches = cleanLyrics.match(/<p[\s\S]*?<\/p>/gi);
+    if (pMatches && pMatches.length >= 3) {
+      const mid = Math.ceil(pMatches.length / 2);
+      return {
+        part1: pMatches.slice(0, mid).join(''),
+        part2: pMatches.slice(mid).join(''),
+      };
+    }
+
+    // Fallback: check for <br><br> or double breaks
+    const brSplits = cleanLyrics.split(/(?:<br\s*\/?>\s*){2,}/i);
+    if (brSplits && brSplits.length >= 2) {
+      const mid = Math.ceil(brSplits.length / 2);
+      return {
+        part1: brSplits.slice(0, mid).join('<br/><br/>'),
+        part2: brSplits.slice(mid).join('<br/><br/>'),
+      };
+    }
+
+    return { part1: cleanLyrics, part2: '' };
+  }, [cleanLyrics]);
+
   // ═══════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════
@@ -560,25 +595,49 @@ export default function SongScreen({ route, navigation }) {
         {/* ── Lyrics Body ── */}
         <View style={styles.lyricsBody}>
           {song.lyrics ? (
-            <RenderHTML
-              contentWidth={width - 48}
-              source={{ html: song.lyrics }}
-              baseStyle={{
-                color: colors.textWhite,
-                fontSize: FONT_SIZES[settings.fontSizeIdx],
-                lineHeight: LINE_HEIGHTS[settings.fontSizeIdx],
-                wordBreak: 'break-word',
-                overflowWrap: 'break-word',
-              }}
-              tagsStyles={{
-                p: { marginBottom: 18 },
-                br: { height: 8 },
-              }}
-              renderersProps={{
-                p: { allowFontScaling: false },
-              }}
-              defaultTextProps={{ allowFontScaling: false }}
-            />
+            <>
+              <RenderHTML
+                contentWidth={width - 48}
+                source={{ html: splitLyrics.part1 }}
+                baseStyle={{
+                  color: colors.textWhite,
+                  fontSize: FONT_SIZES[settings.fontSizeIdx],
+                  lineHeight: LINE_HEIGHTS[settings.fontSizeIdx],
+                }}
+                tagsStyles={{
+                  p: { marginBottom: 18 },
+                  br: { height: 8 },
+                }}
+                renderersProps={{
+                  p: { allowFontScaling: false },
+                }}
+                defaultTextProps={{ allowFontScaling: false }}
+              />
+
+              {/* Mid-Lyrics Native Ad between verses */}
+              {splitLyrics.part2 ? (
+                <>
+                  <NativeAdCard style={{ marginHorizontal: -12, marginVertical: 14 }} />
+                  <RenderHTML
+                    contentWidth={width - 48}
+                    source={{ html: splitLyrics.part2 }}
+                    baseStyle={{
+                      color: colors.textWhite,
+                      fontSize: FONT_SIZES[settings.fontSizeIdx],
+                      lineHeight: LINE_HEIGHTS[settings.fontSizeIdx],
+                    }}
+                    tagsStyles={{
+                      p: { marginBottom: 18 },
+                      br: { height: 8 },
+                    }}
+                    renderersProps={{
+                      p: { allowFontScaling: false },
+                    }}
+                    defaultTextProps={{ allowFontScaling: false }}
+                  />
+                </>
+              ) : null}
+            </>
           ) : (
             <View style={styles.lyricsComingSoon}>
               <Music color={colors.textMuted} size={32} />
@@ -589,6 +648,11 @@ export default function SongScreen({ route, navigation }) {
             </View>
           )}
         </View>
+
+        {/* ── Native Ad Card (shown at bottom if lyrics were short/unsplit) ── */}
+        {!splitLyrics.part2 && (
+          <NativeAdCard style={{ marginTop: 8, marginBottom: 8 }} />
+        )}
 
         {/* ── More Like This ── */}
         {moreSongs.length > 0 && (
@@ -627,6 +691,9 @@ export default function SongScreen({ route, navigation }) {
           </View>
         )}
       </Animated.ScrollView>
+
+      {/* ── Ad Banner ── */}
+      <AdBanner />
 
       {/* ── Report Modal ── */}
       <Modal

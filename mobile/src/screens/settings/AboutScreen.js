@@ -111,7 +111,7 @@ export default function AboutScreen({ navigation }) {
           </Text>
 
           <Text style={[styles.paragraph, { fontWeight: '700', marginTop: 8, marginBottom: 0, color: colors.textWhite }]}>
-            This app is free, and always will be. No ads, ever.
+            This app is free, and always will be.
           </Text>
         </View>
 

@@ -24,6 +24,7 @@ import AboutScreen from './src/screens/settings/AboutScreen';
 import FeedbackScreen from './src/screens/settings/FeedbackScreen';
 import PrivacyScreen from './src/screens/settings/PrivacyScreen';
 import AppUpdateChecker from './src/components/AppUpdateChecker';
+import { initMobileAds } from './src/lib/adMob';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
 
 const Tab = createBottomTabNavigator();
@@ -273,6 +274,7 @@ function MainNavigation() {
       .catch(() => {
         setInitialRoute('Onboarding');
       });
+    initMobileAds();
   }, [loaded]);
 
   const MyTheme = {

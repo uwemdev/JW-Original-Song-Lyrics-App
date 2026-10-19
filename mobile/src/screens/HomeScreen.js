@@ -30,6 +30,7 @@ import {
   Megaphone,
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
+import NativeAdCard from '../components/NativeAdCard';
 
 const { width } = Dimensions.get('window');
 
@@ -387,6 +388,9 @@ export default function HomeScreen({ navigation }) {
   // 3️⃣ Quick-access grid
   sections.push({ key: 'grid' });
 
+  // Native Ad in Home feed
+  sections.push({ key: 'native-ad' });
+
   // 4️⃣ Recently Added
   if (recentSongs.length > 0) {
     sections.push({ key: 'recent' });
@@ -512,6 +516,9 @@ export default function HomeScreen({ navigation }) {
 
       case 'grid':
         return renderQuickGrid();
+
+      case 'native-ad':
+        return <NativeAdCard />;
 
       case 'recent':
         return (
