@@ -31,6 +31,8 @@ import {
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 import NativeAdCard from '../components/NativeAdCard';
+import SongOfTheDayCard from '../components/SongOfTheDayCard';
+import { getDailySong } from '../lib/dailySong';
 
 const { width } = Dimensions.get('window');
 
@@ -268,6 +270,10 @@ export default function HomeScreen({ navigation }) {
   const categoryMap = {};
   categories.forEach((c) => { categoryMap[c.id] = c; });
 
+  const dailySong = useMemo(() => {
+    return getDailySong(songs);
+  }, [songs]);
+
   const getCatName = (song) =>
     song.categories?.name || categoryMap[song.category_id]?.name || 'Song';
 
@@ -309,8 +315,10 @@ export default function HomeScreen({ navigation }) {
   // First 3 categories for the quick-access grid
   const gridCategories = categories.slice(0, 3);
 
-  const navigateToSong = (song) =>
+  const navigateToSong = (song) => {
+    AsyncStorage.setItem('@last_viewed_daily_song_date', new Date().toDateString()).catch(() => {});
     navigation.navigate('Song', { song });
+  };
 
   const navigateToCategory = (cat) =>
     navigation.navigate('Category', { categoryId: cat.id, categoryName: cat.name });
@@ -380,6 +388,11 @@ export default function HomeScreen({ navigation }) {
   // 1.5️⃣ Banner
   if (activeBanner) {
     sections.push({ key: 'banner', banner: activeBanner });
+  }
+
+  // 1.8️⃣ Song of the Day
+  if (dailySong && activeFilter === 'all') {
+    sections.push({ key: 'song-of-the-day', song: dailySong });
   }
 
   // 2️⃣ Filter pills
@@ -480,6 +493,15 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             </LinearGradient>
           </TouchableOpacity>
+        );
+
+      case 'song-of-the-day':
+        return (
+          <SongOfTheDayCard
+            song={item.song}
+            categoryName={getCatName(item.song)}
+            onPress={navigateToSong}
+          />
         );
 
       case 'pills':

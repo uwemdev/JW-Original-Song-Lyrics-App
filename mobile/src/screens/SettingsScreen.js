@@ -23,6 +23,7 @@ import {
   HardDrive,
   Download,
   Bell,
+  Sun,
   Info,
   Share2,
   MessageSquare,
@@ -251,6 +252,14 @@ export default function SettingsScreen({ navigation }) {
         {/* ── Notifications ── */}
         <SectionHeader title="Notifications" />
         <View style={styles.card}>
+          <ToggleRow
+            icon={<Sun color="#F59E0B" size={20} />}
+            label="Song of the Day"
+            subtitle="Daily morning song & spiritual reflection"
+            value={settings.dailySongReminder}
+            onValueChange={settings.setDailySongReminder}
+          />
+          <View style={styles.divider} />
           <ToggleRow
             icon={<Bell color={colors.purpleAccent} size={20} />}
             label="New song alerts"

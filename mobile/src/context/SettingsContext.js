@@ -13,6 +13,7 @@ const KEYS = {
   dataSaver: '@settings_data_saver',
   autoCacheFavorites: '@settings_auto_cache_favorites',
   newSongAlerts: '@settings_new_song_alerts',
+  dailySongReminder: '@settings_daily_song_reminder',
   deviceId: '@settings_device_id',
   installDate: '@settings_install_date',
   dismissedNotifs: '@settings_dismissed_notifs',
@@ -26,6 +27,7 @@ const DEFAULTS = {
   dataSaver: false,
   autoCacheFavorites: false,
   newSongAlerts: true,
+  dailySongReminder: true,
 };
 
 export const DarkColors = {
@@ -57,6 +59,7 @@ export function SettingsProvider({ children }) {
   const [dataSaver, setDataSaverState] = useState(DEFAULTS.dataSaver);
   const [autoCacheFavorites, setAutoCacheFavoritesState] = useState(DEFAULTS.autoCacheFavorites);
   const [newSongAlerts, setNewSongAlertsState] = useState(DEFAULTS.newSongAlerts);
+  const [dailySongReminder, setDailySongReminderState] = useState(DEFAULTS.dailySongReminder);
   const [deviceId, setDeviceIdState] = useState(null);
   const [hasUnreadFeedback, setHasUnreadFeedback] = useState(false);
   const [installDate, setInstallDate] = useState(null);
@@ -88,6 +91,7 @@ export function SettingsProvider({ children }) {
         if (map[KEYS.dataSaver]) setDataSaverState(map[KEYS.dataSaver] === 'true');
         if (map[KEYS.autoCacheFavorites]) setAutoCacheFavoritesState(map[KEYS.autoCacheFavorites] === 'true');
         if (map[KEYS.newSongAlerts] !== undefined) setNewSongAlertsState(map[KEYS.newSongAlerts] !== 'false');
+        if (map[KEYS.dailySongReminder] !== undefined) setDailySongReminderState(map[KEYS.dailySongReminder] !== 'false');
 
         if (map[KEYS.deviceId]) {
           setDeviceIdState(map[KEYS.deviceId]);
@@ -189,6 +193,11 @@ export function SettingsProvider({ children }) {
     await AsyncStorage.setItem(KEYS.newSongAlerts, val ? 'true' : 'false');
   }, []);
 
+  const setDailySongReminder = useCallback(async (val) => {
+    setDailySongReminderState(val);
+    await AsyncStorage.setItem(KEYS.dailySongReminder, val ? 'true' : 'false');
+  }, []);
+
   const dismissNotification = useCallback(async (id) => {
     setDismissedNotifs(prev => {
       if (prev.includes(id)) return prev;
@@ -217,6 +226,7 @@ export function SettingsProvider({ children }) {
       setDataSaverState(DEFAULTS.dataSaver);
       setAutoCacheFavoritesState(DEFAULTS.autoCacheFavorites);
       setNewSongAlertsState(DEFAULTS.newSongAlerts);
+      setDailySongReminderState(DEFAULTS.dailySongReminder);
     } catch (_) {}
   }, []);
 
@@ -228,6 +238,7 @@ export function SettingsProvider({ children }) {
     dataSaver, setDataSaver,
     autoCacheFavorites, setAutoCacheFavorites,
     newSongAlerts, setNewSongAlerts,
+    dailySongReminder, setDailySongReminder,
     deviceId,
     installDate,
     dismissedNotifs, dismissNotification,

@@ -11,9 +11,11 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Bell, Music, Edit3, FolderPlus, ChevronRight, CheckCheck, Megaphone, ExternalLink } from 'lucide-react-native';
+import { ArrowLeft,
+  Sun, Bell, Music, Edit3, FolderPlus, ChevronRight, CheckCheck, Megaphone, ExternalLink } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getDailySong, getDailyNotification } from '../lib/dailySong';
 
 const timeAgo = (date) => {
   const seconds = Math.floor((new Date() - new Date(date)) / 1000);
@@ -50,7 +52,7 @@ export default function NotificationsScreen({ navigation }) {
 
   const fetchNotifications = async () => {
     try {
-      const [autoRes, pushRes] = await Promise.all([
+      const [autoRes, pushRes, songsRes] = await Promise.all([
         supabase
           .from('notifications')
           .select('*')
@@ -61,7 +63,12 @@ export default function NotificationsScreen({ navigation }) {
           .select('*')
           .gte('created_at', installDate || new Date(0).toISOString())
           .order('created_at', { ascending: false })
-          .limit(50)
+          .limit(50),
+        supabase
+          .from('songs')
+          .select('*, categories(name)')
+          .eq('is_published', true)
+          .limit(100)
       ]);
         
       let fetched = [];
@@ -78,6 +85,14 @@ export default function NotificationsScreen({ navigation }) {
         fetched = [...fetched, ...mappedPush];
       }
       
+      if (songsRes?.data && songsRes.data.length > 0) {
+        const dailySong = getDailySong(songsRes.data);
+        const dailyNotif = getDailyNotification(dailySong);
+        if (dailyNotif) {
+          fetched = [dailyNotif, ...fetched];
+        }
+      }
+
       fetched.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       fetched = fetched.slice(0, 50);
       
@@ -122,6 +137,22 @@ export default function NotificationsScreen({ navigation }) {
       return;
     }
 
+    if (notif.type === 'daily_song' && notif.song_id) {
+      try {
+        const { data } = await supabase
+          .from('songs')
+          .select('*, categories(name)')
+          .eq('id', notif.song_id)
+          .single();
+        if (data) {
+          navigation.navigate('Song', { song: data });
+        }
+      } catch (err) {
+        console.error('Failed to open daily song', err);
+      }
+      return;
+    }
+
     if (!notif.reference_id) return;
 
     if (notif.type === 'new_category') {
@@ -157,6 +188,8 @@ export default function NotificationsScreen({ navigation }) {
         return <Edit3 size={20} color="#38BDF8" />; // Blue for edits
       case 'new_category':
         return <FolderPlus size={20} color="#10B981" />; // Green for new categories
+      case 'daily_song':
+        return <Sun size={20} color="#F59E0B" />;
       case 'admin_push':
         return <Megaphone size={20} color={colors.purpleAccent} />;
       default:
