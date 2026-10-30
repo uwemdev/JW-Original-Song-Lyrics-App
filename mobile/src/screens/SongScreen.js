@@ -290,7 +290,7 @@ export default function SongScreen({ route, navigation }) {
   const copyLyrics = async () => {
     if (!song.lyrics) return;
     // Strip HTML tags for plain text
-    const plain = song.lyrics.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+    const plain = song.lyrics.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').replace(/[\u00A0\u202F\uFEFF]/g, ' ').replace(/<wbr\s*\/?>/gi, '').replace(/&shy;/gi, '').replace(/[\u00AD\u200B]/g, '').trim();
     await Clipboard.setStringAsync(plain);
     setToastMsg('Lyrics copied');
     setShowToast(true);
@@ -357,11 +357,18 @@ export default function SongScreen({ route, navigation }) {
     extrapolate: 'clamp',
   });
 
-  // ── Split lyrics for mid-lyrics native ad insertion ──
+  // ── Clean & split lyrics for mid-lyrics native ad insertion ──
   const cleanLyrics = useMemo(() => {
     if (!song.lyrics) return '';
-    // Replace non-breaking spaces with standard space so words wrap naturally
-    return song.lyrics.replace(/&nbsp;/gi, ' ');
+    return song.lyrics
+      // Replace HTML non-breaking spaces with standard space
+      .replace(/&nbsp;/gi, ' ')
+      // Replace Unicode non-breaking spaces & zero-width no-break spaces
+      .replace(/[\u00A0\u202F\uFEFF]/g, ' ')
+      // Strip word-break opportunities & soft hyphens that trigger mid-word splitting
+      .replace(/<wbr\s*\/?>/gi, '')
+      .replace(/&shy;/gi, '')
+      .replace(/[\u00AD\u200B]/g, '');
   }, [song.lyrics]);
 
   const splitLyrics = useMemo(() => {
@@ -609,9 +616,17 @@ export default function SongScreen({ route, navigation }) {
                   br: { height: 8 },
                 }}
                 renderersProps={{
-                  p: { allowFontScaling: false },
+                  p: { 
+                    allowFontScaling: false,
+                    textBreakStrategy: 'simple',
+                    android_hyphenationFrequency: 'none',
+                  },
                 }}
-                defaultTextProps={{ allowFontScaling: false }}
+                defaultTextProps={{ 
+                  allowFontScaling: false,
+                  textBreakStrategy: 'simple',
+                  android_hyphenationFrequency: 'none',
+                }}
               />
 
               {/* Mid-Lyrics Native Ad between verses */}
@@ -631,9 +646,17 @@ export default function SongScreen({ route, navigation }) {
                       br: { height: 8 },
                     }}
                     renderersProps={{
-                      p: { allowFontScaling: false },
-                    }}
-                    defaultTextProps={{ allowFontScaling: false }}
+                  p: { 
+                    allowFontScaling: false,
+                    textBreakStrategy: 'simple',
+                    android_hyphenationFrequency: 'none',
+                  },
+                }}
+                defaultTextProps={{ 
+                  allowFontScaling: false,
+                  textBreakStrategy: 'simple',
+                  android_hyphenationFrequency: 'none',
+                }}
                   />
                 </>
               ) : null}

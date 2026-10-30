@@ -37,6 +37,15 @@ const RootStack = createNativeStackNavigator();
 
 LogBox.ignoreLogs(['setLayoutAnimationEnabledExperimental']);
 
+// Prevent Android from aggressively splitting words mid-syllable across line wraps
+if (Platform.OS === 'android') {
+  if (Text.defaultProps == null) {
+    Text.defaultProps = {};
+  }
+  Text.defaultProps.textBreakStrategy = 'simple';
+  Text.defaultProps.android_hyphenationFrequency = 'none';
+}
+
 // ─── Theme is now dynamic ─────────────────────────────────────────
 
 // ─── Stack configs ───────────────────────────────────────────────
