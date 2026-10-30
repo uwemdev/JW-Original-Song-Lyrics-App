@@ -40,8 +40,10 @@ import {
   X,
   ChevronRight as ChevronRightSm,
   CheckCircle,
+  Mic,
 } from 'lucide-react-native';
 import RenderHTML from 'react-native-render-html';
+import { parseSyncedLyrics } from '../lib/lyricsParser';
 import { useSettings } from '../context/SettingsContext';
 import AdBanner from '../components/AdBanner';
 import NativeAdCard from '../components/NativeAdCard';
@@ -397,6 +399,57 @@ export default function SongScreen({ route, navigation }) {
     return { part1: cleanLyrics, part2: '' };
   }, [cleanLyrics]);
 
+  // ── Sing-Along / Synced Lyrics Mode (OFF by default) ──
+  const [isKaraoke, setIsKaraoke] = useState(false);
+  const lineOffsets = useRef({});
+  const scrollRef = useRef(null);
+  const isUserInteracting = useRef(false);
+  const interactionTimeout = useRef(null);
+
+  const syncedLines = useMemo(() => {
+    return parseSyncedLyrics(song.lyrics, status.duration);
+  }, [song.lyrics, status.duration]);
+
+  const activeIndex = useMemo(() => {
+    if (!isKaraoke || syncedLines.length === 0) return -1;
+    const currentTime = status.currentTime || 0;
+    let idx = -1;
+    for (let i = 0; i < syncedLines.length; i++) {
+      if (currentTime >= syncedLines[i].time) {
+        idx = i;
+      } else {
+        break;
+      }
+    }
+    return idx;
+  }, [isKaraoke, syncedLines, status.currentTime]);
+
+  // Auto-scroll to active line in Sing-Along mode
+  useEffect(() => {
+    if (!isKaraoke || activeIndex < 0 || isUserInteracting.current) return;
+    const lineY = lineOffsets.current[activeIndex];
+    if (typeof lineY === 'number' && scrollRef.current) {
+      const targetY = Math.max(0, lineY + (IMAGE_H - 60) + 160 - 150);
+      scrollRef.current.scrollTo({ y: targetY, animated: true });
+    }
+  }, [isKaraoke, activeIndex]);
+
+  const toggleKaraoke = () => {
+    const next = !isKaraoke;
+    setIsKaraoke(next);
+    setToastMsg(next ? 'Sing-Along ON • Tap any line to seek' : 'Sing-Along OFF');
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2200);
+  };
+
+  const handleLineSeek = (lineTime) => {
+    if (!song.mp3_url) return;
+    player.seekTo(lineTime);
+    if (!player.playing) {
+      player.play();
+    }
+  };
+
   // ═══════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════
@@ -451,6 +504,7 @@ export default function SongScreen({ route, navigation }) {
 
       {/* ── Scrollable content ── */}
       <Animated.ScrollView
+        ref={scrollRef}
         style={{ zIndex: 2 }}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
@@ -458,6 +512,16 @@ export default function SongScreen({ route, navigation }) {
           { useNativeDriver: false },
         )}
         scrollEventThrottle={16}
+        onScrollBeginDrag={() => {
+          isUserInteracting.current = true;
+          if (interactionTimeout.current) clearTimeout(interactionTimeout.current);
+        }}
+        onScrollEndDrag={() => {
+          if (interactionTimeout.current) clearTimeout(interactionTimeout.current);
+          interactionTimeout.current = setTimeout(() => {
+            isUserInteracting.current = false;
+          }, 3500);
+        }}
         contentContainerStyle={{ paddingBottom: 100 }}
       >
         {/* Spacer for the hero image */}
@@ -569,6 +633,29 @@ export default function SongScreen({ route, navigation }) {
             </TouchableOpacity>
           </View>
 
+          <TouchableOpacity
+            onPress={toggleKaraoke}
+            style={[
+              styles.singAlongBtn,
+              isKaraoke && styles.singAlongBtnActive,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Toggle Sing-Along mode"
+          >
+            <Mic
+              color={isKaraoke ? '#FFFFFF' : colors.textMuted}
+              size={15}
+            />
+            <Text
+              style={[
+                styles.singAlongBtnText,
+                isKaraoke ? styles.singAlongBtnTextActive : { color: colors.textMuted },
+              ]}
+            >
+              {isKaraoke ? 'Sing-Along ON' : 'Sing-Along'}
+            </Text>
+          </TouchableOpacity>
+
           <View style={styles.toolbarActions}>
             <TouchableOpacity
               onPress={copyLyrics}
@@ -602,6 +689,57 @@ export default function SongScreen({ route, navigation }) {
         {/* ── Lyrics Body ── */}
         <View style={styles.lyricsBody}>
           {song.lyrics ? (
+            isKaraoke ? (
+              <View style={styles.karaokeContainer}>
+                {syncedLines.map((item, idx) => {
+                  const isActive = idx === activeIndex;
+                  const isPast = idx < activeIndex;
+                  if (item.isHeader) {
+                    return (
+                      <View
+                        key={idx}
+                        onLayout={(e) => {
+                          lineOffsets.current[idx] = e.nativeEvent.layout.y;
+                        }}
+                        style={styles.karaokeHeaderWrap}
+                      >
+                        <Text style={styles.karaokeHeaderText}>{item.text}</Text>
+                      </View>
+                    );
+                  }
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      onLayout={(e) => {
+                        lineOffsets.current[idx] = e.nativeEvent.layout.y;
+                      }}
+                      onPress={() => handleLineSeek(item.time)}
+                      activeOpacity={0.7}
+                      style={[
+                        styles.karaokeLine,
+                        isActive && styles.karaokeLineActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.karaokeLineText,
+                          { fontSize: FONT_SIZES[settings.fontSizeIdx] + (isActive ? 2 : 0) },
+                          isActive
+                            ? styles.karaokeTextActive
+                            : isPast
+                              ? styles.karaokeTextPast
+                              : styles.karaokeTextUpcoming,
+                        ]}
+                        textBreakStrategy="simple"
+                        android_hyphenationFrequency="none"
+                      >
+                        {item.text}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
             <>
               <RenderHTML
                 contentWidth={width - 48}
@@ -661,6 +799,7 @@ export default function SongScreen({ route, navigation }) {
                 </>
               ) : null}
             </>
+            )
           ) : (
             <View style={styles.lyricsComingSoon}>
               <Music color={colors.textMuted} size={32} />
@@ -983,6 +1122,72 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 22,
     marginBottom: 14,
+  },
+  singAlongBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: colors.cardBg,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+  },
+  singAlongBtnActive: {
+    backgroundColor: '#8B5CF6',
+    borderColor: '#A78BFA',
+  },
+  singAlongBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  singAlongBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  karaokeContainer: {
+    paddingVertical: 6,
+  },
+  karaokeHeaderWrap: {
+    marginTop: 18,
+    marginBottom: 6,
+    paddingHorizontal: 8,
+  },
+  karaokeHeaderText: {
+    color: isDark ? '#C4B5FD' : '#7C3AED',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  karaokeLine: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginVertical: 3,
+  },
+  karaokeLineActive: {
+    backgroundColor: isDark ? 'rgba(139, 92, 246, 0.20)' : 'rgba(139, 92, 246, 0.12)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#A78BFA',
+  },
+  karaokeLineText: {
+    lineHeight: LINE_HEIGHTS[settings.fontSizeIdx],
+  },
+  karaokeTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  karaokeTextPast: {
+    color: isDark ? '#E2E8F0' : '#334155',
+    opacity: 0.85,
+    fontWeight: '500',
+  },
+  karaokeTextUpcoming: {
+    color: isDark ? '#94A3B8' : '#64748B',
+    opacity: 0.40,
+    fontWeight: '400',
   },
   fontControls: {
     flexDirection: 'row',
