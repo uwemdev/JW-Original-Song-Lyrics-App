@@ -73,3 +73,4 @@ export function parseSyncedLyrics(rawLyrics, duration = 0) {
     };
   });
 }
+
