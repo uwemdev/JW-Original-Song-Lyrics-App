@@ -24,7 +24,11 @@ import {
   Music,
   ChevronRight,
   Undo2,
+  ListMusic,
+  Plus,
 } from 'lucide-react-native';
+import { usePlaylists } from '../context/PlaylistContext';
+import { Modal, KeyboardAvoidingView } from 'react-native';
 import { useSettings } from '../context/SettingsContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -153,6 +157,11 @@ function UndoToast({ visible, onUndo }) {
 export default function FavoritesScreen({ navigation }) {
   const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
+  const [activeTab, setActiveTab] = useState('favorites'); // 'favorites' | 'playlists'
+  const { playlists, createPlaylist } = usePlaylists();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createDesc, setCreateDesc] = useState('');
   const [favSongs, setFavSongs] = useState([]);
   const [favIds, setFavIds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -515,6 +524,152 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+
+
+  // ── Playlists & Segments ──
+  newPlaylistTopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    gap: 4,
+  },
+  newPlaylistTopBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  segmentWrap: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    padding: 3,
+  },
+  segmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+  },
+  segmentBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  segmentBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  createPlaylistCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    marginBottom: 12,
+    gap: 12,
+  },
+  createPlaylistCardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  createPlaylistCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  createPlaylistCardSub: {
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  playlistCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+  },
+  playlistCardIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  playlistCardInfo: {
+    flex: 1,
+  },
+  playlistCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  playlistCardMeta: {
+    fontSize: 12,
+    marginTop: 3,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  createModalBox: {
+    width: '100%',
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+  },
+  createModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  createModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  createModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 6,
+  },
+  modalCancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  modalSubmitBtn: {
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  modalSubmitBtnText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 
   // ── Header ──

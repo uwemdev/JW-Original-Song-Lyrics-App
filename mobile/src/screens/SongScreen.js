@@ -40,8 +40,10 @@ import {
   CheckCircle,
   Mic,
   Info,
+  ListPlus,
 } from 'lucide-react-native';
 import { Replay10Icon, Forward10Icon } from '../components/SeekIcons';
+import AddToPlaylistModal from '../components/AddToPlaylistModal';
 import RenderHTML from 'react-native-render-html';
 import { parseSyncedLyrics } from '../lib/lyricsParser';
 import { useSettings } from '../context/SettingsContext';
@@ -141,6 +143,7 @@ export default function SongScreen({ route, navigation }) {
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
 
   // ── Report state ──
   const [showReport, setShowReport] = useState(false);
@@ -667,6 +670,16 @@ export default function SongScreen({ route, navigation }) {
           {/* Action Buttons: WhatsApp Status & Report Issue */}
           <View style={styles.toolbarActions}>
             <TouchableOpacity
+              onPress={() => setShowPlaylistModal(true)}
+              style={styles.playlistIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Add to playlist"
+              activeOpacity={0.75}
+            >
+              <ListPlus color={colors.purpleAccent} size={19} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
               onPress={() => setShowStatusModal(true)}
               style={styles.whatsappIconBtn}
               accessibilityRole="button"
@@ -965,6 +978,18 @@ export default function SongScreen({ route, navigation }) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* ── Add to Playlist Modal ── */}
+      <AddToPlaylistModal
+        visible={showPlaylistModal}
+        onClose={() => setShowPlaylistModal(false)}
+        song={song}
+        onToast={(msg) => {
+          setToastMsg(msg);
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 2200);
+        }}
+      />
 
       {/* ── Toast notification ── */}
       <Toast visible={showToast} message={toastMsg} />
@@ -1291,6 +1316,16 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  playlistIconBtn: {
+    width: 38,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.10)',
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(139, 92, 246, 0.3)' : 'rgba(139, 92, 246, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   whatsappIconBtn: {
     width: 38,

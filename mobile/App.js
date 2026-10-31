@@ -29,6 +29,8 @@ import { initMobileAds } from './src/lib/adMob';
 import { requestNotificationPermissions, scheduleDailySongReminder, scheduleSundayMeetingReminder, scheduleInactivityReminders } from './src/lib/notificationScheduler';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
 import { AudioProvider } from './src/context/AudioContext';
+import { PlaylistProvider } from './src/context/PlaylistContext';
+import PlaylistScreen from './src/screens/PlaylistScreen';
 import MiniPlayer from './src/components/MiniPlayer';
 
 const Tab = createBottomTabNavigator();
@@ -82,6 +84,11 @@ function HomeStackScreen() {
         options={{ headerShown: false }}
       />
       <HomeStackNav.Screen
+        name="Playlist"
+        component={PlaylistScreen}
+        options={{ headerShown: false }}
+      />
+      <HomeStackNav.Screen
         name="Song"
         component={SongScreen}
         options={{ headerShown: false }}
@@ -125,6 +132,11 @@ function FavoritesStackScreen() {
       <FavoritesStackNav.Screen
         name="Category"
         component={CategoryScreen}
+        options={{ headerShown: false }}
+      />
+      <FavoritesStackNav.Screen
+        name="Playlist"
+        component={PlaylistScreen}
         options={{ headerShown: false }}
       />
       <FavoritesStackNav.Screen
@@ -342,6 +354,7 @@ function MainNavigation() {
         <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
         <RootStack.Screen name="MainApp" component={MainTabs} />
         <RootStack.Screen name="Song" component={SongScreen} options={{ animation: 'slide_from_bottom' }} />
+        <RootStack.Screen name="Playlist" component={PlaylistScreen} options={{ headerShown: false }} />
         <RootStack.Screen name="FeedbackScreen" component={FeedbackScreen} />
         <RootStack.Screen name="LyricQuiz" component={LyricQuizScreen} />
       </RootStack.Navigator>
@@ -383,9 +396,11 @@ export default function App() {
     <GlobalErrorBoundary>
       <SafeAreaProvider>
         <SettingsProvider>
+          <PlaylistProvider>
           <AudioProvider>
             <MainNavigation />
           </AudioProvider>
+        </PlaylistProvider>
         </SettingsProvider>
       </SafeAreaProvider>
     </GlobalErrorBoundary>
