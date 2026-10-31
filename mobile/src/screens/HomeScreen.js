@@ -36,6 +36,7 @@ import { getDailySong } from '../lib/dailySong';
 import MoodPills from '../components/MoodPills';
 import ActiveMoodBanner from '../components/ActiveMoodBanner';
 import FamilyQuizBanner from '../components/FamilyQuizBanner';
+import WhatsAppStatusCardModal from '../components/WhatsAppStatusCardModal';
 import { filterSongsByMood, getMoodById } from '../lib/moodCategories';
 
 const { width } = Dimensions.get('window');
@@ -174,6 +175,7 @@ export default function HomeScreen({ navigation }) {
   const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
   const [activeBanner, setActiveBanner] = useState(null);
   const [selectedMood, setSelectedMood] = useState(null);
+  const [statusModalSong, setStatusModalSong] = useState(null);
 
   // ── Data fetch ──
   const fetchData = useCallback(async () => {
@@ -544,6 +546,7 @@ export default function HomeScreen({ navigation }) {
             song={item.song}
             categoryName={getCatName(item.song)}
             onPress={navigateToSong}
+            onShareStatus={(s) => setStatusModalSong(s)}
           />
         );
 
@@ -843,6 +846,11 @@ export default function HomeScreen({ navigation }) {
         contentContainerStyle={{ paddingBottom: 140 }}
         onRefresh={onRefresh}
         refreshing={refreshing}
+      />
+      <WhatsAppStatusCardModal
+        visible={!!statusModalSong}
+        onClose={() => setStatusModalSong(null)}
+        song={statusModalSong}
       />
     </View>
   );

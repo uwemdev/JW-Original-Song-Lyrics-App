@@ -8,12 +8,12 @@ import {
   Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Sun, Play, Music, ChevronRight, Heart } from 'lucide-react-native';
+import { Sun, Play, Music, ChevronRight, Heart, MessageCircle } from 'lucide-react-native';
 import { isSundayEvening, getSundayGreeting } from '../lib/sundayGreetings';
 import { useSettings } from '../context/SettingsContext';
 import { getFormattedTodayDate, extractLyricQuote } from '../lib/dailySong';
 
-export default function SongOfTheDayCard({ song, categoryName, onPress }) {
+export default function SongOfTheDayCard({ song, categoryName, onPress, onShareStatus }) {
   const { isDark, colors } = useSettings();
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -108,10 +108,24 @@ export default function SongOfTheDayCard({ song, categoryName, onPress }) {
                 </Text>
               </View>
 
-              <View style={styles.playBtn}>
-                <Play color="#6D28D9" fill="#6D28D9" size={13} />
-                <Text style={styles.playBtnText}>Listen</Text>
-                <ChevronRight color="#6D28D9" size={14} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {onShareStatus && (
+                  <TouchableOpacity
+                    style={styles.statusShareBtn}
+                    onPress={() => onShareStatus(song)}
+                    activeOpacity={0.8}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <MessageCircle color="#25D366" size={13} />
+                    <Text style={styles.statusShareBtnText}>Status</Text>
+                  </TouchableOpacity>
+                )}
+
+                <View style={styles.playBtn}>
+                  <Play color="#6D28D9" fill="#6D28D9" size={13} />
+                  <Text style={styles.playBtnText}>Listen</Text>
+                  <ChevronRight color="#6D28D9" size={14} />
+                </View>
               </View>
             </View>
           </LinearGradient>
@@ -225,6 +239,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '600',
+  },
+  statusShareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(37, 211, 102, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(37, 211, 102, 0.4)',
+    gap: 4,
+  },
+  statusShareBtnText: {
+    color: '#25D366',
+    fontSize: 12,
+    fontWeight: '700',
   },
   playBtn: {
     flexDirection: 'row',

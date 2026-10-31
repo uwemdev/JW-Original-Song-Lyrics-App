@@ -47,6 +47,8 @@ import { parseSyncedLyrics } from '../lib/lyricsParser';
 import { useSettings } from '../context/SettingsContext';
 import AdBanner from '../components/AdBanner';
 import NativeAdCard from '../components/NativeAdCard';
+import WhatsAppStatusCardModal from '../components/WhatsAppStatusCardModal';
+import { MessageCircle } from 'lucide-react-native';
 
 const { width, height: SCREEN_H } = Dimensions.get('window');
 
@@ -137,6 +139,7 @@ export default function SongScreen({ route, navigation }) {
   const [loadingMore, setLoadingMore] = useState(true);
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+  const [showStatusModal, setShowStatusModal] = useState(false);
 
   // ── Report state ──
   const [showReport, setShowReport] = useState(false);
@@ -658,6 +661,15 @@ export default function SongScreen({ route, navigation }) {
 
           <View style={styles.toolbarActions}>
             <TouchableOpacity
+              onPress={() => setShowStatusModal(true)}
+              style={[styles.toolbarIconBtn, { backgroundColor: 'rgba(37, 211, 102, 0.15)' }]}
+              accessibilityRole="button"
+              accessibilityLabel="Share quote to WhatsApp Status"
+            >
+              <MessageCircle color="#25D366" size={18} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
               onPress={copyLyrics}
               style={styles.toolbarIconBtn}
               accessibilityRole="button"
@@ -811,6 +823,22 @@ export default function SongScreen({ route, navigation }) {
           )}
         </View>
 
+        {/* ── Share to WhatsApp Status CTA Banner ── */}
+        <TouchableOpacity
+          style={styles.statusCtaBanner}
+          onPress={() => setShowStatusModal(true)}
+          activeOpacity={0.85}
+        >
+          <View style={styles.statusCtaIconWrap}>
+            <MessageCircle size={20} color="#25D366" />
+          </View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.statusCtaTitle}>Share to WhatsApp Status</Text>
+            <Text style={styles.statusCtaSub}>Encourage your friends with a lyric quote card ✨</Text>
+          </View>
+          <ChevronRightSm size={18} color="rgba(255,255,255,0.4)" />
+        </TouchableOpacity>
+
         {/* ── Native Ad Card (shown at bottom if lyrics were short/unsplit) ── */}
         {!splitLyrics.part2 && (
           <NativeAdCard style={{ marginTop: 8, marginBottom: 8 }} />
@@ -936,6 +964,13 @@ export default function SongScreen({ route, navigation }) {
 
       {/* ── Toast notification ── */}
       <Toast visible={showToast} message={toastMsg} />
+
+      {/* ── WhatsApp Status Card Modal ── */}
+      <WhatsAppStatusCardModal
+        visible={showStatusModal}
+        onClose={() => setShowStatusModal(false)}
+        song={song}
+      />
     </View>
   );
 }
@@ -1397,6 +1432,38 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     color: '#9B8FC4',
     fontSize: 11,
     marginTop: 2,
+  },
+
+  // ── Status CTA Banner ──
+  statusCtaBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 8,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: isDark ? 'rgba(37, 211, 102, 0.1)' : 'rgba(37, 211, 102, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 211, 102, 0.25)',
+  },
+  statusCtaIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(37, 211, 102, 0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusCtaTitle: {
+    color: colors.textWhite,
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  statusCtaSub: {
+    color: colors.textMuted,
+    fontSize: 12,
   },
 
   // ── Toast ──
