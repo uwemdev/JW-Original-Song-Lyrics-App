@@ -203,6 +203,13 @@ export function SettingsProvider({ children }) {
   const setDailySongReminder = useCallback(async (val) => {
     setDailySongReminderState(val);
     await AsyncStorage.setItem(KEYS.dailySongReminder, val ? 'true' : 'false');
+    scheduleDailySongReminder(val);
+  }, []);
+
+  const setSundayMeetingReminder = useCallback(async (val) => {
+    setSundayMeetingReminderState(val);
+    await AsyncStorage.setItem(KEYS.sundayMeetingReminder, val ? 'true' : 'false');
+    scheduleSundayMeetingReminder(val);
   }, []);
 
   const dismissNotification = useCallback(async (id) => {
