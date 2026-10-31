@@ -25,6 +25,7 @@ import FeedbackScreen from './src/screens/settings/FeedbackScreen';
 import PrivacyScreen from './src/screens/settings/PrivacyScreen';
 import AppUpdateChecker from './src/components/AppUpdateChecker';
 import { initMobileAds } from './src/lib/adMob';
+import { requestNotificationPermissions, scheduleDailySongReminder, scheduleSundayMeetingReminder } from './src/lib/notificationScheduler';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
 
 const Tab = createBottomTabNavigator();
@@ -284,6 +285,16 @@ function MainNavigation() {
         setInitialRoute('Onboarding');
       });
     initMobileAds();
+
+    // Ensure notifications are enabled by default on initial launch
+    requestNotificationPermissions()
+      .then((granted) => {
+        if (granted) {
+          scheduleDailySongReminder(true);
+          scheduleSundayMeetingReminder(true);
+        }
+      })
+      .catch(() => {});
   }, [loaded]);
 
   const MyTheme = {

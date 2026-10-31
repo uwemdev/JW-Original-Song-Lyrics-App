@@ -25,6 +25,13 @@
       "expo-build-properties",
       "expo-audio",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#6D28D9"
+        }
+      ],
+      [
         "react-native-google-mobile-ads",
         {
           "androidAppId": "ca-app-pub-5615986237010538~5078950678"
