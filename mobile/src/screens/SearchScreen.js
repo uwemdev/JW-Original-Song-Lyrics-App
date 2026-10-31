@@ -335,7 +335,7 @@ export default function SearchScreen({ navigation, route }) {
 
   const navigateToSong = (song) => {
     Keyboard.dismiss();
-    navigation.navigate('Song', { song });
+    navigation.navigate('Song', { song, queue: results });
   };
 
   const navigateToCategory = (song) => {

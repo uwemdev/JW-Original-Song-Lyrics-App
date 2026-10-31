@@ -307,7 +307,7 @@ export default function CategoryScreen({ route, navigation }) {
   };
 
   // ── Navigate ──
-  const goToSong = (song) => navigation.navigate('Song', { song });
+  const goToSong = (song) => navigation.navigate('Song', { song, queue: songs });
 
   // ═══════════════════════════════════════════════════════════════
   // RENDER ITEMS

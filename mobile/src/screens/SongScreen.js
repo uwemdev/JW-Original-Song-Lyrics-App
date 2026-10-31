@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { useAudio } from '../context/AudioContext';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -158,9 +158,16 @@ export default function SongScreen({ route, navigation }) {
     { key: 'others', label: 'Other issue' },
   ];
 
-  // Audio State using expo-audio
-  const player = useAudioPlayer(song.mp3_url);
-  const status = useAudioPlayerStatus(player);
+  // Global Audio Context
+  const {
+    player,
+    status,
+    currentSong,
+    playSong,
+    togglePlayPause,
+    seekBy: audioSeekBy,
+    setCurrentScreen,
+  } = useAudio();
   
   // Heart bounce
   const heartScale = useRef(new Animated.Value(1)).current;
@@ -183,21 +190,16 @@ export default function SongScreen({ route, navigation }) {
     saveLastPlayed();
   }, []);
 
-  // Stop audio when navigating away to another song
+  // Synchronize with global audio context & track active screen
   useEffect(() => {
-    const unsubscribe = navigation.addListener('blur', () => {
-      try {
-        player.pause();
-      } catch (_) {}
-    });
-    return unsubscribe;
-  }, [navigation, player]);
-
-  useEffect(() => {
-    if (song.mp3_url && settings.autoPlay) {
-      player.play();
+    setCurrentScreen('Song');
+    if (song && currentSong?.id !== song.id) {
+      playSong(song, route.params?.queue);
     }
-  }, [song.mp3_url]);
+    return () => {
+      setCurrentScreen('');
+    };
+  }, [song?.id]);
 
   async function handlePlayPause() {
     if (!song.mp3_url) {
@@ -205,12 +207,7 @@ export default function SongScreen({ route, navigation }) {
       setShowToast(true);
       return;
     }
-
-    if (player.playing) {
-      player.pause();
-    } else {
-      player.play();
-    }
+    togglePlayPause();
   }
 
   const seekBy = (seconds) => {

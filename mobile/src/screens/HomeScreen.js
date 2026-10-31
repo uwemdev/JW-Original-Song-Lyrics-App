@@ -343,7 +343,7 @@ export default function HomeScreen({ navigation }) {
 
   const navigateToSong = (song) => {
     AsyncStorage.setItem('@last_viewed_daily_song_date', new Date().toDateString()).catch(() => {});
-    navigation.navigate('Song', { song });
+    navigation.navigate('Song', { song, queue: recentSongs });
   };
 
   const navigateToCategory = (cat) =>

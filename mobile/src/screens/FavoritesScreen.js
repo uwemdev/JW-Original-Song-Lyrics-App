@@ -324,7 +324,7 @@ export default function FavoritesScreen({ navigation }) {
     return list;
   }, [favSongs, searchQuery, sortKey]);
 
-  const navigateToSong = (song) => navigation.navigate('Song', { song });
+  const navigateToSong = (song) => navigation.navigate('Song', { song, queue: favSongs });
   const navigateToCategory = (song) =>
     navigation.navigate('Category', {
       categoryId: song.category_id,

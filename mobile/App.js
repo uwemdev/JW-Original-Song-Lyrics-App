@@ -28,6 +28,8 @@ import AppUpdateChecker from './src/components/AppUpdateChecker';
 import { initMobileAds } from './src/lib/adMob';
 import { requestNotificationPermissions, scheduleDailySongReminder, scheduleSundayMeetingReminder, scheduleInactivityReminders } from './src/lib/notificationScheduler';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
+import { AudioProvider } from './src/context/AudioContext';
+import MiniPlayer from './src/components/MiniPlayer';
 
 const Tab = createBottomTabNavigator();
 const HomeStackNav = createNativeStackNavigator();
@@ -207,6 +209,7 @@ function MainTabs() {
   const paddingBottom = (Platform.OS === 'ios' ? 28 : 12) + insets.bottom;
 
   return (
+    <View style={{ flex: 1 }}>
     <Tab.Navigator
       initialRouteName="Home"
       screenOptions={({ route }) => ({
@@ -267,6 +270,8 @@ function MainTabs() {
         }} 
       />
     </Tab.Navigator>
+    <MiniPlayer />
+    </View>
   );
 }
 
@@ -336,6 +341,7 @@ function MainNavigation() {
       <RootStack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
         <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
         <RootStack.Screen name="MainApp" component={MainTabs} />
+        <RootStack.Screen name="Song" component={SongScreen} options={{ animation: 'slide_from_bottom' }} />
         <RootStack.Screen name="FeedbackScreen" component={FeedbackScreen} />
         <RootStack.Screen name="LyricQuiz" component={LyricQuizScreen} />
       </RootStack.Navigator>
@@ -377,7 +383,9 @@ export default function App() {
     <GlobalErrorBoundary>
       <SafeAreaProvider>
         <SettingsProvider>
-          <MainNavigation />
+          <AudioProvider>
+            <MainNavigation />
+          </AudioProvider>
         </SettingsProvider>
       </SafeAreaProvider>
     </GlobalErrorBoundary>

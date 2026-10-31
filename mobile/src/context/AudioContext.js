@@ -1,0 +1,194 @@
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { useSettings } from './SettingsContext';
+
+const AudioContext = createContext(null);
+
+export function AudioProvider({ children, navigationRef }) {
+  const { settings } = useSettings();
+  const [currentSong, setCurrentSong] = useState(null);
+  const [queue, setQueue] = useState([]);
+  const [queueIndex, setQueueIndex] = useState(-1);
+  const [isMiniPlayerVisible, setIsMiniPlayerVisible] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState('');
+
+  // Single persistent expo-audio player instance with high-frequency progress updates (250ms)
+  const player = useAudioPlayer(null, { updateInterval: 250 });
+  const status = useAudioPlayerStatus(player);
+
+  const prevDidFinishRef = useRef(false);
+
+  // Play a song and optionally set/update the playback queue
+  const playSong = useCallback((song, newQueue = null) => {
+    if (!song) return;
+
+    if (newQueue && Array.isArray(newQueue) && newQueue.length > 0) {
+      setQueue(newQueue);
+      const idx = newQueue.findIndex((s) => s.id === song.id);
+      setQueueIndex(idx >= 0 ? idx : 0);
+    } else if (currentSong?.id !== song.id) {
+      // If no new queue provided and it's a different song, keep existing queue or make single-item
+      setQueue((prev) => {
+        const idx = prev.findIndex((s) => s.id === song.id);
+        if (idx >= 0) {
+          setQueueIndex(idx);
+          return prev;
+        }
+        setQueueIndex(0);
+        return [song];
+      });
+    }
+
+    // If tapping the already loaded song, just resume if paused
+    if (currentSong?.id === song.id && song.mp3_url) {
+      if (!player.playing) {
+        player.play();
+      }
+      setIsMiniPlayerVisible(true);
+      return;
+    }
+
+    setCurrentSong(song);
+    setIsMiniPlayerVisible(true);
+
+    if (song.mp3_url) {
+      try {
+        player.replace({ uri: song.mp3_url });
+        player.play();
+        try {
+          player.setActiveForLockScreen(true, {
+            title: song.title || 'Original Song',
+            artist: song.categories?.name || song.category_name || 'JW Original Songs',
+            artwork: song.feature_image_url || undefined,
+          });
+        } catch (_) {}
+      } catch (err) {
+        console.warn('Error loading audio:', err);
+      }
+    }
+  }, [currentSong?.id, player]);
+
+  // Toggle play / pause
+  const togglePlayPause = useCallback(() => {
+    if (!currentSong?.mp3_url) return;
+    if (player.playing) {
+      player.pause();
+    } else {
+      player.play();
+    }
+  }, [currentSong, player]);
+
+  const pause = useCallback(() => {
+    if (player.playing) {
+      player.pause();
+    }
+  }, [player]);
+
+  const play = useCallback(() => {
+    if (!player.playing && currentSong?.mp3_url) {
+      player.play();
+    }
+  }, [player, currentSong]);
+
+  const seekTo = useCallback((seconds) => {
+    if (typeof seconds === 'number' && !isNaN(seconds)) {
+      player.seekTo(Math.max(0, seconds));
+    }
+  }, [player]);
+
+  const seekBy = useCallback((seconds) => {
+    const cur = status.currentTime || 0;
+    const dur = status.duration || 0;
+    const target = Math.max(0, Math.min(cur + seconds, dur));
+    player.seekTo(target);
+  }, [player, status.currentTime, status.duration]);
+
+  // Play next track in queue
+  const playNext = useCallback(() => {
+    if (queue.length === 0) return;
+    const nextIdx = queueIndex + 1;
+    if (nextIdx < queue.length) {
+      const nextSong = queue[nextIdx];
+      setQueueIndex(nextIdx);
+      playSong(nextSong);
+    } else {
+      // End of queue
+      player.pause();
+    }
+  }, [queue, queueIndex, playSong, player]);
+
+  // Play previous track in queue
+  const playPrev = useCallback(() => {
+    if (queue.length === 0) return;
+    // If more than 3 seconds in, restart current track
+    if ((status.currentTime || 0) > 3) {
+      player.seekTo(0);
+      return;
+    }
+    const prevIdx = queueIndex - 1;
+    if (prevIdx >= 0) {
+      const prevSong = queue[prevIdx];
+      setQueueIndex(prevIdx);
+      playSong(prevSong);
+    } else {
+      player.seekTo(0);
+    }
+  }, [queue, queueIndex, status.currentTime, playSong, player]);
+
+  // Dismiss mini player completely
+  const dismissMiniPlayer = useCallback(() => {
+    try {
+      player.pause();
+    } catch (_) {}
+    setIsMiniPlayerVisible(false);
+  }, [player]);
+
+  // Continuous Play: Auto-advance when track finishes
+  useEffect(() => {
+    if (status.didJustFinish && !prevDidFinishRef.current) {
+      prevDidFinishRef.current = true;
+      if (settings?.autoPlay) {
+        playNext();
+      }
+    } else if (!status.didJustFinish) {
+      prevDidFinishRef.current = false;
+    }
+  }, [status.didJustFinish, settings?.autoPlay, playNext]);
+
+  // Progress fraction (0 to 1)
+  const progress = status.duration > 0 ? Math.min(1, Math.max(0, status.currentTime / status.duration)) : 0;
+
+  const value = {
+    player,
+    status,
+    currentSong,
+    queue,
+    queueIndex,
+    isPlaying: !!player.playing,
+    isBuffering: !!status.isBuffering,
+    currentTime: status.currentTime || 0,
+    duration: status.duration || 0,
+    progress,
+    isMiniPlayerVisible: isMiniPlayerVisible && !!currentSong && currentScreen !== 'Song',
+    setCurrentScreen,
+    playSong,
+    togglePlayPause,
+    pause,
+    play,
+    seekTo,
+    seekBy,
+    playNext,
+    playPrev,
+    dismissMiniPlayer,
+  };
+
+  return <AudioContext.Provider value={value}>{children}</AudioContext.Provider>;
+}
+
+export function useAudio() {
+  const ctx = useContext(AudioContext);
+  if (!ctx) {
+    throw new Error('useAudio must be used within an AudioProvider');
+  }
+  return ctx;
+}
