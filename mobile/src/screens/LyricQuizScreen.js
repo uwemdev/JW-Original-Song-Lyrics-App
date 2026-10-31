@@ -25,6 +25,7 @@ import {
   Award,
 } from 'lucide-react-native';
 import { generateQuizRound } from '../lib/quizEngine';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfettiEffect from '../components/ConfettiEffect';
 import { useSettings } from '../context/SettingsContext';
 
@@ -40,7 +41,9 @@ const CHEER_PHRASES = [
 
 export default function LyricQuizScreen({ navigation, route }) {
   const { colors, isDark } = useSettings();
+  const insets = useSafeAreaInsets();
   const styles = makeStyles(colors, isDark);
+  const scrollViewRef = useRef(null);
 
   const initialMode = route?.params?.mode || 'all';
   const [mode, setMode] = useState(initialMode); // 'all' or 'kids'
@@ -110,10 +113,16 @@ export default function LyricQuizScreen({ navigation, route }) {
       Animated.timing(buttonBounceAnim, { toValue: 1.05, duration: 100, useNativeDriver: true }),
       Animated.spring(buttonBounceAnim, { toValue: 1, friction: 3, useNativeDriver: true }),
     ]).start();
+
+    // Auto-scroll down smoothly so user immediately sees the result banner and the Next button
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 120);
   };
 
   const handleNextQuestion = () => {
     if (currentIndex < questions.length - 1) {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
       // Fade transition to next question
       Animated.sequence([
         Animated.timing(cardFadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
@@ -150,9 +159,9 @@ export default function LyricQuizScreen({ navigation, route }) {
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
         <ConfettiEffect active={showConfetti} />
 
-        <ScrollView contentContainerStyle={styles.resultsScroll} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.resultsScroll, { paddingBottom: Math.max(insets.bottom + 40, 50) }]} showsVerticalScrollIndicator={false}>
           {/* Top Bar */}
-          <View style={styles.topBar}>
+          <View style={[styles.topBar, { paddingTop: Math.max(insets.top + 8, Platform.OS === "ios" ? 50 : 36) }]}>
             <TouchableOpacity
               style={styles.iconBtn}
               onPress={() => navigation.goBack()}
@@ -309,7 +318,7 @@ export default function LyricQuizScreen({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.gameplayScroll} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollViewRef} contentContainerStyle={[styles.gameplayScroll, { paddingBottom: Math.max(insets.bottom + 50, 70) }]} showsVerticalScrollIndicator={false}>
         {/* Progress Tracker (5 Dots) */}
         <View style={styles.progressRow}>
           {[0, 1, 2, 3, 4].map((step) => {

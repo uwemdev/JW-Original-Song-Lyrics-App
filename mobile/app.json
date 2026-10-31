@@ -37,7 +37,9 @@
         {
           "androidAppId": "ca-app-pub-5615986237010538~5078950678"
         }
-      ]
+      ],
+      "expo-sharing",
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {

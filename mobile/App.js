@@ -84,11 +84,6 @@ function HomeStackScreen() {
         component={SongScreen}
         options={{ headerShown: false }}
       />
-      <HomeStackNav.Screen
-        name="LyricQuiz"
-        component={LyricQuizScreen}
-        options={{ headerShown: false }}
-      />
     </HomeStackNav.Navigator>
   );
 }
