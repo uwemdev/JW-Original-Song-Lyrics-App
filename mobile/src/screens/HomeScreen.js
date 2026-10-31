@@ -35,6 +35,7 @@ import SongOfTheDayCard from '../components/SongOfTheDayCard';
 import { getDailySong } from '../lib/dailySong';
 import MoodPills from '../components/MoodPills';
 import ActiveMoodBanner from '../components/ActiveMoodBanner';
+import FamilyQuizBanner from '../components/FamilyQuizBanner';
 import { filterSongsByMood, getMoodById } from '../lib/moodCategories';
 
 const { width } = Dimensions.get('window');
@@ -412,6 +413,10 @@ export default function HomeScreen({ navigation }) {
       count: moodSongs.length,
     });
 
+    if (selectedMood === 'kids') {
+      sections.push({ key: 'family-quiz-banner-kids' });
+    }
+
     if (moodSongs.length === 0) {
       sections.push({ key: 'mood-empty' });
     } else {
@@ -434,6 +439,9 @@ export default function HomeScreen({ navigation }) {
 
     // 3️⃣ Quick-access grid
     sections.push({ key: 'grid' });
+
+    // 3.5️⃣ Family Worship Quiz Banner
+    sections.push({ key: 'family-quiz-banner' });
 
     // Native Ad in Home feed
     sections.push({ key: 'native-ad' });
@@ -556,6 +564,20 @@ export default function HomeScreen({ navigation }) {
             mood={item.mood}
             songCount={item.count}
             onClear={() => setSelectedMood(null)}
+          />
+        );
+
+      case 'family-quiz-banner':
+        return (
+          <FamilyQuizBanner
+            onPress={() => navigation.navigate('LyricQuiz', { mode: 'all' })}
+          />
+        );
+
+      case 'family-quiz-banner-kids':
+        return (
+          <FamilyQuizBanner
+            onPress={() => navigation.navigate('LyricQuiz', { mode: 'kids' })}
           />
         );
 

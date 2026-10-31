@@ -23,6 +23,7 @@ import StorageScreen from './src/screens/settings/StorageScreen';
 import AboutScreen from './src/screens/settings/AboutScreen';
 import FeedbackScreen from './src/screens/settings/FeedbackScreen';
 import PrivacyScreen from './src/screens/settings/PrivacyScreen';
+import LyricQuizScreen from './src/screens/LyricQuizScreen';
 import AppUpdateChecker from './src/components/AppUpdateChecker';
 import { initMobileAds } from './src/lib/adMob';
 import { requestNotificationPermissions, scheduleDailySongReminder, scheduleSundayMeetingReminder } from './src/lib/notificationScheduler';
@@ -81,6 +82,11 @@ function HomeStackScreen() {
       <HomeStackNav.Screen
         name="Song"
         component={SongScreen}
+        options={{ headerShown: false }}
+      />
+      <HomeStackNav.Screen
+        name="LyricQuiz"
+        component={LyricQuizScreen}
         options={{ headerShown: false }}
       />
     </HomeStackNav.Navigator>
@@ -324,6 +330,7 @@ function MainNavigation() {
         <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
         <RootStack.Screen name="MainApp" component={MainTabs} />
         <RootStack.Screen name="FeedbackScreen" component={FeedbackScreen} />
+        <RootStack.Screen name="LyricQuiz" component={LyricQuizScreen} />
       </RootStack.Navigator>
       <AppUpdateChecker />
     </NavigationContainer>
