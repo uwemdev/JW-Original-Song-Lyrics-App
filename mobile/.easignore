@@ -1,0 +1,29 @@
+# EAS Build Ignore File
+
+# Dependencies and caches
+node_modules/
+.expo/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Gradle & Android build caches
+.gradle/
+build/
+android/.gradle/
+android/.kotlin/
+android/app/build/
+android/build/
+android/local.properties
+android/*.iml
+
+# iOS
+ios/build/
+ios/Pods/
+
+# Temporary media & debug files
+*.mp4
+*.log
+crash_logs.txt
+crash_video.mp4
+dist/
