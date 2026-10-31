@@ -119,6 +119,48 @@ export default function NotificationsTab() {
         {/* Composer */}
         <div style={s.card}>
           <h2 style={{ color: '#fff', fontSize: '16px', marginTop: 0, marginBottom: '20px' }}>Compose Message</h2>
+          {/* Quick Presets */}
+          <div style={{ marginBottom: '16px' }}>
+            <span style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>
+              Quick Templates
+            </span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              <button
+                type="button"
+                onClick={() => setForm({
+                  title: 'Thinking of you',
+                  message: 'Hope your week is going well. Whenever you need a peaceful moment, your favorite Kingdom songs are here to encourage you.',
+                  link_url: '',
+                })}
+                style={{ padding: '5px 9px', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#A78BFA', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}
+              >
+                7-Day Warm Check-in
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({
+                  title: 'A gentle melody for your heart',
+                  message: 'Take a peaceful moment today. An uplifting song can bring comfort and strength during a busy week.',
+                  link_url: '',
+                })}
+                style={{ padding: '5px 9px', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#A78BFA', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}
+              >
+                14-Day Warm Check-in
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({
+                  title: 'How was the meeting today?',
+                  message: 'Hope you had an encouraging meeting! Relax this evening with an uplifting song.',
+                  link_url: '',
+                })}
+                style={{ padding: '5px 9px', background: 'rgba(236,72,153,0.15)', border: '1px solid rgba(236,72,153,0.3)', color: '#F472B6', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}
+              >
+                Sunday Reflection
+              </button>
+            </div>
+          </div>
+
           <form onSubmit={handleSend}>
             <div style={s.formGroup}>
               <label style={s.label}>Title *</label>

@@ -129,3 +129,116 @@ export async function scheduleDailySongReminder(enabled = true) {
   }
 }
 
+/**
+ * Inactivity Re-engagement Reminders (7 Days, 14 Days, 30 Days)
+ * Warm, uplifting messages delivered only if the user hasn't opened the app.
+ */
+export const INACTIVITY_NOTIFICATIONS = [
+  {
+    identifier: 'inactivity-reminder-7d',
+    days: 7,
+    title: 'Thinking of you',
+    body: 'Hope your week is going well. Whenever you need peace and encouragement, your Kingdom song lyrics are waiting for you.',
+    data: { type: 'inactivity_7d' },
+  },
+  {
+    identifier: 'inactivity-reminder-14d',
+    days: 14,
+    title: 'A gentle melody for your heart',
+    body: 'Take a peaceful moment today. An uplifting song can bring comfort and strength during a busy week.',
+    data: { type: 'inactivity_14d' },
+  },
+  {
+    identifier: 'inactivity-reminder-30d',
+    days: 30,
+    title: 'Always here for encouragement',
+    body: 'Whenever you need comfort and spiritual strength, your song lyrics and sing-along are ready for you.',
+    data: { type: 'inactivity_30d' },
+  },
+];
+
+/**
+ * Schedule inactivity reminders for 7, 14, and 30 days of absence.
+ * Resets the countdown every time the user opens or resumes the app.
+ */
+export async function scheduleInactivityReminders(enabled = true) {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const inactivityIds = INACTIVITY_NOTIFICATIONS.map((n) => n.identifier);
+
+    // Cancel existing inactivity notifications
+    for (const notif of scheduled) {
+      if (inactivityIds.includes(notif.identifier)) {
+        await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+      }
+    }
+
+    if (!enabled) return;
+
+    const hasPermission = await requestNotificationPermissions();
+    if (!hasPermission) return;
+
+    await setupAndroidChannel();
+
+    for (const item of INACTIVITY_NOTIFICATIONS) {
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + item.days);
+      targetDate.setHours(17, 0, 0, 0); // 5:00 PM local time
+
+      // Safety check: ensure targetDate is in the future
+      if (targetDate.getTime() <= Date.now()) continue;
+
+      await Notifications.scheduleNotificationAsync({
+        identifier: item.identifier,
+        content: {
+          title: item.title,
+          body: item.body,
+          sound: 'default',
+          channelId: 'reminders',
+          data: item.data,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: targetDate,
+          channelId: 'reminders',
+        },
+      });
+    }
+  } catch (err) {
+    console.warn('[NotificationScheduler] Failed to schedule inactivity reminders:', err?.message || err);
+  }
+}
+
+/**
+ * Developer / Test helper: schedule a test warm notification 4 seconds from now.
+ */
+export async function triggerTestWarmReminder(days = 7) {
+  try {
+    const hasPermission = await requestNotificationPermissions();
+    if (!hasPermission) return false;
+    await setupAndroidChannel();
+
+    const notifItem = INACTIVITY_NOTIFICATIONS.find((n) => n.days === days) || INACTIVITY_NOTIFICATIONS[0];
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: 'test-warm-reminder',
+      content: {
+        title: notifItem.title,
+        body: notifItem.body,
+        sound: 'default',
+        channelId: 'reminders',
+        data: notifItem.data,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: 4,
+        repeats: false,
+        channelId: 'reminders',
+      },
+    });
+    return true;
+  } catch (err) {
+    console.warn('[NotificationScheduler] Failed to trigger test warm reminder:', err?.message || err);
+    return false;
+  }
+}

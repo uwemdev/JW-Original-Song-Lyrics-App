@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Platform, LogBox, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet, Platform, LogBox, ActivityIndicator, Text, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
@@ -26,7 +26,7 @@ import PrivacyScreen from './src/screens/settings/PrivacyScreen';
 import LyricQuizScreen from './src/screens/LyricQuizScreen';
 import AppUpdateChecker from './src/components/AppUpdateChecker';
 import { initMobileAds } from './src/lib/adMob';
-import { requestNotificationPermissions, scheduleDailySongReminder, scheduleSundayMeetingReminder } from './src/lib/notificationScheduler';
+import { requestNotificationPermissions, scheduleDailySongReminder, scheduleSundayMeetingReminder, scheduleInactivityReminders } from './src/lib/notificationScheduler';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
 
 const Tab = createBottomTabNavigator();
@@ -293,9 +293,21 @@ function MainNavigation() {
         if (granted) {
           scheduleDailySongReminder(true);
           scheduleSundayMeetingReminder(true);
+          scheduleInactivityReminders(true);
         }
       })
       .catch(() => {});
+
+    // Refresh inactivity timer whenever app is brought to foreground
+    const appStateSub = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        scheduleInactivityReminders(true);
+      }
+    });
+
+    return () => {
+      appStateSub.remove();
+    };
   }, [loaded]);
 
   const MyTheme = {

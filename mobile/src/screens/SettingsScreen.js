@@ -25,6 +25,7 @@ import {
   Bell,
   Sun,
   Heart,
+  Sparkles,
   Info,
   Share2,
   MessageSquare,
@@ -267,6 +268,14 @@ export default function SettingsScreen({ navigation }) {
             subtitle="Encouraging song every Sunday at 8:00 PM"
             value={settings.sundayMeetingReminder}
             onValueChange={settings.setSundayMeetingReminder}
+          />
+          <View style={styles.divider} />
+          <ToggleRow
+            icon={<Sparkles color="#8B5CF6" size={20} />}
+            label="Warm Encouragement Reminders"
+            subtitle="Thoughtful messages if you haven't opened the app in a while (7, 14 & 30 days)"
+            value={settings.inactivityReminders}
+            onValueChange={settings.setInactivityReminders}
           />
           <View style={styles.divider} />
           <ToggleRow
