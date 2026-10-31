@@ -749,8 +749,8 @@ export default function HomeScreen({ navigation }) {
       id: 'favorites',
       title: 'Favorites',
       subtitle: 'Your saved songs...',
-      icon: <Heart color="#FFF" size={18} fill="#FFF" />,
-      solidPurple: true,
+      icon: <Heart color={colors.purpleAccent} size={18} fill={colors.purpleAccent} />,
+      iconBg: isDark ? 'rgba(109, 40, 217, 0.2)' : 'rgba(109, 40, 217, 0.12)',
       onPress: () => navigation.navigate('Favorites'),
     });
 
@@ -790,42 +790,27 @@ export default function HomeScreen({ navigation }) {
               if (!item) return <View key={col} style={[styles.gridCard, { opacity: 0 }]} />;
               return (
                 <PressCard key={item.id} onPress={item.onPress} style={styles.gridCard}>
-                  {item.solidPurple ? (
-                    <View style={[styles.gridCardInner, { backgroundColor: colors.purple }]}>
-                      <View style={styles.gridThumbWrap}>
-                        <View style={[styles.gridThumb, { backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' }]}>
-                          {item.icon}
+                  <View style={styles.gridCardInner}>
+                    <View style={styles.gridThumbWrap}>
+                      {item.image ? (
+                        <SongImage uri={item.image} style={styles.gridThumb} iconSize={16} />
+                      ) : (
+                        <View style={[styles.gridThumb, styles.gridThumbFallback, item.iconBg && { backgroundColor: item.iconBg }]}>
+                          {item.icon || <Music color="rgba(255,255,255,0.3)" size={16} />}
                         </View>
-                      </View>
-                      <View style={styles.gridTextWrap}>
-                        <Text style={styles.gridTitle} numberOfLines={1}>{item.title}</Text>
-                        <Text style={styles.gridSub} numberOfLines={1}>{item.subtitle}</Text>
-                      </View>
-                      <ChevronRight color="rgba(255,255,255,0.5)" size={16} />
+                      )}
+                      {item.id === 'continue' && lastPlayed && (
+                        <View style={styles.playOverlay}>
+                          <Play color="#FFF" size={12} fill="#FFF" />
+                        </View>
+                      )}
                     </View>
-                  ) : (
-                    <View style={styles.gridCardInner}>
-                      <View style={styles.gridThumbWrap}>
-                        {item.image ? (
-                          <SongImage uri={item.image} style={styles.gridThumb} iconSize={16} />
-                        ) : (
-                          <View style={[styles.gridThumb, styles.gridThumbFallback]}>
-                            {item.icon || <Music color="rgba(255,255,255,0.3)" size={16} />}
-                          </View>
-                        )}
-                        {item.id === 'continue' && lastPlayed && (
-                          <View style={styles.playOverlay}>
-                            <Play color="#FFF" size={12} fill="#FFF" />
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.gridTextWrap}>
-                        <Text style={styles.gridTitle} numberOfLines={1}>{item.title}</Text>
-                        <Text style={styles.gridSub} numberOfLines={1}>{item.subtitle}</Text>
-                      </View>
-                      <ChevronRight color="rgba(255,255,255,0.3)" size={16} />
+                    <View style={styles.gridTextWrap}>
+                      <Text style={styles.gridTitle} numberOfLines={1}>{item.title}</Text>
+                      <Text style={styles.gridSub} numberOfLines={1}>{item.subtitle}</Text>
                     </View>
-                  )}
+                    <ChevronRight color="rgba(255,255,255,0.3)" size={16} />
+                  </View>
                 </PressCard>
               );
             })}
