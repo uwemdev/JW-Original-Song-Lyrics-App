@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+import { scheduleSundayMeetingReminder, scheduleDailySongReminder } from '../lib/notificationScheduler';
 
 const SettingsContext = createContext(null);
 
@@ -14,6 +15,7 @@ const KEYS = {
   autoCacheFavorites: '@settings_auto_cache_favorites',
   newSongAlerts: '@settings_new_song_alerts',
   dailySongReminder: '@settings_daily_song_reminder',
+  sundayMeetingReminder: '@settings_sunday_meeting_reminder',
   deviceId: '@settings_device_id',
   installDate: '@settings_install_date',
   dismissedNotifs: '@settings_dismissed_notifs',
@@ -28,6 +30,7 @@ const DEFAULTS = {
   autoCacheFavorites: false,
   newSongAlerts: true,
   dailySongReminder: true,
+  sundayMeetingReminder: true,
 };
 
 export const DarkColors = {
@@ -60,6 +63,7 @@ export function SettingsProvider({ children }) {
   const [autoCacheFavorites, setAutoCacheFavoritesState] = useState(DEFAULTS.autoCacheFavorites);
   const [newSongAlerts, setNewSongAlertsState] = useState(DEFAULTS.newSongAlerts);
   const [dailySongReminder, setDailySongReminderState] = useState(DEFAULTS.dailySongReminder);
+  const [sundayMeetingReminder, setSundayMeetingReminderState] = useState(DEFAULTS.sundayMeetingReminder);
   const [deviceId, setDeviceIdState] = useState(null);
   const [hasUnreadFeedback, setHasUnreadFeedback] = useState(false);
   const [installDate, setInstallDate] = useState(null);
@@ -92,6 +96,9 @@ export function SettingsProvider({ children }) {
         if (map[KEYS.autoCacheFavorites]) setAutoCacheFavoritesState(map[KEYS.autoCacheFavorites] === 'true');
         if (map[KEYS.newSongAlerts] !== undefined) setNewSongAlertsState(map[KEYS.newSongAlerts] !== 'false');
         if (map[KEYS.dailySongReminder] !== undefined) setDailySongReminderState(map[KEYS.dailySongReminder] !== 'false');
+        if (map[KEYS.sundayMeetingReminder] !== undefined) setSundayMeetingReminderState(map[KEYS.sundayMeetingReminder] !== 'false');
+        scheduleDailySongReminder(map[KEYS.dailySongReminder] !== 'false');
+        scheduleSundayMeetingReminder(map[KEYS.sundayMeetingReminder] !== 'false');
 
         if (map[KEYS.deviceId]) {
           setDeviceIdState(map[KEYS.deviceId]);
@@ -227,6 +234,9 @@ export function SettingsProvider({ children }) {
       setAutoCacheFavoritesState(DEFAULTS.autoCacheFavorites);
       setNewSongAlertsState(DEFAULTS.newSongAlerts);
       setDailySongReminderState(DEFAULTS.dailySongReminder);
+      setSundayMeetingReminderState(DEFAULTS.sundayMeetingReminder);
+      scheduleDailySongReminder(true);
+      scheduleSundayMeetingReminder(true);
     } catch (_) {}
   }, []);
 
@@ -239,6 +249,7 @@ export function SettingsProvider({ children }) {
     autoCacheFavorites, setAutoCacheFavorites,
     newSongAlerts, setNewSongAlerts,
     dailySongReminder, setDailySongReminder,
+    sundayMeetingReminder, setSundayMeetingReminder,
     deviceId,
     installDate,
     dismissedNotifs, dismissNotification,

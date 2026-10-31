@@ -8,7 +8,8 @@ import {
   Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Sun, Play, Music, ChevronRight } from 'lucide-react-native';
+import { Sun, Play, Music, ChevronRight, Heart } from 'lucide-react-native';
+import { isSundayEvening, getSundayGreeting } from '../lib/sundayGreetings';
 import { useSettings } from '../context/SettingsContext';
 import { getFormattedTodayDate, extractLyricQuote } from '../lib/dailySong';
 

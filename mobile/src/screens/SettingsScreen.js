@@ -261,6 +261,14 @@ export default function SettingsScreen({ navigation }) {
           />
           <View style={styles.divider} />
           <ToggleRow
+            icon={<Heart color="#EC4899" size={20} />}
+            label="Sunday Meeting Reflection"
+            subtitle="Encouraging song every Sunday at 8:00 PM"
+            value={settings.sundayMeetingReminder}
+            onValueChange={settings.setSundayMeetingReminder}
+          />
+          <View style={styles.divider} />
+          <ToggleRow
             icon={<Bell color={colors.purpleAccent} size={20} />}
             label="New song alerts"
             subtitle="Get notified when new songs are added"

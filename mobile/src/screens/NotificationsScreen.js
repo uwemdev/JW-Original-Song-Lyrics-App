@@ -16,6 +16,7 @@ import { ArrowLeft,
 import { useSettings } from '../context/SettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDailySong, getDailyNotification } from '../lib/dailySong';
+import { isSunday, getSundayGreeting } from '../lib/sundayGreetings';
 
 const timeAgo = (date) => {
   const seconds = Math.floor((new Date() - new Date(date)) / 1000);
@@ -91,6 +92,20 @@ export default function NotificationsScreen({ navigation }) {
         if (dailyNotif) {
           fetched = [dailyNotif, ...fetched];
         }
+
+        // Sunday meeting reflection notification
+        if (isSunday()) {
+          const sundaySong = songsRes.data[Math.floor(Math.random() * songsRes.data.length)];
+          const sundayNotif = {
+            id: `sunday-reflection-${new Date().toDateString()}`,
+            type: 'sunday_reflection',
+            title: '🕊️ How was the meeting today?',
+            message: getSundayGreeting(sundaySong.title),
+            song_id: sundaySong.id,
+            created_at: new Date().toISOString(),
+          };
+          fetched = [sundayNotif, ...fetched];
+        }
       }
 
       fetched.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -137,7 +152,7 @@ export default function NotificationsScreen({ navigation }) {
       return;
     }
 
-    if (notif.type === 'daily_song' && notif.song_id) {
+    if ((notif.type === 'daily_song' || notif.type === 'sunday_reflection') && notif.song_id) {
       try {
         const { data } = await supabase
           .from('songs')
@@ -188,6 +203,8 @@ export default function NotificationsScreen({ navigation }) {
         return <Edit3 size={20} color="#38BDF8" />; // Blue for edits
       case 'new_category':
         return <FolderPlus size={20} color="#10B981" />; // Green for new categories
+      case 'sunday_reflection':
+        return <Heart size={20} color="#EC4899" fill="#EC4899" />;
       case 'daily_song':
         return <Sun size={20} color="#F59E0B" />;
       case 'admin_push':
