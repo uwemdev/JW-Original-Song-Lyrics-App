@@ -12,6 +12,7 @@ import {
   StatusBar,
   Dimensions,
   Keyboard,
+  ScrollView,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';

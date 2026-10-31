@@ -27,3 +27,4 @@ export default function MoodIcon({ moodId, size = 16, color = '#FFFFFF', style }
       return <Heart size={size} color={color} style={style} />;
   }
 }
+
