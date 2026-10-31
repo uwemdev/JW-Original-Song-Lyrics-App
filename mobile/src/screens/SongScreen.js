@@ -48,6 +48,7 @@ import { useSettings } from '../context/SettingsContext';
 import AdBanner from '../components/AdBanner';
 import NativeAdCard from '../components/NativeAdCard';
 import WhatsAppStatusCardModal from '../components/WhatsAppStatusCardModal';
+import WhatsAppIcon from '../components/WhatsAppIcon';
 import { MessageCircle } from 'lucide-react-native';
 
 const { width, height: SCREEN_H } = Dimensions.get('window');
@@ -609,33 +610,38 @@ export default function SongScreen({ route, navigation }) {
             <Text style={styles.audioComingSoon}>Audio coming soon</Text>
           </View>
         )}
-
         {/* ── Lyrics Toolbar ── */}
         <View style={styles.lyricsToolbar}>
-          <View style={styles.fontControls}>
+          {/* Font Size Segmented Control */}
+          <View style={styles.fontSegmentWrap}>
             <TouchableOpacity
               onPress={() => changeFontSize(-1)}
-              style={styles.toolbarBtn}
+              style={styles.fontSegmentBtn}
               disabled={settings.fontSizeIdx === 0}
               accessibilityRole="button"
               accessibilityLabel="Decrease lyrics font size"
+              activeOpacity={0.7}
             >
-              <Minus color={settings.fontSizeIdx === 0 ? '#4B3D6B' : colors.textMuted} size={16} />
-              <Text style={[styles.toolbarBtnLabel, settings.fontSizeIdx === 0 && { color: '#4B3D6B' }]}>A</Text>
+              <Minus color={settings.fontSizeIdx === 0 ? (isDark ? '#475569' : '#CBD5E1') : colors.textMuted} size={14} />
+              <Text style={[styles.fontSegmentLabel, settings.fontSizeIdx === 0 && { color: isDark ? '#475569' : '#CBD5E1' }]}>A</Text>
             </TouchableOpacity>
+
+            <View style={styles.fontSegmentDivider} />
 
             <TouchableOpacity
               onPress={() => changeFontSize(1)}
-              style={styles.toolbarBtn}
+              style={styles.fontSegmentBtn}
               disabled={settings.fontSizeIdx === 2}
               accessibilityRole="button"
               accessibilityLabel="Increase lyrics font size"
+              activeOpacity={0.7}
             >
-              <Plus color={settings.fontSizeIdx === 2 ? '#4B3D6B' : colors.textMuted} size={16} />
-              <Text style={[styles.toolbarBtnLabel, settings.fontSizeIdx === 2 && { color: '#4B3D6B' }, { fontSize: 17 }]}>A</Text>
+              <Plus color={settings.fontSizeIdx === 2 ? (isDark ? '#475569' : '#CBD5E1') : colors.textMuted} size={14} />
+              <Text style={[styles.fontSegmentLabel, { fontSize: 15 }, settings.fontSizeIdx === 2 && { color: isDark ? '#475569' : '#CBD5E1' }]}>A</Text>
             </TouchableOpacity>
           </View>
 
+          {/* Sing-Along Mode Toggle */}
           <TouchableOpacity
             onPress={toggleKaraoke}
             style={[
@@ -644,6 +650,7 @@ export default function SongScreen({ route, navigation }) {
             ]}
             accessibilityRole="button"
             accessibilityLabel="Toggle Sing-Along mode"
+            activeOpacity={0.8}
           >
             <Mic
               color={isKaraoke ? '#FFFFFF' : colors.textMuted}
@@ -659,41 +666,26 @@ export default function SongScreen({ route, navigation }) {
             </Text>
           </TouchableOpacity>
 
+          {/* Action Buttons: WhatsApp Status & Report Issue */}
           <View style={styles.toolbarActions}>
             <TouchableOpacity
               onPress={() => setShowStatusModal(true)}
-              style={[styles.toolbarIconBtn, { backgroundColor: 'rgba(37, 211, 102, 0.15)' }]}
+              style={styles.whatsappIconBtn}
               accessibilityRole="button"
               accessibilityLabel="Share quote to WhatsApp Status"
+              activeOpacity={0.75}
             >
-              <MessageCircle color="#25D366" size={18} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={copyLyrics}
-              style={styles.toolbarIconBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Copy lyrics to clipboard"
-            >
-              <Copy color={colors.textMuted} size={18} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={shareSong}
-              style={styles.toolbarIconBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Share song"
-            >
-              <Share2 color={colors.textMuted} size={18} />
+              <WhatsAppIcon color="#25D366" size={20} />
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => { setShowReport(true); setReportIssue(null); setReportNote(''); setReportDone(false); }}
-              style={styles.toolbarIconBtn}
+              style={styles.reportIconBtn}
               accessibilityRole="button"
               accessibilityLabel="Report an issue with this song"
+              activeOpacity={0.75}
             >
-              <Flag color="#F87171" size={18} />
+              <Flag color="#F87171" size={17} />
             </TouchableOpacity>
           </View>
         </View>
@@ -830,7 +822,7 @@ export default function SongScreen({ route, navigation }) {
           activeOpacity={0.85}
         >
           <View style={styles.statusCtaIconWrap}>
-            <MessageCircle size={20} color="#25D366" />
+            <WhatsAppIcon size={20} color="#25D366" />
           </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.statusCtaTitle}>Share to WhatsApp Status</Text>
@@ -1224,32 +1216,57 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     opacity: 0.40,
     fontWeight: '400',
   },
-  fontControls: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  toolbarBtn: {
+  fontSegmentWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
     backgroundColor: colors.cardBg,
-    gap: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+    height: 36,
   },
-  toolbarBtnLabel: {
+  fontSegmentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 9,
+    height: '100%',
+    gap: 3,
+  },
+  fontSegmentDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+  },
+  fontSegmentLabel: {
     color: colors.textMuted,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   toolbarActions: {
     flexDirection: 'row',
-    gap: 4,
+    alignItems: 'center',
+    gap: 8,
   },
-  toolbarIconBtn: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: colors.cardBg,
+  whatsappIconBtn: {
+    width: 38,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: 'rgba(37, 211, 102, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 211, 102, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reportIconBtn: {
+    width: 38,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: isDark ? 'rgba(248, 113, 113, 0.12)' : 'rgba(248, 113, 113, 0.08)',
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(248, 113, 113, 0.2)' : 'rgba(248, 113, 113, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // ── Lyrics Body ──

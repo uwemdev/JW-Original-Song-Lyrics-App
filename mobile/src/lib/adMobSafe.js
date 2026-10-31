@@ -77,3 +77,4 @@ export const mobileAds =
   }));
 
 export default mobileAds;
+

@@ -25,6 +25,7 @@ import {
   ExternalLink,
   MessageCircle,
 } from 'lucide-react-native';
+import WhatsAppIcon from './WhatsAppIcon';
 import { useSettings } from '../context/SettingsContext';
 
 const { width, height } = Dimensions.get('window');
@@ -215,7 +216,7 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
           <View style={styles.modalHeader}>
             <View style={styles.headerLeft}>
               <View style={styles.statusBadge}>
-                <MessageCircle size={15} color="#25D366" />
+                <WhatsAppIcon size={16} color="#25D366" />
                 <Text style={styles.statusBadgeText}>WhatsApp Status Card</Text>
               </View>
             </View>
@@ -310,7 +311,7 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
                 {isSharing ? (
                   <ActivityIndicator size="small" color="#FFF" style={{ marginRight: 8 }} />
                 ) : (
-                  <MessageCircle size={20} color="#FFF" style={{ marginRight: 8 }} />
+                  <WhatsAppIcon size={20} color="#FFF" style={{ marginRight: 8 }} />
                 )}
                 <Text style={styles.whatsAppBtnText}>
                   {isSharing ? 'Generating Card...' : 'Share to WhatsApp Status'}
