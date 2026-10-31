@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,66 +11,74 @@ import {
   Linking,
   Share,
   ActivityIndicator,
-  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
+import Svg, { Path } from 'react-native-svg';
 import {
   X,
   Share2,
   Copy,
   Check,
-  Sparkles,
-  Download,
-  ExternalLink,
-  MessageCircle,
+  Music,
+  MessageSquare,
 } from 'lucide-react-native';
 import WhatsAppIcon from './WhatsAppIcon';
 import { useSettings } from '../context/SettingsContext';
 
 const { width, height } = Dimensions.get('window');
 
-// ─── Beautiful Background Themes ─────────────────────────────────
+const PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=com.jworiginalsongslyrics.app';
+
+// ── Google Play Icon ─────────────────────────────────────────────
+const PlayStoreIcon = ({ size = 11, color = '#FFFFFF' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <Path d="M3.609 1.814L13.792 12 3.61 22.186a1.99 1.99 0 0 1-.22-.924V2.738c0-.34.08-.654.22-.924zm11.306 11.307L6.85 21.186l10.233-5.908-2.168-2.157zm0-2.242l2.168-2.157L6.85 2.814l8.065 8.065zm1.534.767l3.655 2.11a1.5 1.5 0 0 0 0-2.598l-3.655-2.11 1.05 1.299-1.05 1.299z" />
+  </Svg>
+);
+
+// ── Background Themes (Executive & Dignified) ────────────────────
 const CARD_THEMES = [
   {
     id: 'purple',
     name: 'Kingdom Purple',
-    colors: ['#581C87', '#3B0764', '#1E1B4B'],
-    accent: '#A78BFA',
-    titleCol: '#F3E8FF',
+    colors: ['#4C1D95', '#2E1065', '#1E1B4B'],
+    accent: '#C4B5FD',
+    titleCol: '#EDE9FE',
   },
   {
-    id: 'gold',
-    name: 'Golden Sunrise',
-    colors: ['#92400E', '#78350F', '#451A03'],
-    accent: '#FDE047',
-    titleCol: '#FEF08A',
-  },
-  {
-    id: 'blue',
-    name: 'Peaceful Waters',
-    colors: ['#1E40AF', '#1E3A8A', '#0F172A'],
-    accent: '#60A5FA',
+    id: 'navy',
+    name: 'Classic Navy',
+    colors: ['#1E3A8A', '#172554', '#0F172A'],
+    accent: '#93C5FD',
     titleCol: '#DBEAFE',
   },
   {
     id: 'emerald',
-    name: 'Paradise Emerald',
-    colors: ['#065F46', '#064E3B', '#022C22'],
-    accent: '#34D399',
+    name: 'Deep Emerald',
+    colors: ['#064E3B', '#022C22', '#021814'],
+    accent: '#6EE7B7',
     titleCol: '#D1FAE5',
   },
   {
-    id: 'midnight',
-    name: 'Midnight Star',
-    colors: ['#18181B', '#0F0A1A', '#000000'],
+    id: 'burgundy',
+    name: 'Royal Burgundy',
+    colors: ['#831843', '#500724', '#280413'],
+    accent: '#F9A8D4',
+    titleCol: '#FCE7F3',
+  },
+  {
+    id: 'slate',
+    name: 'Minimal Dark',
+    colors: ['#18181B', '#0F0A1A', '#09090B'],
     accent: '#E4E4E7',
     titleCol: '#FFFFFF',
   },
 ];
 
 /**
- * Extracts a multi-line quote suitable for a WhatsApp status card
+ * Extracts a multi-line quote suitable for a status quote card
  */
 function extractCardQuote(lyrics) {
   if (!lyrics) return 'Start your day with encouraging words.';
@@ -119,7 +127,6 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
 
   const activeTheme = CARD_THEMES.find((t) => t.id === selectedThemeId) || CARD_THEMES[0];
   const quoteText = song ? extractCardQuote(song.lyrics) : '';
-  const shareUrl = 'https://originalsongs.vercel.app';
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -132,7 +139,6 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
   const handleShareImage = async () => {
     setIsSharing(true);
     try {
-      // Dynamically load view-shot and expo-sharing
       const { captureRef } = require('react-native-view-shot');
       const Sharing = require('expo-sharing');
 
@@ -163,7 +169,7 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
 
   // ── Share formatted text to WhatsApp ──
   const handleShareTextWhatsApp = async () => {
-    const formatted = `“${quoteText}”\n\n— “${song.title}” (JW Original Song)\n\n📲 Read lyrics in the app:\n${shareUrl}`;
+    const formatted = `“${quoteText}”\n\n— “${song.title}”\n\nGet the app on Google Play Store:\n${PLAY_STORE_URL}`;
     const url = `whatsapp://send?text=${encodeURIComponent(formatted)}`;
 
     try {
@@ -171,7 +177,6 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
       if (canOpen) {
         await Linking.openURL(url);
       } else {
-        // Fallback to system share sheet
         await Share.share({
           message: formatted,
           title: song.title,
@@ -187,14 +192,14 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
 
   // ── Copy text & app link ──
   const handleCopyQuote = async () => {
-    const formatted = `“${quoteText}”\n\n— “${song.title}” (JW Original Song)\n\n📲 Shared via Original Song Lyrics App: ${shareUrl}`;
+    const formatted = `“${quoteText}”\n\n— “${song.title}”\n\nGet the app on Google Play Store:\n${PLAY_STORE_URL}`;
     await Clipboard.setStringAsync(formatted);
-    showToast('Quote copied to clipboard! 📋');
+    showToast('Quote copied to clipboard');
   };
 
   // ── System Share Sheet ──
   const handleMoreShare = async () => {
-    const formatted = `“${quoteText}”\n\n— “${song.title}”\n\n📲 Get the app: ${shareUrl}`;
+    const formatted = `“${quoteText}”\n\n— “${song.title}”\n\nGet the app on Google Play Store:\n${PLAY_STORE_URL}`;
     try {
       await Share.share({
         message: formatted,
@@ -225,7 +230,7 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
               style={styles.closeBtn}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <X size={20} color={colors.textMuted} />
+              <X size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -239,14 +244,14 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
                   end={{ x: 1, y: 1 }}
                   style={styles.cardGradient}
                 >
-                  {/* Decorative big quotation mark */}
+                  {/* Decorative quote mark */}
                   <Text style={styles.bigQuoteMark}>“</Text>
 
                   {/* Top Branding Pill */}
                   <View style={styles.cardTopBranding}>
-                    <Sparkles size={11} color={activeTheme.accent} style={{ marginRight: 5 }} />
+                    <Music size={11} color={activeTheme.accent} style={{ marginRight: 5 }} />
                     <Text style={[styles.cardTopBrandingText, { color: activeTheme.accent }]}>
-                      JW Original Songs
+                      ORIGINAL SONG LYRICS
                     </Text>
                   </View>
 
@@ -255,15 +260,18 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
                     <Text style={styles.quoteText}>{quoteText}</Text>
                   </View>
 
-                  {/* Bottom Song Attribution & Viral Footer */}
+                  {/* Bottom Song Attribution & Google Play Store Badge */}
                   <View style={styles.cardFooter}>
                     <View style={styles.cardDivider} />
                     <Text style={[styles.cardSongTitle, { color: activeTheme.titleCol }]} numberOfLines={1}>
                       — “{song.title}”
                     </Text>
-                    <Text style={styles.cardAppWatermark}>
-                      📲 Get the App: originalsongs.vercel.app
-                    </Text>
+                    <View style={styles.cardPlayBadge}>
+                      <PlayStoreIcon size={10} color={activeTheme.titleCol} />
+                      <Text style={[styles.cardAppWatermark, { color: activeTheme.titleCol }]}>
+                        Get the app on Google Play Store
+                      </Text>
+                    </View>
                   </View>
                 </LinearGradient>
               </View>
@@ -314,7 +322,7 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
                   <WhatsAppIcon size={20} color="#FFF" style={{ marginRight: 8 }} />
                 )}
                 <Text style={styles.whatsAppBtnText}>
-                  {isSharing ? 'Generating Card...' : 'Share to WhatsApp Status'}
+                  {isSharing ? 'Preparing Card...' : 'Share to WhatsApp Status'}
                 </Text>
               </TouchableOpacity>
 
@@ -325,8 +333,9 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
                   onPress={handleShareTextWhatsApp}
                   activeOpacity={0.7}
                 >
+                  <MessageSquare size={14} color={colors.textWhite} style={{ marginRight: 6 }} />
                   <Text style={[styles.secondaryActionText, { color: colors.textWhite }]}>
-                    💬 Text to WhatsApp
+                    Send as Text
                   </Text>
                 </TouchableOpacity>
 
@@ -335,7 +344,7 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
                   onPress={handleCopyQuote}
                   activeOpacity={0.7}
                 >
-                  <Copy size={14} color={colors.textWhite} style={{ marginRight: 4 }} />
+                  <Copy size={14} color={colors.textWhite} style={{ marginRight: 6 }} />
                   <Text style={[styles.secondaryActionText, { color: colors.textWhite }]}>
                     Copy Quote
                   </Text>
@@ -346,7 +355,7 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
                   onPress={handleMoreShare}
                   activeOpacity={0.7}
                 >
-                  <Share2 size={16} color={colors.textWhite} />
+                  <Share2 size={15} color={colors.textWhite} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -439,17 +448,17 @@ const styles = StyleSheet.create({
   },
   cardGradient: {
     flex: 1,
-    padding: 20,
+    padding: 22,
     justifyContent: 'space-between',
     position: 'relative',
   },
   bigQuoteMark: {
     position: 'absolute',
-    top: -10,
+    top: -12,
     left: 12,
     fontSize: 84,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-    color: 'rgba(255, 255, 255, 0.12)',
+    color: 'rgba(255, 255, 255, 0.10)',
     fontWeight: 'bold',
   },
   cardTopBranding: {
@@ -463,9 +472,9 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   cardTopBrandingText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 1.2,
   },
   quoteBody: {
     flex: 1,
@@ -477,35 +486,46 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '700',
-    lineHeight: 25,
+    lineHeight: 26,
     textAlign: 'center',
     letterSpacing: -0.2,
-    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadowRadius: 6,
   },
   cardFooter: {
     alignItems: 'center',
     zIndex: 2,
   },
   cardDivider: {
-    width: 40,
-    height: 2,
+    width: 36,
+    height: 1.5,
     borderRadius: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     marginBottom: 8,
   },
   cardSongTitle: {
     fontSize: 13,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+    letterSpacing: 0.2,
+  },
+  cardPlayBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    gap: 5,
   },
   cardAppWatermark: {
-    color: 'rgba(255, 255, 255, 0.65)',
     fontSize: 9,
     fontWeight: '600',
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
   },
 
   // ── Swatches ──
@@ -573,7 +593,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 11,
     borderRadius: 12,
   },
   secondaryActionText: {
@@ -581,7 +601,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   iconActionBtn: {
-    width: 42,
+    width: 44,
     height: 42,
     borderRadius: 12,
     justifyContent: 'center',
@@ -593,7 +613,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 80,
     alignSelf: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: 'rgba(0, 0, 0, 0.88)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 16,
@@ -606,4 +626,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

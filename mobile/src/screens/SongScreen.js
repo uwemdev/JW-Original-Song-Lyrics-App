@@ -826,7 +826,7 @@ export default function SongScreen({ route, navigation }) {
           </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.statusCtaTitle}>Share to WhatsApp Status</Text>
-            <Text style={styles.statusCtaSub}>Encourage your friends with a lyric quote card ✨</Text>
+            <Text style={styles.statusCtaSub}>Share an encouraging lyric quote card</Text>
           </View>
           <ChevronRightSm size={18} color="rgba(255,255,255,0.4)" />
         </TouchableOpacity>

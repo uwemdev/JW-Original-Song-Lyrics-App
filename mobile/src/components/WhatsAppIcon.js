@@ -8,3 +8,4 @@ export default function WhatsAppIcon({ color = '#25D366', size = 20, style }) {
     </Svg>
   );
 }
+
