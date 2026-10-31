@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   Modal,
   TouchableOpacity,
@@ -20,7 +21,6 @@ import {
   Share2,
   Copy,
   Check,
-  Music,
   MessageSquare,
 } from 'lucide-react-native';
 import WhatsAppIcon from './WhatsAppIcon';
@@ -244,16 +244,17 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
                   end={{ x: 1, y: 1 }}
                   style={styles.cardGradient}
                 >
+                  {/* Faint Logo Watermark in the middle */}
+                  <View style={styles.cardWatermarkCenter} pointerEvents="none">
+                    <Image
+                      source={require('../../assets/icon.png')}
+                      style={styles.cardWatermarkLogo}
+                      resizeMode="contain"
+                    />
+                  </View>
+
                   {/* Decorative quote mark */}
                   <Text style={styles.bigQuoteMark}>“</Text>
-
-                  {/* Top Branding Pill */}
-                  <View style={styles.cardTopBranding}>
-                    <Music size={11} color={activeTheme.accent} style={{ marginRight: 5 }} />
-                    <Text style={[styles.cardTopBrandingText, { color: activeTheme.accent }]}>
-                      ORIGINAL SONG LYRICS
-                    </Text>
-                  </View>
 
                   {/* Main Lyric Quote */}
                   <View style={styles.quoteBody}>
@@ -452,6 +453,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     position: 'relative',
   },
+  cardWatermarkCenter: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  cardWatermarkLogo: {
+    width: 124,
+    height: 124,
+    borderRadius: 26,
+    opacity: 0.11,
+  },
   bigQuoteMark: {
     position: 'absolute',
     top: -12,
@@ -460,21 +473,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     color: 'rgba(255, 255, 255, 0.10)',
     fontWeight: 'bold',
-  },
-  cardTopBranding: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    zIndex: 2,
-  },
-  cardTopBrandingText: {
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 1.2,
+    zIndex: 1,
   },
   quoteBody: {
     flex: 1,
