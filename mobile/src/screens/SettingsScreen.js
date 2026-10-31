@@ -26,6 +26,7 @@ import {
   Sun,
   Heart,
   Sparkles,
+  Star,
   Info,
   Share2,
   MessageSquare,
@@ -34,6 +35,7 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
+import RatingModal from '../components/RatingModal';
 
 const FONT_LABELS = ['Small', 'Medium', 'Large'];
 
@@ -130,6 +132,7 @@ export default function SettingsScreen({ navigation }) {
   const styles = makeStyles(colors, isDark);
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+  const [showRatingModal, setShowRatingModal] = useState(false);
 
   const showToastMessage = (msg) => {
     setToastMsg(msg);
@@ -304,6 +307,13 @@ export default function SettingsScreen({ navigation }) {
           />
           <View style={styles.divider} />
           <SettingsRow
+            icon={<Star color="#F59E0B" size={20} fill="#F59E0B" />}
+            label="Rate 5 Stars on Google Play"
+            subtitle="Support the app with an encouraging review"
+            onPress={() => setShowRatingModal(true)}
+          />
+          <View style={styles.divider} />
+          <SettingsRow
             icon={<Share2 color={colors.purpleAccent} size={20} />}
             label="Share this app"
             onPress={handleShare}
@@ -346,6 +356,12 @@ export default function SettingsScreen({ navigation }) {
       </ScrollView>
 
       <Toast visible={showToast} message={toastMsg} />
+      <RatingModal
+        visible={showRatingModal}
+        onClose={() => setShowRatingModal(false)}
+        navigation={navigation}
+        isManualTrigger={true}
+      />
     </View>
   );
 }

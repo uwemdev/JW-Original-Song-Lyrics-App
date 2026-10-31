@@ -37,6 +37,7 @@ import MoodPills from '../components/MoodPills';
 import ActiveMoodBanner from '../components/ActiveMoodBanner';
 import FamilyQuizBanner from '../components/FamilyQuizBanner';
 import WhatsAppStatusCardModal from '../components/WhatsAppStatusCardModal';
+import RatingModal, { shouldShowRatingPrompt } from '../components/RatingModal';
 import { filterSongsByMood, getMoodById } from '../lib/moodCategories';
 
 const { width } = Dimensions.get('window');
@@ -176,6 +177,24 @@ export default function HomeScreen({ navigation }) {
   const [activeBanner, setActiveBanner] = useState(null);
   const [selectedMood, setSelectedMood] = useState(null);
   const [statusModalSong, setStatusModalSong] = useState(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+
+  // ── 7-Day Rating Prompt ──
+  useEffect(() => {
+    let timer;
+    if (installDate) {
+      shouldShowRatingPrompt(installDate).then((shouldShow) => {
+        if (shouldShow) {
+          timer = setTimeout(() => {
+            setShowRatingModal(true);
+          }, 2500);
+        }
+      });
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [installDate]);
 
   // ── Data fetch ──
   const fetchData = useCallback(async () => {
@@ -836,6 +855,11 @@ export default function HomeScreen({ navigation }) {
         visible={!!statusModalSong}
         onClose={() => setStatusModalSong(null)}
         song={statusModalSong}
+      />
+      <RatingModal
+        visible={showRatingModal}
+        onClose={() => setShowRatingModal(false)}
+        navigation={navigation}
       />
     </View>
   );
