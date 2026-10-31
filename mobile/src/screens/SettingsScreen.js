@@ -258,7 +258,7 @@ export default function SettingsScreen({ navigation }) {
         <SectionHeader title="Notifications" />
         <View style={styles.card}>
           <ToggleRow
-            icon={<Sun color="#F59E0B" size={20} />}
+            icon={<Sun color={colors.purpleAccent} size={20} />}
             label="Song of the Day"
             subtitle="Daily morning song & spiritual reflection"
             value={settings.dailySongReminder}
@@ -266,7 +266,7 @@ export default function SettingsScreen({ navigation }) {
           />
           <View style={styles.divider} />
           <ToggleRow
-            icon={<Heart color="#EC4899" size={20} />}
+            icon={<Heart color={colors.purpleAccent} size={20} />}
             label="Sunday Meeting Reflection"
             subtitle="Encouraging song every Sunday at 8:00 PM"
             value={settings.sundayMeetingReminder}
@@ -274,7 +274,7 @@ export default function SettingsScreen({ navigation }) {
           />
           <View style={styles.divider} />
           <ToggleRow
-            icon={<Sparkles color="#8B5CF6" size={20} />}
+            icon={<Sparkles color={colors.purpleAccent} size={20} />}
             label="Warm Encouragement Reminders"
             subtitle="Thoughtful messages if you haven't opened the app in a while (7, 14 & 30 days)"
             value={settings.inactivityReminders}
@@ -307,7 +307,7 @@ export default function SettingsScreen({ navigation }) {
           />
           <View style={styles.divider} />
           <SettingsRow
-            icon={<Star color="#F59E0B" size={20} fill="#F59E0B" />}
+            icon={<Star color={colors.purpleAccent} size={20} />}
             label="Rate 5 Stars on Google Play"
             subtitle="Support the app with an encouraging review"
             onPress={() => setShowRatingModal(true)}
