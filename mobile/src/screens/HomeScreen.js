@@ -467,9 +467,9 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.headerLeft}>
               <View style={styles.headerLogo}>
                 <Image
-                  source={require('../../assets/icon.png')}
-                  style={{ width: 28, height: 28 }}
-                  resizeMode="contain"
+                  source={require('../../assets/logo-circle.png')}
+                  style={styles.headerLogoImg}
+                  resizeMode="cover"
                 />
               </View>
               <Text style={styles.headerTitle}>Original Song Lyrics</Text>
@@ -954,9 +954,16 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: 'rgba(139, 92, 246, 0.4)',
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
+    backgroundColor: '#6D28D9',
+  },
+  headerLogoImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 18,
   },
   headerTitle: {
     color: colors.textWhite,
