@@ -1,4 +1,4 @@
-import mobileAds, { TestIds, BannerAdSize } from 'react-native-google-mobile-ads';
+import mobileAds, { TestIds, BannerAdSize } from './adMobSafe';
 
 // ─── Ad Unit Configuration ──────────────────────────────────────────────
 // In development (__DEV__), TestIds are automatically used to protect your AdMob account.

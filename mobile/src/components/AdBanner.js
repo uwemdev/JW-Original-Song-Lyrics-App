@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
-import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
+import { BannerAd, BannerAdSize } from '../lib/adMobSafe';
 import { AD_UNIT_IDS } from '../lib/adMob';
 import { useSettings } from '../context/SettingsContext';
 

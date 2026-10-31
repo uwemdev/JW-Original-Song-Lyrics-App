@@ -6,7 +6,7 @@ import {
   NativeAsset,
   NativeAssetType,
   NativeMediaView,
-} from 'react-native-google-mobile-ads';
+} from '../lib/adMobSafe';
 import { AD_UNIT_IDS } from '../lib/adMob';
 import { useSettings } from '../context/SettingsContext';
 
