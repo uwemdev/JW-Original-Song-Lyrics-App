@@ -875,3 +875,4 @@ const makeStyles = (colors, isDark) =>
       fontWeight: '600',
     },
   });
+
