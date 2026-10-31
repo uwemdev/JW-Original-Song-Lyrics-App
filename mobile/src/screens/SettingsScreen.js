@@ -24,6 +24,7 @@ import {
   Download,
   Bell,
   Sun,
+  Heart,
   Info,
   Share2,
   MessageSquare,

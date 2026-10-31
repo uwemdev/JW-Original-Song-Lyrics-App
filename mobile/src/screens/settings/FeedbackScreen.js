@@ -19,6 +19,8 @@ import { useSettings } from '../../context/SettingsContext';
 import { supabase } from '../../lib/supabase';
 
 function Toast({ visible, message }) {
+  const { colors, isDark } = useSettings();
+  const styles = makeStyles(colors, isDark);
   const opacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (visible) {

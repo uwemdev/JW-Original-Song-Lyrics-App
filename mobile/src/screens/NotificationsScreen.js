@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
 import { ArrowLeft,
-  Sun, Bell, Music, Edit3, FolderPlus, ChevronRight, CheckCheck, Megaphone, ExternalLink } from 'lucide-react-native';
+  Sun, Bell, Music, Edit3, FolderPlus, ChevronRight, CheckCheck, Megaphone, ExternalLink, Heart } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDailySong, getDailyNotification } from '../lib/dailySong';

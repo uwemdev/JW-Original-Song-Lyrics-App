@@ -735,7 +735,7 @@ export default function SongScreen({ route, navigation }) {
                       <Text
                         style={[
                           styles.karaokeLineText,
-                          { fontSize: FONT_SIZES[settings.fontSizeIdx] + (isActive ? 2 : 0) },
+                          { fontSize: FONT_SIZES[settings.fontSizeIdx] + (isActive ? 2 : 0), lineHeight: LINE_HEIGHTS[settings.fontSizeIdx] },
                           isActive
                             ? styles.karaokeTextActive
                             : isPast
@@ -759,7 +759,7 @@ export default function SongScreen({ route, navigation }) {
                 baseStyle={{
                   color: colors.textWhite,
                   fontSize: FONT_SIZES[settings.fontSizeIdx],
-                  lineHeight: LINE_HEIGHTS[settings.fontSizeIdx],
+                  lineHeight: 28,
                 }}
                 tagsStyles={{
                   p: { marginBottom: 18 },
@@ -1208,7 +1208,7 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     borderLeftColor: '#A78BFA',
   },
   karaokeLineText: {
-    lineHeight: LINE_HEIGHTS[settings.fontSizeIdx],
+    lineHeight: 28,
   },
   karaokeTextActive: {
     color: '#FFFFFF',
