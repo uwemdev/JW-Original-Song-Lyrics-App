@@ -28,6 +28,7 @@ import {
 import { useSettings } from '../context/SettingsContext';
 import MoodPills from '../components/MoodPills';
 import ActiveMoodBanner from '../components/ActiveMoodBanner';
+import FamilyQuizBanner from '../components/FamilyQuizBanner';
 import { filterSongsByMood, getMoodById } from '../lib/moodCategories';
 
 const { width } = Dimensions.get('window');
@@ -535,7 +536,16 @@ export default function SearchScreen({ navigation, route }) {
               }
             />
           ) : (
-            renderRecentSearches()
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 120, paddingTop: 4 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              <FamilyQuizBanner
+                onPress={() => navigation.navigate('LyricQuiz', { mode: 'all' })}
+              />
+              {renderRecentSearches()}
+            </ScrollView>
           )}
         </View>
       ) : searching ? (

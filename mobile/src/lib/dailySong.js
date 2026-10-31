@@ -86,7 +86,7 @@ export function getDailyNotification(dailySong) {
   return {
     id: `daily-song-${dateKey}`,
     type: 'daily_song',
-    title: `🌅 Song of the Day: ${dailySong.title}`,
+    title: `Song of the Day: ${dailySong.title}`,
     message: quote
       ? `"${quote}" — Start your morning with encouraging words.`
       : `Start your day with "${dailySong.title}".`,

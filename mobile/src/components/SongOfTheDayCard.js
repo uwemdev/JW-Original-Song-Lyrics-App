@@ -10,6 +10,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sun, Play, Music, ChevronRight, Heart, MessageCircle } from 'lucide-react-native';
 import { isSundayEvening, getSundayGreeting } from '../lib/sundayGreetings';
+import WhatsAppIcon from './WhatsAppIcon';
 import { useSettings } from '../context/SettingsContext';
 import { getFormattedTodayDate, extractLyricQuote } from '../lib/dailySong';
 
@@ -116,7 +117,7 @@ export default function SongOfTheDayCard({ song, categoryName, onPress, onShareS
                     activeOpacity={0.8}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <MessageCircle color="#25D366" size={13} />
+                    <WhatsAppIcon color="#25D366" size={13} />
                     <Text style={styles.statusShareBtnText}>Status</Text>
                   </TouchableOpacity>
                 )}

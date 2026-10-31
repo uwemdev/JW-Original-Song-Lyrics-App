@@ -22,6 +22,8 @@ import {
   Heart,
   ChevronRight,
   HelpCircle,
+  CheckCircle,
+  Users,
   Award,
 } from 'lucide-react-native';
 import { generateQuizRound } from '../lib/quizEngine';
@@ -32,11 +34,11 @@ import { useSettings } from '../context/SettingsContext';
 const { width } = Dimensions.get('window');
 
 const CHEER_PHRASES = [
-  'Spot on! 🎉',
-  'Yes, that’s it! 👏',
-  'Incredible memory! ⭐',
-  'Sing it loud and clear! 🎵',
-  'You know your Kingdom songs! ✨',
+  'Spot on!',
+  'Yes, that’s it!',
+  'Incredible memory!',
+  'Sing it loud and clear!',
+  'You know your Kingdom songs!',
 ];
 
 export default function LyricQuizScreen({ navigation, route }) {
@@ -196,12 +198,12 @@ export default function LyricQuizScreen({ navigation, route }) {
 
             <Text style={styles.resultsHeading}>
               {isPerfect
-                ? '🏆 Perfect 5/5!'
+                ? 'Perfect Score 5/5!'
                 : score === 4
-                ? '🌟 Fantastic Job!'
+                ? 'Fantastic Job!'
                 : score === 3
-                ? '👏 Great Effort!'
-                : '❤️ Nice Try!'}
+                ? 'Great Effort!'
+                : 'Well Done!'}
             </Text>
 
             <Text style={styles.resultsSub}>
@@ -314,7 +316,14 @@ export default function LyricQuizScreen({ navigation, route }) {
           onPress={() => setMode(mode === 'all' ? 'kids' : 'all')}
           activeOpacity={0.8}
         >
-          <Text style={styles.modeToggleText}>{mode === 'kids' ? '👨‍👩‍👧 Kids' : '🎵 All'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            {mode === 'kids' ? (
+              <Users size={12} color="#FFF" />
+            ) : (
+              <Music size={12} color="#FFF" />
+            )}
+            <Text style={styles.modeToggleText}>{mode === 'kids' ? 'Kids' : 'All Songs'}</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -453,7 +462,14 @@ export default function LyricQuizScreen({ navigation, route }) {
                   : styles.feedbackBannerWrong,
               ]}
             >
-              <Text style={styles.feedbackText}>{cheerMsg}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                {selectedOption === currentQ.correctIndex ? (
+                  <CheckCircle size={16} color="#10B981" />
+                ) : (
+                  <HelpCircle size={16} color="#EF4444" />
+                )}
+                <Text style={styles.feedbackText}>{cheerMsg}</Text>
+              </View>
             </View>
 
             <TouchableOpacity
@@ -462,9 +478,13 @@ export default function LyricQuizScreen({ navigation, route }) {
               activeOpacity={0.85}
             >
               <Text style={styles.nextBtnText}>
-                {currentIndex < questions.length - 1 ? 'Next Question' : 'See Final Score 🏆'}
+                {currentIndex < questions.length - 1 ? 'Next Question' : 'See Final Score'}
               </Text>
-              <ChevronRight size={18} color="#FFF" />
+              {currentIndex < questions.length - 1 ? (
+                <ChevronRight size={19} color="#FFF" />
+              ) : (
+                <Trophy size={18} color="#FFF" />
+              )}
             </TouchableOpacity>
           </Animated.View>
         )}

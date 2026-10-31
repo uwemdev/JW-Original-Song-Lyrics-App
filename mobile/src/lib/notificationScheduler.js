@@ -70,7 +70,7 @@ export async function scheduleSundayMeetingReminder(enabled = true) {
     await Notifications.scheduleNotificationAsync({
       identifier: 'sunday-meeting-reminder',
       content: {
-        title: '🕊️ How was the meeting today?',
+        title: 'How was the meeting today?',
         body: 'Hope you had an encouraging meeting! Relax this evening with an uplifting song.',
         sound: 'default',
         channelId: 'reminders',
@@ -111,7 +111,7 @@ export async function scheduleDailySongReminder(enabled = true) {
     await Notifications.scheduleNotificationAsync({
       identifier: 'daily-song-reminder',
       content: {
-        title: '🌅 Song of the Day',
+        title: 'Song of the Day',
         body: 'Start your morning with encouraging words and melody.',
         sound: 'default',
         channelId: 'reminders',

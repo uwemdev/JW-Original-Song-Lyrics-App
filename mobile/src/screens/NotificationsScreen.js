@@ -99,7 +99,7 @@ export default function NotificationsScreen({ navigation }) {
           const sundayNotif = {
             id: `sunday-reflection-${new Date().toDateString()}`,
             type: 'sunday_reflection',
-            title: '🕊️ How was the meeting today?',
+            title: 'How was the meeting today?',
             message: getSundayGreeting(sundaySong.title),
             song_id: sundaySong.id,
             created_at: new Date().toISOString(),

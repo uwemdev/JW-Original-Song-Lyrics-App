@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,9 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, Sparkles, X } from 'lucide-react-native';
+import { Heart, X, ChevronRight } from 'lucide-react-native';
 import { MOODS } from '../lib/moodCategories';
+import MoodIcon from './MoodIcon';
 import { useSettings } from '../context/SettingsContext';
 
 export default function MoodPills({
@@ -20,6 +21,20 @@ export default function MoodPills({
 }) {
   const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark, compact);
+  const scrollRef = useRef(null);
+
+  // Auto-nudge peek animation on mount so users visually see the options slide and discover other moods
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollRef.current?.scrollTo({ x: 95, animated: true });
+      const returnTimer = setTimeout(() => {
+        scrollRef.current?.scrollTo({ x: 0, animated: true });
+      }, 750);
+      return () => clearTimeout(returnTimer);
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -30,7 +45,7 @@ export default function MoodPills({
               <Heart size={14} color="#EC4899" fill="#EC4899" />
             </View>
             <Text style={styles.title}>How are you feeling today?</Text>
-            {selectedMood && (
+            {selectedMood ? (
               <TouchableOpacity
                 style={styles.clearBtn}
                 onPress={() => onSelectMood(null)}
@@ -39,6 +54,11 @@ export default function MoodPills({
                 <Text style={styles.clearBtnText}>Reset</Text>
                 <X size={12} color={colors.textMuted} />
               </TouchableOpacity>
+            ) : (
+              <View style={styles.scrollHint}>
+                <Text style={styles.scrollHintText}>Swipe</Text>
+                <ChevronRight size={13} color={colors.textMuted} />
+              </View>
             )}
           </View>
           <Text style={styles.subtitle}>
@@ -48,6 +68,7 @@ export default function MoodPills({
       )}
 
       <ScrollView
+        ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -69,10 +90,12 @@ export default function MoodPills({
                   end={{ x: 1, y: 1 }}
                   style={styles.pillActive}
                 >
-                  <Text style={styles.pillEmoji}>{mood.emoji}</Text>
+                  <View style={styles.pillIconWrapActive}>
+                    <MoodIcon moodId={mood.id} size={15} color="#FFF" />
+                  </View>
                   <Text style={styles.pillTextActive}>{mood.tagline}</Text>
                   <View style={styles.activeCheckCircle}>
-                    <X size={10} color="#FFF" />
+                    <X size={11} color="#FFF" />
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
@@ -86,7 +109,18 @@ export default function MoodPills({
               onPress={() => onSelectMood(mood.id)}
               style={styles.pillInactive}
             >
-              <Text style={styles.pillEmoji}>{mood.emoji}</Text>
+              <View
+                style={[
+                  styles.pillIconWrapInactive,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : mood.lightBg,
+                  },
+                ]}
+              >
+                <MoodIcon moodId={mood.id} size={14} color={mood.accentColor} />
+              </View>
               <Text style={styles.pillTextInactive}>{mood.tagline}</Text>
             </TouchableOpacity>
           );
@@ -126,6 +160,18 @@ const makeStyles = (colors, isDark, compact) =>
       flex: 1,
       letterSpacing: -0.2,
     },
+    scrollHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+    },
+    scrollHintText: {
+      color: colors.textMuted,
+      fontSize: 11,
+      fontWeight: '600',
+    },
     clearBtn: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -154,12 +200,20 @@ const makeStyles = (colors, isDark, compact) =>
     pillInactive: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 14,
-      paddingVertical: 9,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
       borderRadius: 22,
       backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9',
       borderWidth: 1,
       borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
+    },
+    pillIconWrapInactive: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 7,
     },
     pillActiveWrap: {
       borderRadius: 22,
@@ -172,13 +226,18 @@ const makeStyles = (colors, isDark, compact) =>
     pillActive: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 14,
-      paddingVertical: 9,
+      paddingHorizontal: 13,
+      paddingVertical: 8,
       borderRadius: 22,
     },
-    pillEmoji: {
-      fontSize: 15,
-      marginRight: 6,
+    pillIconWrapActive: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: 'rgba(255, 255, 255, 0.22)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 7,
     },
     pillTextInactive: {
       color: colors.textWhite,
@@ -191,13 +250,12 @@ const makeStyles = (colors, isDark, compact) =>
       fontWeight: '700',
     },
     activeCheckCircle: {
-      width: 16,
-      height: 16,
-      borderRadius: 8,
+      width: 18,
+      height: 18,
+      borderRadius: 9,
       backgroundColor: 'rgba(255, 255, 255, 0.28)',
       justifyContent: 'center',
       alignItems: 'center',
-      marginLeft: 6,
+      marginLeft: 7,
     },
   });
-

@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { X, Sparkles, Music } from 'lucide-react-native';
+import { X, Music } from 'lucide-react-native';
+import MoodIcon from './MoodIcon';
 
 export default function ActiveMoodBanner({ mood, songCount, onClear }) {
   if (!mood) return null;
@@ -16,8 +17,8 @@ export default function ActiveMoodBanner({ mood, songCount, onClear }) {
       >
         <View style={styles.topRow}>
           <View style={styles.badgeRow}>
-            <View style={styles.emojiCircle}>
-              <Text style={styles.emojiText}>{mood.emoji}</Text>
+            <View style={styles.iconCircle}>
+              <MoodIcon moodId={mood.id} size={18} color="#FFF" />
             </View>
             <View style={styles.countBadge}>
               <Music size={11} color="#FFF" style={{ marginRight: 4 }} />
@@ -70,16 +71,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  emojiCircle: {
+  iconCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  emojiText: {
-    fontSize: 20,
   },
   countBadge: {
     flexDirection: 'row',
@@ -99,10 +97,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.22)',
     gap: 4,
   },
   clearBtnText: {
@@ -111,17 +107,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   title: {
-    color: '#FFFFFF',
-    fontSize: 20,
+    color: '#FFF',
+    fontSize: 18,
     fontWeight: '800',
-    letterSpacing: -0.3,
     marginBottom: 4,
   },
   description: {
-    color: 'rgba(255, 255, 255, 0.92)',
+    color: 'rgba(255, 255, 255, 0.85)',
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '500',
   },
 });
-
