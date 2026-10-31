@@ -26,6 +26,9 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
+import MoodPills from '../components/MoodPills';
+import ActiveMoodBanner from '../components/ActiveMoodBanner';
+import { filterSongsByMood, getMoodById } from '../lib/moodCategories';
 
 const { width } = Dimensions.get('window');
 const STATUS_BAR_H = Platform.OS === 'ios' ? 50 : StatusBar.currentHeight || 32;
@@ -144,6 +147,8 @@ export default function SearchScreen({ navigation, route }) {
   const [hasSearched, setHasSearched] = useState(false);
   const [recentSearches, setRecentSearches] = useState([]);
   const [favorites, setFavorites] = useState({});
+  const [allSongs, setAllSongs] = useState([]);
+  const [selectedMood, setSelectedMood] = useState(null);
 
   const inputRef = useRef(null);
   const debounceRef = useRef(null);
@@ -155,6 +160,17 @@ export default function SearchScreen({ navigation, route }) {
     Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
     loadRecentSearches();
     loadFavorites();
+    // Fetch all songs for instant mood filtering
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('songs')
+          .select('*, categories(name)')
+          .eq('is_published', true)
+          .order('title', { ascending: true });
+        if (data) setAllSongs(data);
+      } catch (_) {}
+    })();
     // Auto-focus
     setTimeout(() => inputRef.current?.focus(), 200);
   }, []);
@@ -272,8 +288,23 @@ export default function SearchScreen({ navigation, route }) {
     [scopedCategoryId],
   );
 
+  const moodSongs = useMemo(() => {
+    if (!selectedMood) return [];
+    return filterSongsByMood(allSongs, selectedMood);
+  }, [allSongs, selectedMood]);
+
+  const handleSelectMood = (moodId) => {
+    setSelectedMood(moodId);
+    if (moodId) {
+      Keyboard.dismiss();
+    }
+  };
+
   // Debounced search
   const handleQueryChange = (text) => {
+    if (text.trim() && selectedMood) {
+      setSelectedMood(null);
+    }
     setQuery(text);
     clearTimeout(debounceRef.current);
     if (!text.trim()) {
@@ -480,8 +511,33 @@ export default function SearchScreen({ navigation, route }) {
 
       {/* ── Content ── */}
       {!query.trim() ? (
-        // Show recent searches
-        renderRecentSearches()
+        <View style={{ flex: 1 }}>
+          <MoodPills
+            selectedMood={selectedMood}
+            onSelectMood={handleSelectMood}
+            compact={true}
+          />
+          {selectedMood ? (
+            <FlatList
+              data={moodSongs}
+              keyExtractor={(s) => `mood-${s.id}`}
+              renderItem={renderSongRow}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120, paddingTop: 4 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              ListHeaderComponent={
+                <ActiveMoodBanner
+                  mood={getMoodById(selectedMood)}
+                  songCount={moodSongs.length}
+                  onClear={() => setSelectedMood(null)}
+                />
+              }
+            />
+          ) : (
+            renderRecentSearches()
+          )}
+        </View>
       ) : searching ? (
         renderLoadingShimmer()
       ) : hasSearched && results.length === 0 ? (

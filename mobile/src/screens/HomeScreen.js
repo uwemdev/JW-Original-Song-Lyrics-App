@@ -33,6 +33,9 @@ import { useSettings } from '../context/SettingsContext';
 import NativeAdCard from '../components/NativeAdCard';
 import SongOfTheDayCard from '../components/SongOfTheDayCard';
 import { getDailySong } from '../lib/dailySong';
+import MoodPills from '../components/MoodPills';
+import ActiveMoodBanner from '../components/ActiveMoodBanner';
+import { filterSongsByMood, getMoodById } from '../lib/moodCategories';
 
 const { width } = Dimensions.get('window');
 
@@ -169,6 +172,7 @@ export default function HomeScreen({ navigation }) {
   const [lastPlayed, setLastPlayed] = useState(null);
   const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
   const [activeBanner, setActiveBanner] = useState(null);
+  const [selectedMood, setSelectedMood] = useState(null);
 
   // ── Data fetch ──
   const fetchData = useCallback(async () => {
@@ -395,24 +399,55 @@ export default function HomeScreen({ navigation }) {
     sections.push({ key: 'song-of-the-day', song: dailySong });
   }
 
-  // 2️⃣ Filter pills
-  sections.push({ key: 'pills' });
+  // 1.9️⃣ "How are you feeling today?" Mood Filter
+  sections.push({ key: 'mood-pills' });
 
-  // 3️⃣ Quick-access grid
-  sections.push({ key: 'grid' });
+  if (selectedMood) {
+    const currentMood = getMoodById(selectedMood);
+    const moodSongs = filterSongsByMood(songs, selectedMood);
 
-  // Native Ad in Home feed
-  sections.push({ key: 'native-ad' });
+    sections.push({
+      key: 'active-mood-banner',
+      mood: currentMood,
+      count: moodSongs.length,
+    });
 
-  // 4️⃣ Recently Added
-  if (recentSongs.length > 0) {
-    sections.push({ key: 'recent' });
+    if (moodSongs.length === 0) {
+      sections.push({ key: 'mood-empty' });
+    } else {
+      moodSongs.forEach((song, idx) => {
+        if (idx === 4) {
+          sections.push({ key: 'native-ad-mood' });
+        }
+        sections.push({
+          key: `mood-song-${song.id}`,
+          type: 'mood-song-item',
+          song,
+          index: idx,
+          mood: currentMood,
+        });
+      });
+    }
+  } else {
+    // 2️⃣ Filter pills
+    sections.push({ key: 'pills' });
+
+    // 3️⃣ Quick-access grid
+    sections.push({ key: 'grid' });
+
+    // Native Ad in Home feed
+    sections.push({ key: 'native-ad' });
+
+    // 4️⃣ Recently Added
+    if (recentSongs.length > 0) {
+      sections.push({ key: 'recent' });
+    }
+
+    // 5️⃣ Popular in [Category]
+    filteredPopularCategories.forEach((cat) => {
+      sections.push({ key: `popular-${cat.id}`, category: cat });
+    });
   }
-
-  // 5️⃣ Popular in [Category]
-  filteredPopularCategories.forEach((cat) => {
-    sections.push({ key: `popular-${cat.id}`, category: cat });
-  });
 
   const renderSection = ({ item }) => {
     switch (item.key) {
@@ -504,6 +539,36 @@ export default function HomeScreen({ navigation }) {
           />
         );
 
+      case 'mood-pills':
+        return (
+          <MoodPills
+            selectedMood={selectedMood}
+            onSelectMood={(moodId) => {
+              setSelectedMood(moodId);
+              if (moodId) setActiveFilter('all');
+            }}
+          />
+        );
+
+      case 'active-mood-banner':
+        return (
+          <ActiveMoodBanner
+            mood={item.mood}
+            songCount={item.count}
+            onClear={() => setSelectedMood(null)}
+          />
+        );
+
+      case 'mood-empty':
+        return (
+          <View style={styles.moodEmptyWrap}>
+            <Text style={styles.moodEmptyText}>No songs found for this mood yet.</Text>
+          </View>
+        );
+
+      case 'native-ad-mood':
+        return <NativeAdCard />;
+
       case 'pills':
         return (
           <ScrollView
@@ -513,7 +578,10 @@ export default function HomeScreen({ navigation }) {
           >
             <TouchableOpacity
               style={[styles.pill, activeFilter === 'all' && styles.pillActive]}
-              onPress={() => setActiveFilter('all')}
+              onPress={() => {
+                setSelectedMood(null);
+                setActiveFilter('all');
+              }}
             >
               <Text style={[styles.pillText, activeFilter === 'all' && styles.pillTextActive]}>
                 All
@@ -523,7 +591,10 @@ export default function HomeScreen({ navigation }) {
               <TouchableOpacity
                 key={cat.id}
                 style={[styles.pill, activeFilter === cat.id && styles.pillActive]}
-                onPress={() => setActiveFilter(cat.id)}
+                onPress={() => {
+                  setSelectedMood(null);
+                  setActiveFilter(cat.id);
+                }}
               >
                 <Text
                   style={[styles.pillText, activeFilter === cat.id && styles.pillTextActive]}
@@ -564,6 +635,39 @@ export default function HomeScreen({ navigation }) {
         );
 
       default:
+        if (item.type === 'mood-song-item') {
+          const song = item.song;
+          return (
+            <PressCard
+              key={item.key}
+              onPress={() => navigateToSong(song)}
+              style={styles.moodSongRow}
+            >
+              <SongImage uri={song.feature_image_url} style={styles.moodSongThumb} iconSize={18} />
+              <View style={styles.moodSongInfo}>
+                <Text style={styles.moodSongTitle} numberOfLines={1}>
+                  {song.title}
+                </Text>
+                <Text style={styles.moodSongCat} numberOfLines={1}>
+                  {getCatName(song)}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.moodPlayIconWrap,
+                  { backgroundColor: item.mood?.badgeBg || 'rgba(139, 92, 246, 0.15)' },
+                ]}
+              >
+                <Play
+                  size={14}
+                  color={item.mood?.accentColor || colors.purpleAccent}
+                  fill={item.mood?.accentColor || colors.purpleAccent}
+                />
+              </View>
+            </PressCard>
+          );
+        }
+
         // Popular in [Category]
         if (item.key.startsWith('popular-') && item.category) {
           const cat = item.category;
@@ -727,6 +831,59 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+
+  // ── Mood filtered song items ──
+  moodSongRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginHorizontal: GRID_PAD,
+    marginBottom: 8,
+    borderRadius: 14,
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#FFFFFF',
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)',
+  },
+  moodSongThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+  },
+  moodSongInfo: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: 'center',
+  },
+  moodSongTitle: {
+    color: colors.textWhite,
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 3,
+  },
+  moodSongCat: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  moodPlayIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  moodEmptyWrap: {
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moodEmptyText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
   },
 
   // ── Empty ──
