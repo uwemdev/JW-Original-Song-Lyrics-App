@@ -142,9 +142,9 @@ export const MOODS = [
       'When All Hearts Sing as One',
     ],
     keywords: [
-      'joy', 'rejoice', 'happy', 'happiness', 'gratitude', 'thank', 'thanks', 'praise', 'sing', 'song',
-      'celebrate', 'convention', 'good news', 'smile', 'best', 'blessing', 'brotherly love', 'cheerful',
-      'glad', 'delight', 'heart', 'radiant',
+      'joy', 'rejoice', 'happy', 'happiness', 'gratitude', 'thank', 'thanks', 'praise',
+      'celebrate', 'convention', 'good news', 'smile', 'blessing', 'brotherly love', 'cheerful',
+      'glad', 'delight', 'radiant',
     ],
   },
   {
@@ -184,8 +184,7 @@ export const MOODS = [
     ],
     keywords: [
       'prize', 'eyes on the prize', 'patience', 'patient', 'endure', 'endurance', 'wait', 'waiting',
-      'late', 'not be late', 'soon', 'promise', 'tomorrow', 'hold on', 'race', 'finish', 'time',
-      'paradise', 'future', 'looking ahead', 'persevere', 'long-suffering',
+      'not be late', 'tomorrow', 'hold on', 'race', 'finish', 'paradise', 'looking ahead', 'persevere', 'long-suffering',
     ],
   },
   {
@@ -231,6 +230,13 @@ function clean(str) {
 
 /**
  * Filter a list of songs by the given moodId.
+ * Multi-layer classification ensures any new songs added to Supabase
+ * are seamlessly categorized:
+ * 1. Explicit database tag (song.mood or song.mood_id)
+ * 2. Dedicated category matching (e.g. for Kids series)
+ * 3. Curated title library matching
+ * 4. Automatic keyword matching across Title
+ * 5. Automatic keyword matching across Writeup / Description
  */
 export function filterSongsByMood(allSongs, moodId) {
   if (!allSongs || !moodId) return [];
@@ -241,10 +247,20 @@ export function filterSongsByMood(allSongs, moodId) {
   const results = [];
 
   allSongs.forEach((song) => {
+    // 1. Explicit DB field: if set in Supabase or Admin, it takes absolute precedence
+    if (song.mood || song.mood_id) {
+      const dbMood = (song.mood || song.mood_id || '').toLowerCase().trim();
+      if (dbMood === moodId && !matchedSet.has(song.id)) {
+        matchedSet.add(song.id);
+        results.push(song);
+      }
+      return; // Do not check other criteria if explicit mood is specified
+    }
+
     const sClean = clean(song.title);
     const catClean = clean(song.categories?.name || '');
 
-    // Category match
+    // 2. Category match (e.g. for Kids series)
     if (mood.categoryMatch && mood.categoryMatch.some((c) => catClean.includes(clean(c)))) {
       if (!matchedSet.has(song.id)) {
         matchedSet.add(song.id);
@@ -253,7 +269,7 @@ export function filterSongsByMood(allSongs, moodId) {
       }
     }
 
-    // Explicit title match
+    // 3. Explicit curated title match
     const titleMatched = mood.titles.some((t) => {
       const tClean = clean(t);
       return sClean.includes(tClean) || tClean.includes(sClean);
@@ -265,15 +281,30 @@ export function filterSongsByMood(allSongs, moodId) {
       return;
     }
 
-    // Keyword match in title
-    const keywordMatched = mood.keywords.some((k) => {
+    // 4. Keyword match in Title
+    const titleKeywordMatched = mood.keywords.some((k) => {
       const kClean = clean(k);
       return sClean.includes(kClean);
     });
 
-    if (keywordMatched && !matchedSet.has(song.id)) {
+    if (titleKeywordMatched && !matchedSet.has(song.id)) {
       matchedSet.add(song.id);
       results.push(song);
+      return;
+    }
+
+    // 5. Keyword match in Writeup / Description (for new songs)
+    if (song.writeup) {
+      const writeupClean = clean(song.writeup);
+      const writeupMatched = mood.keywords.some((k) => {
+        const kClean = clean(k);
+        return kClean.length >= 4 && writeupClean.includes(kClean);
+      });
+
+      if (writeupMatched && !matchedSet.has(song.id)) {
+        matchedSet.add(song.id);
+        results.push(song);
+      }
     }
   });
 
@@ -286,3 +317,4 @@ export function filterSongsByMood(allSongs, moodId) {
 export function getMoodById(moodId) {
   return MOODS.find((m) => m.id === moodId) || null;
 }
+

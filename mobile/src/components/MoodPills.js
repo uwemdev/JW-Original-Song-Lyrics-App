@@ -200,3 +200,4 @@ const makeStyles = (colors, isDark, compact) =>
       marginLeft: 6,
     },
   });
+
