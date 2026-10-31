@@ -85,16 +85,18 @@ export async function markUpdateDismissed(version) {
  * Opens Google Play Store (market scheme first, then web fallback)
  */
 export async function openStorePage(customUrl) {
-  const marketUrl = customUrl || PLAY_STORE_MARKET_URL;
-  const webUrl = PLAY_STORE_WEB_URL;
+  const marketUrl = `market://details?id=${PLAY_STORE_PACKAGE}`;
+  const webUrl = customUrl || PLAY_STORE_WEB_URL;
 
-  try {
-    const canOpen = await Linking.canOpenURL(marketUrl);
-    if (canOpen) {
-      await Linking.openURL(marketUrl);
-      return;
-    }
-  } catch (_) {}
+  if (Platform.OS === 'android') {
+    try {
+      const canOpen = await Linking.canOpenURL(marketUrl);
+      if (canOpen) {
+        await Linking.openURL(marketUrl);
+        return;
+      }
+    } catch (_) {}
+  }
 
   try {
     await Linking.openURL(webUrl);

@@ -28,7 +28,8 @@ export default function UpdateModal({ visible, config, isForced, onDismiss }) {
   if (!visible || !config) return null;
 
   const latestVersion = config.latest_version || 'Latest';
-  const title = config.title || (isForced ? 'Critical Update Required' : 'New Update Available 🎉');
+  const rawTitle = config.title || (isForced ? 'Critical Update Required' : 'New Version Available');
+  const title = rawTitle.replace(/[\u{1F300}-\u{1FAFF}]/gu, '').trim();
   const message = config.message || 'A new update is available on the Google Play Store with important improvements.';
   const notes = config.release_notes ? config.release_notes.trim() : null;
 
