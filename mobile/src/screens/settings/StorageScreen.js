@@ -5,279 +5,572 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  Image,
   Platform,
   StatusBar,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
-import { ArrowLeft, Trash2, Music, HardDrive } from 'lucide-react-native';
-import { useSettings } from '../../context/SettingsContext';
+import {
+  ArrowLeft,
+  Trash2,
+  Play,
+  HardDrive,
+  Download,
+  CheckCircle,
+  CloudDownload,
+  Music,
+  ShieldCheck,
+} from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const CACHE_KEY = '@offline_lyrics_cache';
+import { supabase } from '../../lib/supabase';
+import { useSettings } from '../../context/SettingsContext';
+import { useAudio } from '../../context/AudioContext';
+import {
+  getDownloadedSongsMap,
+  deleteDownloadedSong,
+  clearAllDownloadedSongs,
+  downloadSong,
+  formatBytes,
+} from '../../lib/offlineManager';
 
 export default function StorageScreen({ navigation }) {
   const { colors, isDark } = useSettings();
-  const styles = makeStyles(colors, isDark);
-  const [cache, setCache] = useState([]); // [{ id, title, category, dataSize }]
-  const [loading, setLoading] = useState(true);
+  const { playSong } = useAudio();
 
-  const loadCache = useCallback(async () => {
+  const [downloadedSongs, setDownloadedSongs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isBatchDownloading, setIsBatchDownloading] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+
+  const loadDownloads = useCallback(async () => {
     try {
-      const raw = await AsyncStorage.getItem(CACHE_KEY);
-      if (raw) {
-        setCache(JSON.parse(raw));
-      } else {
-        setCache([]);
-      }
+      const map = await getDownloadedSongsMap();
+      const list = Object.values(map).sort((a, b) => (b.downloadedAt || 0) - (a.downloadedAt || 0));
+      setDownloadedSongs(list);
     } catch (_) {
-      setCache([]);
+      setDownloadedSongs([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
-    loadCache();
-  }, []);
+    loadDownloads();
+  }, [loadDownloads]);
 
-  const totalSize = cache.reduce((sum, item) => sum + (item.dataSize || 0), 0);
+  const totalBytes = downloadedSongs.reduce((sum, s) => sum + (s.sizeBytes || 0), 0);
 
-  const formatSize = (bytes) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  // Play a downloaded song directly from local storage
+  const handlePlaySong = (song) => {
+    playSong(song, downloadedSongs);
+    navigation.navigate('Song', { song, queue: downloadedSongs });
   };
 
-  const removeSong = async (songId) => {
-    const updated = cache.filter((s) => s.id !== songId);
-    setCache(updated);
-    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(updated));
-  };
-
-  const clearAll = () => {
+  // Remove a single downloaded song
+  const handleRemove = (song) => {
     Alert.alert(
-      'Clear All Cache',
-      'This will remove all offline lyrics. Favorited songs will re-cache next time you\'re online if auto-cache is enabled.',
+      'Remove Download',
+      `Delete "${song.title}" from offline storage?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteDownloadedSong(song.id);
+            setDownloadedSongs((prev) => prev.filter((s) => s.id !== song.id));
+          },
+        },
+      ]
+    );
+  };
+
+  // Clear all offline storage
+  const handleClearAll = () => {
+    if (downloadedSongs.length === 0) return;
+    Alert.alert(
+      'Clear All Offline Audio',
+      'This will delete all saved audio files from your device. You can download them again anytime.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Clear All',
           style: 'destructive',
           onPress: async () => {
-            setCache([]);
-            await AsyncStorage.removeItem(CACHE_KEY);
+            await clearAllDownloadedSongs();
+            setDownloadedSongs([]);
           },
         },
-      ],
+      ]
     );
   };
 
-  const renderItem = ({ item }) => (
-    <View style={styles.cacheRow}>
-      <View style={styles.cacheLeft}>
-        <View style={styles.musicIcon}>
-          <Music color={colors.purpleAccent} size={16} />
+  // Batch download all favorited songs
+  const handleDownloadFavorites = async () => {
+    try {
+      const raw = await AsyncStorage.getItem('@favorites');
+      let favIds = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(favIds)) {
+        favIds = Object.keys(favIds).filter((k) => favIds[k]);
+      }
+
+      if (favIds.length === 0) {
+        Alert.alert('No Favorites', 'You have no favorited songs yet to download.');
+        return;
+      }
+
+      // Fetch full song objects from Supabase
+      const { data, error } = await supabase
+        .from('songs')
+        .select('*, categories(name)')
+        .in('id', favIds)
+        .eq('is_published', true);
+
+      if (error || !data || data.length === 0) {
+        Alert.alert('Notice', 'Could not fetch favorite songs for download.');
+        return;
+      }
+
+      // Filter out already downloaded songs
+      const alreadyIds = new Set(downloadedSongs.map((s) => String(s.id)));
+      const toDownload = data.filter((s) => !alreadyIds.has(String(s.id)) && s.mp3_url);
+
+      if (toDownload.length === 0) {
+        Alert.alert('All Saved', 'All of your favorited songs are already downloaded offline!');
+        return;
+      }
+
+      setIsBatchDownloading(true);
+      setBatchProgress({ current: 0, total: toDownload.length });
+
+      for (let i = 0; i < toDownload.length; i++) {
+        setBatchProgress({ current: i + 1, total: toDownload.length });
+        await downloadSong(toDownload[i]);
+      }
+
+      setIsBatchDownloading(false);
+      await loadDownloads();
+      Alert.alert('Completed', `Successfully downloaded ${toDownload.length} songs for offline listening!`);
+    } catch (err) {
+      setIsBatchDownloading(false);
+      Alert.alert('Download Error', 'Could not complete batch download.');
+    }
+  };
+
+  const renderHeader = () => (
+    <View style={styles.bannerWrap}>
+      {/* Storage Card */}
+      <View
+        style={[
+          styles.summaryCard,
+          {
+            backgroundColor: colors.cardBg,
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+          },
+        ]}
+      >
+        <View style={styles.summaryTop}>
+          <View style={[styles.hardDriveIconWrap, { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.10)' }]}>
+            <HardDrive size={24} color={colors.purpleAccent} />
+          </View>
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <Text style={[styles.storageSizeText, { color: colors.textWhite }]}>
+              {formatBytes(totalBytes)}
+            </Text>
+            <Text style={[styles.storageSubText, { color: colors.textMuted }]}>
+              {downloadedSongs.length} {downloadedSongs.length === 1 ? 'song' : 'songs'} saved offline
+            </Text>
+          </View>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cacheTitle} numberOfLines={1}>{item.title}</Text>
-          <Text style={styles.cacheSub}>{item.category || 'Unknown'} · {formatSize(item.dataSize || 0)}</Text>
+
+        {/* Private Vault Badge */}
+        <View
+          style={[
+            styles.vaultBadge,
+            {
+              backgroundColor: isDark ? 'rgba(37, 211, 102, 0.12)' : 'rgba(37, 211, 102, 0.08)',
+              borderColor: isDark ? 'rgba(37, 211, 102, 0.25)' : 'rgba(37, 211, 102, 0.2)',
+            },
+          ]}
+        >
+          <ShieldCheck size={14} color="#25D366" />
+          <Text style={[styles.vaultBadgeText, { color: isDark ? '#86EFAC' : '#15803D' }]}>
+            Isolated App Vault • Hidden from Device Media
+          </Text>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsRow}>
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              { backgroundColor: colors.purple, opacity: isBatchDownloading ? 0.7 : 1 },
+            ]}
+            onPress={handleDownloadFavorites}
+            disabled={isBatchDownloading}
+            activeOpacity={0.8}
+          >
+            {isBatchDownloading ? (
+              <ActivityIndicator size="small" color="#FFF" style={{ marginRight: 6 }} />
+            ) : (
+              <CloudDownload size={16} color="#FFF" style={{ marginRight: 6 }} />
+            )}
+            <Text style={styles.actionBtnText}>
+              {isBatchDownloading
+                ? `Saving (${batchProgress.current}/${batchProgress.total})`
+                : 'Download Favorites'}
+            </Text>
+          </TouchableOpacity>
+
+          {downloadedSongs.length > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.clearBtn,
+                {
+                  backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)',
+                  borderColor: isDark ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.20)',
+                },
+              ]}
+              onPress={handleClearAll}
+              activeOpacity={0.8}
+            >
+              <Trash2 size={15} color={colors.danger} />
+              <Text style={[styles.clearBtnText, { color: colors.danger }]}>Clear</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
-      <TouchableOpacity
-        onPress={() => removeSong(item.id)}
-        style={styles.removeBtn}
-        accessibilityLabel={`Remove ${item.title} from cache`}
-      >
-        <Trash2 color={colors.danger} size={16} />
-      </TouchableOpacity>
+
+      {/* Section Title */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.textWhite }]}>
+          Downloaded Tracks
+        </Text>
+      </View>
     </View>
   );
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Top Header */}
+      <View style={[styles.topHeader, { borderBottomColor: colors.divider }]}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
           style={styles.backBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <ArrowLeft color={colors.textWhite} size={22} />
+          <ArrowLeft size={22} color={colors.textWhite} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Offline Cache</Text>
-        <View style={{ width: 34 }} />
+        <Text style={[styles.topHeaderTitle, { color: colors.textWhite }]}>
+          Offline Music & Storage
+        </Text>
+        <View style={{ width: 36 }} />
       </View>
 
-      {/* Stats */}
-      <View style={styles.statsCard}>
-        <View style={styles.statItem}>
-          <HardDrive color={colors.purpleAccent} size={24} />
-          <Text style={styles.statValue}>{cache.length}</Text>
-          <Text style={styles.statLabel}>Songs cached</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{formatSize(totalSize)}</Text>
-          <Text style={styles.statLabel}>Storage used</Text>
-        </View>
-      </View>
-
-      {/* Cache list */}
-      {cache.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <HardDrive color={colors.textMuted} size={40} />
-          <Text style={styles.emptyTitle}>No cached songs</Text>
-          <Text style={styles.emptySub}>
-            Enable "Auto-cache favorites" in Settings to automatically save lyrics for offline reading.
-          </Text>
+      {/* Main Content */}
+      {loading ? (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator size="large" color={colors.purpleAccent} />
         </View>
       ) : (
         <FlatList
-          data={cache}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}
-          ItemSeparatorComponent={() => <View style={styles.listDivider} />}
-          ListFooterComponent={
-            <TouchableOpacity style={styles.clearAllBtn} onPress={clearAll}>
-              <Trash2 color="#FFF" size={16} />
-              <Text style={styles.clearAllText}>Clear All Cache</Text>
-            </TouchableOpacity>
+          data={downloadedSongs}
+          keyExtractor={(item) => String(item.id)}
+          ListHeaderComponent={renderHeader}
+          contentContainerStyle={{ paddingBottom: 130 }}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <View
+                style={[
+                  styles.emptyIconCircle,
+                  { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.12)' : 'rgba(139, 92, 246, 0.08)' },
+                ]}
+              >
+                <CloudDownload size={40} color={colors.purpleAccent} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.textWhite }]}>No offline songs yet</Text>
+              <Text style={[styles.emptySub, { color: colors.textMuted }]}>
+                Download songs to listen anywhere with 0% data usage. Downloaded files are kept private inside the app.
+              </Text>
+              <TouchableOpacity
+                style={[styles.emptyActionBtn, { backgroundColor: colors.purple }]}
+                onPress={() => navigation.navigate('FavoritesMain')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.emptyActionBtnText}>Go to Favorites</Text>
+              </TouchableOpacity>
+            </View>
           }
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.songRow,
+                { backgroundColor: colors.cardBg, borderColor: colors.divider },
+              ]}
+              onPress={() => handlePlaySong(item)}
+              activeOpacity={0.7}
+            >
+              {item.feature_image_url ? (
+                <Image source={{ uri: item.feature_image_url }} style={styles.songThumb} resizeMode="cover" />
+              ) : (
+                <View style={[styles.songThumb, styles.songThumbFallback, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]}>
+                  <Music size={18} color={colors.textMuted} />
+                </View>
+              )}
+
+              <View style={styles.songInfo}>
+                <Text style={[styles.songTitle, { color: colors.textWhite }]} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <View style={styles.songMetaRow}>
+                  <Text style={[styles.songCategory, { color: colors.textMuted }]} numberOfLines={1}>
+                    {item.category_name || 'Original Song'}
+                  </Text>
+                  <Text style={[styles.songDot, { color: colors.textMuted }]}>•</Text>
+                  <Text style={[styles.songSizeBadge, { color: colors.purpleAccent }]}>
+                    {formatBytes(item.sizeBytes)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action buttons */}
+              <View style={styles.songActions}>
+                <TouchableOpacity
+                  style={[styles.rowPlayBtn, { backgroundColor: 'rgba(109, 40, 217, 0.15)' }]}
+                  onPress={() => handlePlaySong(item)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Play size={14} color={colors.purpleAccent} fill={colors.purpleAccent} style={{ marginLeft: 2 }} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.rowDeleteBtn}
+                  onPress={() => handleRemove(item)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Trash2 size={16} color={colors.danger} />
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          )}
         />
       )}
     </View>
   );
 }
 
-const makeStyles = (colors, isDark) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  header: {
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  topHeader: {
+    paddingTop: Platform.OS === 'ios' ? 52 : (StatusBar.currentHeight || 32) + 8,
+    paddingBottom: 14,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 58 : 44,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: colors.textWhite,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  statsCard: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    backgroundColor: colors.cardBg,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(139,92,246,0.08)',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    color: colors.textWhite,
-    fontSize: 24,
-    fontWeight: '800',
-    marginTop: 8,
-  },
-  statLabel: {
-    color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: 'rgba(150,150,150,0.15)',
-    marginHorizontal: 16,
-  },
-  cacheRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  cacheLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 12,
-  },
-  musicIcon: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(139,92,246,0.1)',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
   },
-  cacheTitle: {
-    color: colors.textWhite,
-    fontSize: 14,
-    fontWeight: '600',
+  topHeaderTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
   },
-  cacheSub: {
-    color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  removeBtn: {
-    padding: 8,
-  },
-  listDivider: {
-    height: 1,
-    backgroundColor: 'rgba(150,150,150,0.15)',
-  },
-  clearAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 24,
-    paddingVertical: 14,
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.2)',
-  },
-  clearAllText: {
-    color: colors.danger,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  emptyWrap: {
+  loaderWrap: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingBottom: 60,
+  },
+  bannerWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  summaryCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 20,
+  },
+  summaryTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  hardDriveIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storageSizeText: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+  storageSubText: {
+    fontSize: 13,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  vaultBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 14,
+    gap: 6,
+  },
+  vaultBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+    gap: 10,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  actionBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  clearBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
+  },
+  clearBtnText: {
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  sectionHeader: {
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  songRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginHorizontal: 16,
+    marginBottom: 10,
+  },
+  songThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    marginRight: 12,
+  },
+  songThumbFallback: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  songInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  songTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  songMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+  },
+  songCategory: {
+    fontSize: 12,
+    maxWidth: '60%',
+  },
+  songDot: {
+    fontSize: 12,
+    marginHorizontal: 6,
+  },
+  songSizeBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  songActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  rowPlayBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rowDeleteBtn: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyWrap: {
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 30,
+  },
+  emptyIconCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   emptyTitle: {
-    color: colors.textWhite,
     fontSize: 18,
     fontWeight: '700',
-    marginTop: 16,
   },
   emptySub: {
-    color: colors.textMuted,
     fontSize: 13,
     textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  emptyActionBtn: {
+    marginTop: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 18,
+  },
+  emptyActionBtnText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 14,
   },
 });

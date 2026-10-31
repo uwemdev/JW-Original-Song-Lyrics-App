@@ -41,9 +41,11 @@ import {
   Mic,
   Info,
   ListPlus,
+  Download,
 } from 'lucide-react-native';
 import { Replay10Icon, Forward10Icon } from '../components/SeekIcons';
 import AddToPlaylistModal from '../components/AddToPlaylistModal';
+import { isSongDownloaded, downloadSong, deleteDownloadedSong } from '../lib/offlineManager';
 import RenderHTML from 'react-native-render-html';
 import { parseSyncedLyrics } from '../lib/lyricsParser';
 import { useSettings } from '../context/SettingsContext';
@@ -144,6 +146,8 @@ export default function SongScreen({ route, navigation }) {
   const [toastMsg, setToastMsg] = useState('');
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+  const [isDownloaded, setIsDownloaded] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // ── Report state ──
   const [showReport, setShowReport] = useState(false);
@@ -193,6 +197,17 @@ export default function SongScreen({ route, navigation }) {
     saveLastPlayed();
   }, []);
 
+  // Check offline download status
+  useEffect(() => {
+    let mounted = true;
+    if (song?.id) {
+      isSongDownloaded(song.id).then((saved) => {
+        if (mounted) setIsDownloaded(saved);
+      });
+    }
+    return () => { mounted = false; };
+  }, [song?.id]);
+
   // Synchronize with global audio context & track active screen
   useEffect(() => {
     setCurrentScreen('Song');
@@ -227,6 +242,52 @@ export default function SongScreen({ route, navigation }) {
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+
+  const handleToggleDownload = async () => {
+    if (!song.mp3_url) {
+      setToastMsg('No audio available to download');
+      setShowToast(true);
+      return;
+    }
+
+    if (isDownloaded) {
+      Alert.alert(
+        'Remove Offline Song',
+        'Remove this song from your offline storage?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: async () => {
+              await deleteDownloadedSong(song.id);
+              setIsDownloaded(false);
+              setToastMsg('Removed from offline storage');
+              setShowToast(true);
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    setIsDownloading(true);
+    setToastMsg('Downloading for offline listening...');
+    setShowToast(true);
+
+    const res = await downloadSong(song);
+    setIsDownloading(false);
+
+    if (res.success) {
+      setIsDownloaded(true);
+      setToastMsg('Saved offline • Hidden from device media');
+      setShowToast(true);
+    } else {
+      setToastMsg('Download failed • Check your internet connection');
+      setShowToast(true);
+    }
   };
 
   // ── Favorites ──
@@ -669,6 +730,26 @@ export default function SongScreen({ route, navigation }) {
 
           {/* Action Buttons: WhatsApp Status & Report Issue */}
           <View style={styles.toolbarActions}>
+            <TouchableOpacity
+              onPress={handleToggleDownload}
+              style={[
+                styles.downloadIconBtn,
+                isDownloaded && styles.downloadIconBtnActive,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={isDownloaded ? "Saved offline. Tap to remove" : "Download for offline listening"}
+              activeOpacity={0.75}
+              disabled={isDownloading}
+            >
+              {isDownloading ? (
+                <ActivityIndicator size="small" color={colors.purpleAccent} />
+              ) : isDownloaded ? (
+                <CheckCircle color={isDark ? '#86EFAC' : '#15803D'} size={18} />
+              ) : (
+                <Download color={colors.textMuted} size={18} />
+              )}
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={() => setShowPlaylistModal(true)}
               style={styles.playlistIconBtn}
@@ -1316,6 +1397,20 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  downloadIconBtn: {
+    width: 38,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)',
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  downloadIconBtnActive: {
+    backgroundColor: isDark ? 'rgba(37, 211, 102, 0.15)' : 'rgba(37, 211, 102, 0.10)',
+    borderColor: isDark ? 'rgba(37, 211, 102, 0.3)' : 'rgba(37, 211, 102, 0.25)',
   },
   playlistIconBtn: {
     width: 38,

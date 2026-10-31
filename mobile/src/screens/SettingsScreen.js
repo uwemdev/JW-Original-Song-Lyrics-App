@@ -240,7 +240,7 @@ export default function SettingsScreen({ navigation }) {
         <View style={styles.card}>
           <SettingsRow
             icon={<HardDrive color={colors.purpleAccent} size={20} />}
-            label="Offline Lyrics Cache"
+            label="Offline Music & Storage"
             subtitle="Manage cached songs"
             onPress={() => navigation.navigate('StorageSettings')}
           />

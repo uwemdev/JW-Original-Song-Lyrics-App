@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useSettings } from './SettingsContext';
+import { getLocalAudioUri } from '../lib/offlineManager';
 
 const AudioContext = createContext(null);
 
@@ -51,9 +52,13 @@ export function AudioProvider({ children, navigationRef }) {
     setCurrentSong(song);
     setIsMiniPlayerVisible(true);
 
-    if (song.mp3_url) {
+    const startPlayback = async () => {
       try {
-        player.replace({ uri: song.mp3_url });
+        const localUri = await getLocalAudioUri(song.id);
+        const targetUri = localUri || song.mp3_url;
+        if (!targetUri) return;
+
+        player.replace({ uri: targetUri });
         player.play();
         try {
           player.setActiveForLockScreen(true, {
@@ -65,7 +70,9 @@ export function AudioProvider({ children, navigationRef }) {
       } catch (err) {
         console.warn('Error loading audio:', err);
       }
-    }
+    };
+
+    startPlayback();
   }, [currentSong?.id, player]);
 
   // Toggle play / pause
@@ -192,3 +199,4 @@ export function useAudio() {
   }
   return ctx;
 }
+

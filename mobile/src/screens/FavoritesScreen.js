@@ -28,6 +28,9 @@ import {
   Plus,
 } from 'lucide-react-native';
 import { usePlaylists } from '../context/PlaylistContext';
+import { useAudio } from '../context/AudioContext';
+import { getDownloadedSongsMap, formatBytes } from '../lib/offlineManager';
+import { CloudDownload, HardDrive } from 'lucide-react-native';
 import { Modal, KeyboardAvoidingView } from 'react-native';
 import { useSettings } from '../context/SettingsContext';
 
@@ -163,6 +166,18 @@ export default function FavoritesScreen({ navigation }) {
   const [createName, setCreateName] = useState('');
   const [createDesc, setCreateDesc] = useState('');
   const [favSongs, setFavSongs] = useState([]);
+  const [downloadedSongs, setDownloadedSongs] = useState([]);
+  const { playSong } = useAudio();
+
+  const loadOfflineSongs = useCallback(async () => {
+    try {
+      const map = await getDownloadedSongsMap();
+      const list = Object.values(map).sort((a, b) => (b.downloadedAt || 0) - (a.downloadedAt || 0));
+      setDownloadedSongs(list);
+    } catch (_) {
+      setDownloadedSongs([]);
+    }
+  }, []);
   const [favIds, setFavIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -231,12 +246,14 @@ export default function FavoritesScreen({ navigation }) {
 
   useEffect(() => {
     loadFavorites();
+    loadOfflineSongs();
   }, []);
 
   // Re-load on screen focus
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       loadFavorites();
+      loadOfflineSongs();
     });
     return unsubscribe;
   }, [navigation, loadFavorites]);
@@ -423,95 +440,335 @@ export default function FavoritesScreen({ navigation }) {
       {/* ── Header ── */}
       <View style={styles.headerWrap}>
         <View>
-          <Text style={styles.headerTitle}>Favorites</Text>
+          <Text style={styles.headerTitle}>
+            {activeTab === 'favorites' ? 'Favorites' : activeTab === 'playlists' ? 'Playlists' : 'Offline Music'}
+          </Text>
           <Text style={styles.headerSubtext}>
-            {favSongs.length} saved song{favSongs.length !== 1 ? 's' : ''}
+            {activeTab === 'favorites'
+              ? `${favSongs.length} saved song${favSongs.length !== 1 ? 's' : ''}`
+              : activeTab === 'playlists'
+                ? `${playlists.length} custom collection${playlists.length !== 1 ? 's' : ''}`
+                : `${downloadedSongs.length} song${downloadedSongs.length !== 1 ? 's' : ''} saved on device`}
           </Text>
         </View>
+
+        {activeTab === 'favorites' ? (
+          <TouchableOpacity
+            style={styles.searchIcon}
+            onPress={() => {
+              setSearchActive(!searchActive);
+              if (!searchActive) {
+                setTimeout(() => searchInputRef.current?.focus(), 150);
+              } else {
+                setSearchQuery('');
+              }
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {searchActive ? (
+              <X size={22} color={colors.textWhite} />
+            ) : (
+              <Search size={22} color={colors.textWhite} />
+            )}
+          </TouchableOpacity>
+        ) : activeTab === 'playlists' ? (
+          <TouchableOpacity
+            style={[styles.newPlaylistTopBtn, { backgroundColor: colors.purple }]}
+            onPress={() => setShowCreateModal(true)}
+            activeOpacity={0.8}
+          >
+            <Plus size={16} color="#FFF" strokeWidth={2.5} />
+            <Text style={styles.newPlaylistTopBtnText}>New</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.manageStorageBtn, { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.10)', borderColor: colors.purpleAccent }]}
+            onPress={() => navigation.navigate('StorageSettings')}
+            activeOpacity={0.8}
+          >
+            <HardDrive size={15} color={colors.purpleAccent} />
+            <Text style={[styles.manageStorageBtnText, { color: colors.purpleAccent }]}>Manage</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* ── Segmented Control: Liked Songs vs Playlists vs Offline ── */}
+      <View style={[styles.segmentWrap, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]}>
         <TouchableOpacity
-          style={styles.searchIcon}
-          onPress={() => {
-            setSearchActive(!searchActive);
-            if (!searchActive) {
-              setTimeout(() => searchInputRef.current?.focus(), 150);
-            } else {
-              setSearchQuery('');
-            }
-          }}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={[styles.segmentBtn, activeTab === 'favorites' && { backgroundColor: colors.purple }]}
+          onPress={() => setActiveTab('favorites')}
+          activeOpacity={0.8}
         >
-          {searchActive ? (
-            <X size={22} color={colors.textWhite} />
-          ) : (
-            <Search size={22} color={colors.textWhite} />
-          )}
+          <Heart size={13} color={activeTab === 'favorites' ? '#FFF' : colors.textMuted} fill={activeTab === 'favorites' ? '#FFF' : 'transparent'} />
+          <Text style={[styles.segmentBtnText, activeTab === 'favorites' && styles.segmentBtnTextActive]}>
+            Liked ({favSongs.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.segmentBtn, activeTab === 'playlists' && { backgroundColor: colors.purple }]}
+          onPress={() => setActiveTab('playlists')}
+          activeOpacity={0.8}
+        >
+          <ListMusic size={14} color={activeTab === 'playlists' ? '#FFF' : colors.textMuted} />
+          <Text style={[styles.segmentBtnText, activeTab === 'playlists' && styles.segmentBtnTextActive]}>
+            Playlists ({playlists.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.segmentBtn, activeTab === 'offline' && { backgroundColor: colors.purple }]}
+          onPress={() => { setActiveTab('offline'); loadOfflineSongs(); }}
+          activeOpacity={0.8}
+        >
+          <CloudDownload size={14} color={activeTab === 'offline' ? '#FFF' : colors.textMuted} />
+          <Text style={[styles.segmentBtnText, activeTab === 'offline' && styles.segmentBtnTextActive]}>
+            Offline ({downloadedSongs.length})
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* ── Search bar ── */}
-      {searchActive && (
-        <View style={styles.searchBar}>
-          <Search size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
-          <TextInput
-            ref={searchInputRef}
-            style={styles.searchInput}
-            placeholder="Search favorites..."
-            placeholderTextColor={colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoFocus
-            returnKeyType="search"
-            accessibilityLabel="Search within favorites"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <X size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* ── Sort pills ── */}
-      {favSongs.length > 0 && (
-        <View style={styles.sortRow}>
-          {SORT_OPTIONS.map((opt) => (
+      {/* ── Main Content Area ── */}
+      {activeTab === 'playlists' ? (
+        <FlatList
+          data={playlists}
+          keyExtractor={(pl) => pl.id}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 130, paddingTop: 4 }}
+          ListHeaderComponent={
             <TouchableOpacity
-              key={opt.key}
-              style={[styles.sortPill, sortKey === opt.key && styles.sortPillActive]}
-              onPress={() => setSortKey(opt.key)}
+              style={[styles.createPlaylistCard, { borderColor: isDark ? 'rgba(139, 92, 246, 0.3)' : 'rgba(139, 92, 246, 0.2)' }]}
+              onPress={() => setShowCreateModal(true)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.createPlaylistCardIcon, { backgroundColor: 'rgba(109, 40, 217, 0.15)' }]}>
+                <Plus size={22} color={colors.purpleAccent} strokeWidth={2.5} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.createPlaylistCardTitle, { color: colors.purpleAccent }]}>
+                  Create New Playlist
+                </Text>
+                <Text style={[styles.createPlaylistCardSub, { color: colors.textMuted }]}>
+                  Group songs for family worship, singing practice, or commutes
+                </Text>
+              </View>
+            </TouchableOpacity>
+          }
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.playlistCard, { backgroundColor: colors.cardBg, borderColor: colors.divider }]}
+              onPress={() => navigation.navigate('Playlist', { playlistId: item.id })}
               activeOpacity={0.7}
             >
-              <Text
-                style={[styles.sortPillText, sortKey === opt.key && styles.sortPillTextActive]}
-              >
-                {opt.label}
-              </Text>
+              <View style={[styles.playlistCardIcon, { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)' }]}>
+                <ListMusic size={24} color={colors.purpleAccent} />
+              </View>
+              <View style={styles.playlistCardInfo}>
+                <Text style={[styles.playlistCardTitle, { color: colors.textWhite }]} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={[styles.playlistCardMeta, { color: colors.textMuted }]}>
+                  {item.songIds?.length || 0} {(item.songIds?.length || 0) === 1 ? 'song' : 'songs'}
+                  {item.description ? ` • ${item.description}` : ''}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colors.textMuted} />
             </TouchableOpacity>
-          ))}
-        </View>
+          )}
+        />
+      ) : activeTab === 'offline' ? (
+        <FlatList
+          data={downloadedSongs}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 130, paddingTop: 4 }}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <View style={[styles.emptyIconCircle, { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.12)' : 'rgba(139, 92, 246, 0.08)' }]}>
+                <CloudDownload size={42} color={colors.purpleAccent} />
+              </View>
+              <Text style={styles.emptyTitle}>No offline songs yet</Text>
+              <Text style={styles.emptySubtext}>
+                Download songs to listen with 0% data usage anywhere. Files stay private inside the app.
+              </Text>
+              <TouchableOpacity
+                style={styles.emptyBtn}
+                onPress={() => setActiveTab('favorites')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.emptyBtnText}>View Liked Songs</Text>
+              </TouchableOpacity>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.offlineSongRow, { backgroundColor: colors.cardBg, borderColor: colors.divider }]}
+              onPress={() => {
+                playSong(item, downloadedSongs);
+                navigation.navigate('Song', { song: item, queue: downloadedSongs });
+              }}
+              activeOpacity={0.7}
+            >
+              {item.feature_image_url ? (
+                <Image source={{ uri: item.feature_image_url }} style={styles.songRowImg} resizeMode="cover" />
+              ) : (
+                <View style={[styles.songRowImg, styles.songRowFallback, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]}>
+                  <Music size={18} color={colors.textMuted} />
+                </View>
+              )}
+              <View style={styles.songRowInfo}>
+                <Text style={styles.songRowTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
+                  <Text style={styles.songRowCategory} numberOfLines={1}>
+                    {item.category_name || 'Original Song'}
+                  </Text>
+                  <Text style={[styles.songRowCategory, { marginHorizontal: 4 }]}>•</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.purpleAccent }}>
+                    {formatBytes(item.sizeBytes)}
+                  </Text>
+                </View>
+              </View>
+              <ChevronRight size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        />
+      ) : (
+        <>
+          {/* Search bar */}
+          {searchActive && (
+            <View style={styles.searchBar}>
+              <Search size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
+              <TextInput
+                ref={searchInputRef}
+                style={styles.searchInput}
+                placeholder="Search favorites..."
+                placeholderTextColor={colors.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus
+                returnKeyType="search"
+                accessibilityLabel="Search within favorites"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <X size={18} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* Sort pills */}
+          {favSongs.length > 0 && (
+            <View style={styles.sortRow}>
+              {SORT_OPTIONS.map((opt) => (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[styles.sortPill, sortKey === opt.key && styles.sortPillActive]}
+                  onPress={() => setSortKey(opt.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[styles.sortPillText, sortKey === opt.key && styles.sortPillTextActive]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Liked songs list */}
+          {favSongs.length === 0 ? (
+            renderEmptyState()
+          ) : displaySongs.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>No matches</Text>
+              <Text style={styles.emptySubtext}>
+                No favorites match "{searchQuery}"
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={displaySongs}
+              keyExtractor={(s) => s.id}
+              renderItem={renderSongRow}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120, paddingTop: 4 }}
+              showsVerticalScrollIndicator={false}
+              onRefresh={onRefresh}
+              refreshing={refreshing}
+            />
+          )}
+        </>
       )}
 
-      {/* ── Content ── */}
-      {favSongs.length === 0 ? (
-        renderEmptyState()
-      ) : displaySongs.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>No matches</Text>
-          <Text style={styles.emptySubtext}>
-            No favorites match "{searchQuery}"
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={displaySongs}
-          keyExtractor={(s) => s.id}
-          renderItem={renderSongRow}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120, paddingTop: 4 }}
-          showsVerticalScrollIndicator={false}
-          onRefresh={onRefresh}
-          refreshing={refreshing}
-        />
-      )}
+      {/* ── Create Playlist Modal ── */}
+      <Modal
+        visible={showCreateModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCreateModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
+          <View style={[styles.createModalBox, { backgroundColor: colors.cardBg, borderColor: colors.divider }]}>
+            <View style={styles.createModalHeader}>
+              <Text style={[styles.createModalTitle, { color: colors.textWhite }]}>New Playlist</Text>
+              <TouchableOpacity onPress={() => setShowCreateModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={[styles.modalInput, { color: colors.textWhite, borderColor: colors.divider }]}
+              placeholder="Playlist name (e.g. Convention 2026)"
+              placeholderTextColor={colors.textMuted}
+              value={createName}
+              onChangeText={setCreateName}
+              autoFocus
+              maxLength={40}
+            />
+
+            <TextInput
+              style={[styles.modalInput, { color: colors.textWhite, borderColor: colors.divider, height: 64 }]}
+              placeholder="Description (optional)"
+              placeholderTextColor={colors.textMuted}
+              value={createDesc}
+              onChangeText={setCreateDesc}
+              multiline
+              maxLength={120}
+            />
+
+            <View style={styles.createModalActions}>
+              <TouchableOpacity
+                onPress={() => { setShowCreateModal(false); setCreateName(''); setCreateDesc(''); }}
+                style={styles.modalCancelBtn}
+              >
+                <Text style={{ color: colors.textMuted, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={async () => {
+                  const trimmed = createName.trim();
+                  if (!trimmed) return;
+                  const pl = await createPlaylist(trimmed, createDesc);
+                  setShowCreateModal(false);
+                  setCreateName('');
+                  setCreateDesc('');
+                  if (pl) {
+                    navigation.navigate('Playlist', { playlistId: pl.id });
+                  }
+                }}
+                disabled={!createName.trim()}
+                style={[styles.modalSubmitBtn, { backgroundColor: colors.purple, opacity: createName.trim() ? 1 : 0.5 }]}
+              >
+                <Text style={styles.modalSubmitBtnText}>Create Playlist</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* ── Undo toast ── */}
       <UndoToast visible={undoVisible} onUndo={handleUndo} />
@@ -670,6 +927,29 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     color: '#FFF',
     fontSize: 13,
     fontWeight: '700',
+  },
+
+
+  manageStorageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 6,
+  },
+  manageStorageBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  offlineSongRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 10,
   },
 
   // ── Header ──
