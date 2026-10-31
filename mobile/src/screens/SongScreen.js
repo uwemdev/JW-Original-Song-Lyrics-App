@@ -34,8 +34,6 @@ import {
   Copy,
   Share2,
   ChevronRight,
-  SkipBack,
-  SkipForward,
   Flag,
   X,
   ChevronRight as ChevronRightSm,
@@ -43,6 +41,7 @@ import {
   Mic,
   Info,
 } from 'lucide-react-native';
+import { Replay10Icon, Forward10Icon } from '../components/SeekIcons';
 import RenderHTML from 'react-native-render-html';
 import { parseSyncedLyrics } from '../lib/lyricsParser';
 import { useSettings } from '../context/SettingsContext';
@@ -576,10 +575,10 @@ export default function SongScreen({ route, navigation }) {
                 style={styles.skipBtn}
                 onPress={() => seekBy(-10)}
                 accessibilityRole="button"
-                accessibilityLabel="Skip back 10 seconds"
+                accessibilityLabel="Rewind 10 seconds"
+                activeOpacity={0.7}
               >
-                <SkipBack color={colors.textMuted} size={22} />
-                <Text style={styles.skipLabel}>10</Text>
+                <Replay10Icon color={colors.textMuted} size={28} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -587,6 +586,7 @@ export default function SongScreen({ route, navigation }) {
                 accessibilityRole="button"
                 accessibilityLabel="Play or pause audio"
                 onPress={handlePlayPause}
+                activeOpacity={0.8}
               >
                 {player.playing ? (
                   <Pause color="#FFF" size={22} fill="#FFF" />
@@ -599,10 +599,10 @@ export default function SongScreen({ route, navigation }) {
                 style={styles.skipBtn}
                 onPress={() => seekBy(10)}
                 accessibilityRole="button"
-                accessibilityLabel="Skip forward 10 seconds"
+                accessibilityLabel="Forward 10 seconds"
+                activeOpacity={0.7}
               >
-                <SkipForward color={colors.textMuted} size={22} />
-                <Text style={styles.skipLabel}>10</Text>
+                <Forward10Icon color={colors.textMuted} size={28} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1100,12 +1100,6 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     justifyContent: 'center',
     width: 48,
     height: 48,
-  },
-  skipLabel: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: 1,
   },
   playBtn: {
     width: 56,
