@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.app_version_config (
   latest_version TEXT NOT NULL DEFAULT '1.0.2',
   min_required_version TEXT NOT NULL DEFAULT '1.0.0',
   force_update BOOLEAN NOT NULL DEFAULT false,
-  title TEXT NOT NULL DEFAULT 'Update Available 🎉',
+  title TEXT NOT NULL DEFAULT 'New Version Available',
   message TEXT NOT NULL DEFAULT 'A new version of JW Original Song Lyrics is available on Google Play. Update now for the latest features and improvements.',
   release_notes TEXT DEFAULT '• Improved audio player performance\n• Bug fixes and stability enhancements',
   store_url TEXT NOT NULL DEFAULT 'market://details?id=com.jworiginalsongslyrics.app',
@@ -48,7 +48,7 @@ INSERT INTO public.app_version_config (
   '1.0.2',
   '1.0.0',
   false,
-  'New Update Available 🎉',
+  'New Version Available',
   'A new version of JW Original Song Lyrics is available on Google Play. Update now for the latest features and improvements.',
   '• Improved audio player performance\n• Skip 10s forward/backward controls\n• Bug fixes and stability enhancements',
   'market://details?id=com.jworiginalsongslyrics.app'
