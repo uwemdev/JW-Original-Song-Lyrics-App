@@ -41,6 +41,7 @@ import {
   ChevronRight as ChevronRightSm,
   CheckCircle,
   Mic,
+  Info,
 } from 'lucide-react-native';
 import RenderHTML from 'react-native-render-html';
 import { parseSyncedLyrics } from '../lib/lyricsParser';
@@ -441,7 +442,7 @@ export default function SongScreen({ route, navigation }) {
   const toggleKaraoke = () => {
     const next = !isKaraoke;
     setIsKaraoke(next);
-    setToastMsg(next ? 'Sing-Along ON • Tap any line to seek' : 'Sing-Along OFF');
+    setToastMsg(next ? 'Sing-Along ON (Preview) • Tap lines to seek' : 'Sing-Along OFF');
     setShowToast(true);
     setTimeout(() => setShowToast(false), 2200);
   };
@@ -694,7 +695,21 @@ export default function SongScreen({ route, navigation }) {
         <View style={styles.lyricsBody}>
           {song.lyrics ? (
             isKaraoke ? (
-              <View style={styles.karaokeContainer}>
+                            <View style={styles.karaokeContainer}>
+                {/* ── Sing-Along Preview Notice ── */}
+                <View style={styles.karaokeBetaBanner}>
+                  <View style={styles.karaokeBetaHeader}>
+                    <View style={styles.karaokeBetaTag}>
+                      <Info size={14} color={isDark ? '#C4B5FD' : '#7C3AED'} />
+                      <Text style={styles.karaokeBetaTagText}>Sing-Along Preview</Text>
+                    </View>
+                    <Text style={styles.karaokeBetaTip}>Tap lines to jump audio</Text>
+                  </View>
+                  <Text style={styles.karaokeBetaDesc}>
+                    Line syncing is currently in development and may not be 100% accurate for every song yet. We’re actively refining it!
+                  </Text>
+                </View>
+
                 {syncedLines.map((item, idx) => {
                   const isActive = idx === activeIndex;
                   const isPast = idx < activeIndex;
@@ -1175,6 +1190,44 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
   },
   karaokeContainer: {
     paddingVertical: 6,
+  },
+  karaokeBetaBanner: {
+    backgroundColor: isDark ? 'rgba(139, 92, 246, 0.12)' : 'rgba(139, 92, 246, 0.08)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(167, 139, 250, 0.25)' : 'rgba(139, 92, 246, 0.20)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+  },
+  karaokeBetaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  karaokeBetaTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  karaokeBetaTagText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: isDark ? '#C4B5FD' : '#7C3AED',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  karaokeBetaTip: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  karaokeBetaDesc: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.textMuted,
+    fontWeight: '400',
   },
   karaokeHeaderWrap: {
     marginTop: 18,
