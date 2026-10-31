@@ -69,3 +69,4 @@ export function isSundayEvening() {
   const now = new Date();
   return now.getDay() === 0 && now.getHours() >= 17;
 }
+

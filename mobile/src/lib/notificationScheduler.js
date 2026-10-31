@@ -128,3 +128,4 @@ export async function scheduleDailySongReminder(enabled = true) {
     console.warn('[NotificationScheduler] Failed to schedule daily reminder:', err?.message || err);
   }
 }
+
