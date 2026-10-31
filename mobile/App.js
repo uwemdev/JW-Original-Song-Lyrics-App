@@ -205,6 +205,11 @@ function SettingsStackScreen() {
         component={PrivacyScreen}
         options={{ headerShown: false }}
       />
+      <SettingsStackNav.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ headerShown: false }}
+      />
     </SettingsStackNav.Navigator>
   );
 }
@@ -357,6 +362,7 @@ function MainNavigation() {
         <RootStack.Screen name="Playlist" component={PlaylistScreen} options={{ headerShown: false }} />
         <RootStack.Screen name="FeedbackScreen" component={FeedbackScreen} />
         <RootStack.Screen name="LyricQuiz" component={LyricQuizScreen} />
+        <RootStack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
       </RootStack.Navigator>
       <AppUpdateChecker />
     </NavigationContainer>
