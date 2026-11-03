@@ -29,4 +29,6 @@ dist-ssr
 
 # Scratch
 scratch/
+*.apk
+*.aab
 
