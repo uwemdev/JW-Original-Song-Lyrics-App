@@ -12,6 +12,7 @@ export function AudioProvider({ children, navigationRef }) {
   const [queueIndex, setQueueIndex] = useState(-1);
   const [isMiniPlayerVisible, setIsMiniPlayerVisible] = useState(false);
   const [currentScreen, setCurrentScreen] = useState('');
+  const [isAudioOffline, setIsAudioOffline] = useState(false);
 
   // Single persistent expo-audio player instance with high-frequency progress updates (250ms)
   const player = useAudioPlayer(null, { updateInterval: 250 });
@@ -55,6 +56,7 @@ export function AudioProvider({ children, navigationRef }) {
     const startPlayback = async () => {
       try {
         const localUri = await getLocalAudioUri(song.id);
+        setIsAudioOffline(!!localUri);
         const targetUri = localUri || song.mp3_url;
         if (!targetUri) return;
 
@@ -176,6 +178,7 @@ export function AudioProvider({ children, navigationRef }) {
     currentTime: status.currentTime || 0,
     duration: status.duration || 0,
     progress,
+    isAudioOffline,
     isMiniPlayerVisible: isMiniPlayerVisible && !!currentSong && currentScreen !== 'Song',
     setCurrentScreen,
     playSong,

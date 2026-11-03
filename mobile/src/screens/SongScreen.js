@@ -21,6 +21,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { useAudio } from '../context/AudioContext';
+import * as Network from 'expo-network';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -42,6 +43,9 @@ import {
   Info,
   ListPlus,
   Download,
+  Wifi,
+  WifiOff,
+  Radio,
 } from 'lucide-react-native';
 import { Replay10Icon, Forward10Icon } from '../components/SeekIcons';
 import AddToPlaylistModal from '../components/AddToPlaylistModal';
@@ -170,11 +174,33 @@ export default function SongScreen({ route, navigation }) {
     player,
     status,
     currentSong,
+    isAudioOffline,
     playSong,
     togglePlayPause,
     seekBy: audioSeekBy,
     setCurrentScreen,
   } = useAudio();
+
+  const [isConnected, setIsConnected] = useState(true);
+
+  // Monitor network status
+  useEffect(() => {
+    let mounted = true;
+    const checkNet = async () => {
+      try {
+        const netState = await Network.getNetworkStateAsync();
+        if (mounted) {
+          setIsConnected(!!(netState.isConnected && netState.isInternetReachable !== false));
+        }
+      } catch (_) {}
+    };
+    checkNet();
+    const interval = setInterval(checkNet, 4000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
   
   // Heart bounce
   const heartScale = useRef(new Animated.Value(1)).current;
@@ -515,6 +541,107 @@ export default function SongScreen({ route, navigation }) {
     }
   };
 
+  const renderAudioStatusCard = () => {
+    // 1. No audio provided
+    if (!song.mp3_url) {
+      return (
+        <View style={[styles.audioStatusCard, styles.audioStatusCardNone]}>
+          <View style={[styles.audioStatusIconCircle, styles.audioStatusIconCircleNone]}>
+            <Info size={17} color={colors.textMuted} />
+          </View>
+          <View style={styles.audioStatusContent}>
+            <Text style={[styles.audioStatusTitle, { color: colors.textMuted }]}>Lyrics Only</Text>
+            <Text style={[styles.audioStatusDesc, { color: colors.textMuted }]}>No audio track is available for this song yet.</Text>
+          </View>
+        </View>
+      );
+    }
+
+    // 2. Offline audio: song is downloaded or player loaded from offline storage
+    if (isDownloaded || isAudioOffline) {
+      return (
+        <View style={[styles.audioStatusCard, styles.audioStatusCardOffline]}>
+          <View style={[styles.audioStatusIconCircle, styles.audioStatusIconCircleOffline]}>
+            <CheckCircle size={18} color={isDark ? '#86EFAC' : '#059669'} />
+          </View>
+          <View style={styles.audioStatusContent}>
+            <View style={styles.audioStatusHeader}>
+              <Text style={[styles.audioStatusTitle, { color: isDark ? '#A7F3D0' : '#065F46' }]}>
+                {status.playing ? 'Playing Offline' : 'Saved Offline'}
+              </Text>
+              <View style={[styles.audioStatusBadge, styles.audioStatusBadgeOffline]}>
+                <Text style={[styles.audioStatusBadgeText, { color: isDark ? '#86EFAC' : '#059669' }]}>OFFLINE</Text>
+              </View>
+            </View>
+            <Text style={[styles.audioStatusDesc, { color: isDark ? '#94A3B8' : '#475569' }]}>
+              Playing from device storage • Zero mobile data used
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    // 3. No internet connection and song is not downloaded
+    if (!isConnected) {
+      return (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={async () => {
+            try {
+              const netState = await Network.getNetworkStateAsync();
+              const connected = !!(netState.isConnected && netState.isInternetReachable !== false);
+              setIsConnected(connected);
+              setToastMsg(connected ? 'Connected to internet' : 'Still offline • Check your Wi-Fi or data');
+              setShowToast(true);
+            } catch (_) {}
+          }}
+          style={[styles.audioStatusCard, styles.audioStatusCardError]}
+        >
+          <View style={[styles.audioStatusIconCircle, styles.audioStatusIconCircleError]}>
+            <WifiOff size={18} color={isDark ? '#FCA5A5' : '#DC2626'} />
+          </View>
+          <View style={styles.audioStatusContent}>
+            <View style={styles.audioStatusHeader}>
+              <Text style={[styles.audioStatusTitle, { color: isDark ? '#FECACA' : '#991B1B' }]}>
+                No Internet Connection
+              </Text>
+              <View style={[styles.audioStatusBadge, styles.audioStatusBadgeError]}>
+                <Text style={[styles.audioStatusBadgeText, { color: isDark ? '#FCA5A5' : '#DC2626' }]}>OFFLINE</Text>
+              </View>
+            </View>
+            <Text style={[styles.audioStatusDesc, { color: isDark ? '#CBD5E1' : '#64748B' }]}>
+              Cannot stream audio • Connect to Wi-Fi/data or download songs when online
+            </Text>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
+    // 4. Online streaming over network
+    return (
+      <View style={[styles.audioStatusCard, styles.audioStatusCardOnline]}>
+        <View style={[styles.audioStatusIconCircle, styles.audioStatusIconCircleOnline]}>
+          <Wifi size={18} color={isDark ? '#C4B5FD' : '#6D28D9'} />
+        </View>
+        <View style={styles.audioStatusContent}>
+          <View style={styles.audioStatusHeader}>
+            <Text style={[styles.audioStatusTitle, { color: isDark ? '#DDD6FE' : '#4C1D95' }]}>
+              {status.isBuffering ? 'Buffering Stream...' : status.playing ? 'Streaming Online' : 'Streaming Online'}
+            </Text>
+            <View style={[styles.audioStatusBadge, styles.audioStatusBadgeOnline]}>
+              <Text style={[styles.audioStatusBadgeText, { color: isDark ? '#C4B5FD' : '#6D28D9' }]}>
+                {status.isBuffering ? 'BUFFERING' : 'ONLINE'}
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.audioStatusDesc, { color: isDark ? '#94A3B8' : '#475569' }]}>
+            Streaming audio live over your active internet connection
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   // ═══════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════
@@ -552,19 +679,41 @@ export default function SongScreen({ route, navigation }) {
           <ChevronLeft color="#FFF" size={24} />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={toggleFavorite}
-          accessibilityRole="button"
-          accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-        >
-          <Animated.View style={[styles.floatingBtn, { transform: [{ scale: heartScale }] }]}>
-            <Heart
-              color={isFavorite ? '#F472B6' : '#FFF'}
-              size={22}
-              fill={isFavorite ? '#F472B6' : 'transparent'}
-            />
-          </Animated.View>
-        </TouchableOpacity>
+        <View style={styles.floatingRightRow}>
+          <TouchableOpacity
+            style={[
+              styles.floatingBtn,
+              isDownloaded && styles.floatingBtnDownloaded,
+            ]}
+            onPress={handleToggleDownload}
+            accessibilityRole="button"
+            accessibilityLabel={isDownloaded ? "Saved offline. Tap to remove" : "Download for offline listening"}
+            activeOpacity={0.75}
+            disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : isDownloaded ? (
+              <CheckCircle color="#86EFAC" size={20} />
+            ) : (
+              <Download color="#FFF" size={20} />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={toggleFavorite}
+            accessibilityRole="button"
+            accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Animated.View style={[styles.floatingBtn, { transform: [{ scale: heartScale }] }]}>
+              <Heart
+                color={isFavorite ? '#F472B6' : '#FFF'}
+                size={22}
+                fill={isFavorite ? '#F472B6' : 'transparent'}
+              />
+            </Animated.View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Scrollable content ── */}
@@ -728,28 +877,8 @@ export default function SongScreen({ route, navigation }) {
             </Text>
           </TouchableOpacity>
 
-          {/* Action Buttons: WhatsApp Status & Report Issue */}
+          {/* Action Buttons: Playlist, WhatsApp Status & Report Issue */}
           <View style={styles.toolbarActions}>
-            <TouchableOpacity
-              onPress={handleToggleDownload}
-              style={[
-                styles.downloadIconBtn,
-                isDownloaded && styles.downloadIconBtnActive,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={isDownloaded ? "Saved offline. Tap to remove" : "Download for offline listening"}
-              activeOpacity={0.75}
-              disabled={isDownloading}
-            >
-              {isDownloading ? (
-                <ActivityIndicator size="small" color={colors.purpleAccent} />
-              ) : isDownloaded ? (
-                <CheckCircle color={isDark ? '#86EFAC' : '#15803D'} size={18} />
-              ) : (
-                <Download color={colors.textMuted} size={18} />
-              )}
-            </TouchableOpacity>
-
             <TouchableOpacity
               onPress={() => setShowPlaylistModal(true)}
               style={styles.playlistIconBtn}
@@ -780,6 +909,11 @@ export default function SongScreen({ route, navigation }) {
               <Flag color="#F87171" size={17} />
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* ── Audio Source & Connection Indicator Card ── */}
+        <View style={styles.audioStatusCardWrap}>
+          {renderAudioStatusCard()}
         </View>
 
         {/* ── Lyrics Body ── */}
@@ -1147,6 +1281,16 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  floatingRightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  floatingBtnDownloaded: {
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.28)' : 'rgba(16, 185, 129, 0.20)',
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(134, 239, 172, 0.45)' : 'rgba(16, 185, 129, 0.35)',
+  },
 
   // ── Content ──
   contentBlock: {
@@ -1441,6 +1585,92 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     borderColor: isDark ? 'rgba(248, 113, 113, 0.2)' : 'rgba(248, 113, 113, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // ── Audio Source & Connection Status Card ──
+  audioStatusCardWrap: {
+    paddingHorizontal: 22,
+    marginBottom: 14,
+  },
+  audioStatusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    gap: 12,
+  },
+  audioStatusCardOffline: {
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.10)' : 'rgba(16, 185, 129, 0.08)',
+    borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.20)',
+  },
+  audioStatusCardOnline: {
+    backgroundColor: isDark ? 'rgba(139, 92, 246, 0.10)' : 'rgba(139, 92, 246, 0.07)',
+    borderColor: isDark ? 'rgba(167, 139, 250, 0.22)' : 'rgba(139, 92, 246, 0.20)',
+  },
+  audioStatusCardError: {
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)',
+    borderColor: isDark ? 'rgba(248, 113, 113, 0.30)' : 'rgba(239, 68, 68, 0.22)',
+  },
+  audioStatusCardNone: {
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)',
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+  },
+  audioStatusIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  audioStatusIconCircleOffline: {
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.18)' : 'rgba(16, 185, 129, 0.15)',
+  },
+  audioStatusIconCircleOnline: {
+    backgroundColor: isDark ? 'rgba(139, 92, 246, 0.18)' : 'rgba(139, 92, 246, 0.15)',
+  },
+  audioStatusIconCircleError: {
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.20)' : 'rgba(239, 68, 68, 0.15)',
+  },
+  audioStatusIconCircleNone: {
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+  },
+  audioStatusContent: {
+    flex: 1,
+  },
+  audioStatusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  audioStatusTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  audioStatusDesc: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  audioStatusBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  audioStatusBadgeOffline: {
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.20)' : 'rgba(16, 185, 129, 0.15)',
+  },
+  audioStatusBadgeOnline: {
+    backgroundColor: isDark ? 'rgba(139, 92, 246, 0.20)' : 'rgba(139, 92, 246, 0.14)',
+  },
+  audioStatusBadgeError: {
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.22)' : 'rgba(239, 68, 68, 0.15)',
+  },
+  audioStatusBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
 
   // ── Lyrics Body ──
