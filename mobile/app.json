@@ -23,7 +23,14 @@
     },
     "plugins": [
       "expo-asset",
-      "expo-build-properties",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraProguardRules": "-keep class androidx.work.** { *; }\n-keep class androidx.work.impl.** { *; }\n-keep class androidx.work.impl.WorkDatabase { *; }\n-keep class androidx.work.impl.WorkDatabase_Impl { *; }\n-keep class * extends androidx.work.impl.WorkDatabase { *; }\n-keep @androidx.room.Database class * extends androidx.room.RoomDatabase { *; }\n-dontwarn androidx.work.**\n-keep public class com.google.android.gms.ads.** { public *; }\n-keep public class com.google.ads.** { public *; }"
+          }
+        }
+      ],
       "expo-audio",
       [
         "expo-notifications",
