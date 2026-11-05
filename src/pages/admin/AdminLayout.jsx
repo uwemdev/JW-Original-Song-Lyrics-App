@@ -17,11 +17,12 @@ import {
   Check,
   Edit2,
   X,
-  ExternalLink,
-  Command,
-  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+  Bell,
+  User,
   Filter,
-  Sparkles,
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -32,7 +33,16 @@ export default function AdminLayout() {
 
   const currentTab = searchParams.get('tab') || 'songs';
 
-  // Global Command Palette / Quick Search State
+  // Responsive sidebar collapse state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('admin_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  // Global Command Palette State
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState('');
   const [paletteResults, setPaletteResults] = useState([]);
@@ -44,6 +54,16 @@ export default function AdminLayout() {
 
   // Unread feedback count
   const [unreadFeedbackCount, setUnreadFeedbackCount] = useState(0);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('admin_sidebar_collapsed', String(next));
+      } catch (_) {}
+      return next;
+    });
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -76,7 +96,7 @@ export default function AdminLayout() {
   useEffect(() => {
     fetchUnreadFeedback();
     const channel = supabase
-      .channel('admin_nav_feedback')
+      .channel('admin_nav_feedback_live')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feedback' }, () => {
         fetchUnreadFeedback();
       })
@@ -102,7 +122,7 @@ export default function AdminLayout() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [paletteOpen]);
 
-  // Focus input when palette opens
+  // Focus search input when palette opens
   useEffect(() => {
     if (paletteOpen) {
       setTimeout(() => searchInputRef.current?.focus(), 50);
@@ -117,7 +137,7 @@ export default function AdminLayout() {
     }
   }, [paletteOpen]);
 
-  // Query Supabase for palette results
+  // Palette search
   useEffect(() => {
     if (!paletteQuery.trim()) {
       setPaletteResults([]);
@@ -185,7 +205,6 @@ export default function AdminLayout() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Loading state
   if (loading) {
     return (
       <div style={{
@@ -193,199 +212,292 @@ export default function AdminLayout() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#0d0c11',
+        background: '#0a0910',
         color: '#9CA3AF',
         fontFamily: 'Inter, system-ui, sans-serif',
       }}>
-        <p>Loading...</p>
+        <p>Loading admin panel...</p>
       </div>
     );
   }
 
-  // Not authenticated
   if (!session) {
     return <Navigate to="/admin/login" replace />;
   }
 
   const navItems = [
-    { key: 'songs', label: 'Songs', icon: Music },
+    { key: 'songs', label: 'Songs Library', icon: Music },
     { key: 'categories', label: 'Categories', icon: FolderTree },
-    { key: 'feedback', label: 'Feedback & Chat', icon: MessageSquare, badge: unreadFeedbackCount },
-    { key: 'notifications', label: 'Push Notifications', icon: Megaphone },
+    { key: 'feedback', label: 'User Feedback', icon: MessageSquare, badge: unreadFeedbackCount },
+    { key: 'notifications', label: 'Push Alerts', icon: Megaphone },
     { key: 'updates', label: 'App Updates', icon: Smartphone },
   ];
+
+  const currentTabLabel = navItems.find((n) => n.key === currentTab)?.label || 'Dashboard';
 
   return (
     <div style={{
       display: 'flex',
-      minHeight: '100vh',
-      background: '#0d0c11',
+      width: '100%',
+      maxWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      overflow: 'hidden',
+      background: '#0a0910',
       color: '#fff',
       fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+      boxSizing: 'border-box',
     }}>
-      {/* Sidebar */}
+      {/* Sleek Collapsible Sidebar */}
       <aside style={{
-        width: '240px',
-        background: '#17151f',
-        borderRight: '1px solid #2d293b',
+        width: sidebarCollapsed ? '72px' : '240px',
+        minWidth: sidebarCollapsed ? '72px' : '240px',
+        maxWidth: sidebarCollapsed ? '72px' : '240px',
+        background: '#12101a',
+        borderRight: '1px solid #231f30',
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
+        height: '100vh',
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        zIndex: 50,
       }}>
-        {/* Logo */}
+        {/* Brand Header */}
         <div style={{
-          padding: '20px',
-          borderBottom: '1px solid #2d293b',
+          height: '64px',
+          padding: sidebarCollapsed ? '0 16px' : '0 20px',
+          borderBottom: '1px solid #231f30',
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
+          justifyContent: sidebarCollapsed ? 'center' : 'space-between',
+          flexShrink: 0,
         }}>
-          <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #A78BFA, #F472B6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            <Music2 color="white" size={18} />
-          </div>
-          <div>
-            <div style={{ fontWeight: '700', fontSize: '14px', lineHeight: '1.2' }}>JW Original Songs</div>
-            <div style={{ fontSize: '10px', color: '#A78BFA', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>Admin</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #8B5CF6, #EC4899)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              boxShadow: '0 2px 8px rgba(139, 92, 246, 0.3)',
+            }}>
+              <Music2 color="white" size={18} />
+            </div>
+            {!sidebarCollapsed && (
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: '700', fontSize: '13px', lineHeight: '1.2', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  JW Lyrics
+                </div>
+                <div style={{ fontSize: '10px', color: '#A78BFA', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  Admin Console
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Nav Items */}
-        <nav style={{ padding: '16px 12px', flex: 1 }}>
-          {navItems.map(({ key, label, icon: Icon, badge }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                width: '100%',
-                padding: '10px 12px',
-                marginBottom: '4px',
-                background: currentTab === key ? '#2d293b' : 'transparent',
-                color: currentTab === key ? '#fff' : '#9CA3AF',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                textAlign: 'left',
-                position: 'relative',
-              }}
-            >
-              <Icon size={18} />
-              <span style={{ flex: 1 }}>{label}</span>
-              {Boolean(badge && badge > 0) && (
-                <span style={{
-                  padding: '2px 7px',
+        {/* Navigation Items */}
+        <nav style={{ padding: '16px 10px', flex: 1, overflowY: 'auto' }}>
+          {navItems.map(({ key, label, icon: Icon, badge }) => {
+            const isActive = currentTab === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                title={sidebarCollapsed ? label : undefined}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  width: '100%',
+                  padding: sidebarCollapsed ? '12px 0' : '10px 14px',
+                  justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                  marginBottom: '6px',
+                  background: isActive ? '#8B5CF6' : 'transparent',
+                  color: isActive ? '#fff' : '#9CA3AF',
+                  border: 'none',
                   borderRadius: '10px',
-                  background: '#EC4899',
-                  color: '#fff',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                }}>
-                  {badge}
-                </span>
-              )}
-            </button>
-          ))}
+                  fontSize: '13px',
+                  fontWeight: isActive ? '600' : '500',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  position: 'relative',
+                  transition: 'all 0.15s ease',
+                  boxShadow: isActive ? '0 2px 10px rgba(139, 92, 246, 0.3)' : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = '#1c1829';
+                    e.currentTarget.style.color = '#fff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = '#9CA3AF';
+                  }
+                }}
+              >
+                <Icon size={18} style={{ flexShrink: 0 }} />
+                {!sidebarCollapsed && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>}
+                {Boolean(badge && badge > 0) && (
+                  <span style={{
+                    position: sidebarCollapsed ? 'absolute' : 'static',
+                    top: sidebarCollapsed ? '6px' : 'auto',
+                    right: sidebarCollapsed ? '6px' : 'auto',
+                    padding: '2px 6px',
+                    borderRadius: '10px',
+                    background: '#EC4899',
+                    color: '#fff',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    lineHeight: '1',
+                  }}>
+                    {badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
 
-        {/* User Footer */}
-        <div style={{ padding: '16px', borderTop: '1px solid #2d293b' }}>
-          <div style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {session.user?.email || 'Admin'}
-          </div>
+        {/* User Footer with Collapse Toggle and Sign Out */}
+        <div style={{ padding: '12px', borderTop: '1px solid #231f30', background: '#0e0c16', flexShrink: 0 }}>
+          {/* Toggle Sidebar Button */}
           <button
-            onClick={handleLogout}
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             style={{
               display: 'flex',
               alignItems: 'center',
+              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              gap: '10px',
+              width: '100%',
+              padding: '8px 10px',
+              marginBottom: '8px',
+              background: '#1a1626',
+              border: '1px solid #2c263d',
+              borderRadius: '8px',
+              color: '#9CA3AF',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+          >
+            {sidebarCollapsed ? <ChevronRight size={16} /> : (
+              <>
+                <ChevronLeft size={16} />
+                <span>Collapse Sidebar</span>
+              </>
+            )}
+          </button>
+
+          {/* User Email & Sign Out */}
+          {!sidebarCollapsed && (
+            <div style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '8px', padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {session.user?.email || 'Admin User'}
+            </div>
+          )}
+          <button
+            onClick={handleLogout}
+            title="Sign Out"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
               gap: '8px',
-              background: 'none',
-              border: 'none',
-              color: '#EF4444',
-              fontSize: '13px',
+              width: '100%',
+              padding: '8px 10px',
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              borderRadius: '8px',
+              color: '#F87171',
+              fontSize: '12px',
               fontWeight: '500',
               cursor: 'pointer',
-              padding: 0,
             }}
           >
             <LogOut size={14} />
-            Sign Out
+            {!sidebarCollapsed && <span>Sign Out</span>}
           </button>
         </div>
       </aside>
 
-      {/* Main Area with Top Header and Content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
-        {/* Top Header with Quick Search Bar & Actions */}
+      {/* Main Layout Area: Header + Scrollable Workspace */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        minWidth: 0,
+        height: '100vh',
+        overflow: 'hidden',
+      }}>
+        {/* Unified Top Header Bar */}
         <header style={{
           height: '64px',
-          background: '#13111b',
-          borderBottom: '1px solid #2d293b',
-          padding: '0 28px',
+          background: '#12101a',
+          borderBottom: '1px solid #231f30',
+          padding: '0 24px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexShrink: 0,
           gap: '16px',
         }}>
-          {/* Quick Search trigger */}
-          <div
-            onClick={() => setPaletteOpen(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              background: '#1a1824',
-              border: '1px solid #2d293b',
-              borderRadius: '10px',
-              padding: '8px 14px',
-              width: '380px',
-              cursor: 'pointer',
-              color: '#9CA3AF',
-              transition: 'border-color 0.2s ease',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#8B5CF6')}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2d293b')}
-          >
-            <Search size={15} color="#8B5CF6" />
-            <span style={{ fontSize: '13px', flex: 1 }}>Search songs, actions...</span>
-            <span style={{
-              fontSize: '11px',
-              background: '#282436',
-              border: '1px solid #3c3652',
-              borderRadius: '5px',
-              padding: '2px 6px',
-              color: '#C4B5FD',
-              fontWeight: '600',
-              letterSpacing: '0.5px',
-            }}>
-              Ctrl K
-            </span>
+          {/* Breadcrumb / Title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+            <span style={{ fontSize: '13px', color: '#6B7280', fontWeight: '500' }}>Admin</span>
+            <span style={{ fontSize: '13px', color: '#4B5563' }}>/</span>
+            <span style={{ fontSize: '14px', color: '#fff', fontWeight: '700' }}>{currentTabLabel}</span>
           </div>
 
-          {/* Quick Action buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              onClick={() => {
-                navigate('/admin?tab=songs&newSong=true');
+          {/* Quick Search & Actions Trigger */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              onClick={() => setPaletteOpen(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                background: '#1a1626',
+                border: '1px solid #2c263d',
+                borderRadius: '8px',
+                padding: '7px 12px',
+                width: 'clamp(200px, 28vw, 360px)',
+                cursor: 'pointer',
+                color: '#9CA3AF',
+                transition: 'border-color 0.15s ease',
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#8B5CF6')}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2c263d')}
+            >
+              <Search size={14} color="#8B5CF6" />
+              <span style={{ fontSize: '12px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                Quick search songs or actions...
+              </span>
+              <span style={{
+                fontSize: '10px',
+                background: '#252136',
+                border: '1px solid #3c3552',
+                borderRadius: '4px',
+                padding: '2px 5px',
+                color: '#C4B5FD',
+                fontWeight: '600',
+              }}>
+                Ctrl K
+              </span>
+            </div>
+
+            {/* Quick Action Button */}
+            <button
+              onClick={() => navigate('/admin?tab=songs&newSong=true')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '8px 14px',
+                padding: '7px 12px',
                 background: '#8B5CF6',
                 border: 'none',
                 borderRadius: '8px',
@@ -393,85 +505,58 @@ export default function AdminLayout() {
                 fontSize: '12px',
                 fontWeight: '600',
                 cursor: 'pointer',
-                transition: 'background 0.15s ease',
+                whiteSpace: 'nowrap',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = '#7C3AED')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = '#8B5CF6')}
             >
               <Plus size={14} />
-              Add Song
-            </button>
-
-            <button
-              onClick={() => setTab('feedback')}
-              title="User Feedback & Reports"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 12px',
-                background: '#221f2e',
-                border: '1px solid #322d42',
-                borderRadius: '8px',
-                color: '#D1D5DB',
-                fontSize: '12px',
-                fontWeight: '500',
-                cursor: 'pointer',
-              }}
-            >
-              <MessageSquare size={14} color="#A78BFA" />
-              <span>Feedback</span>
-              {unreadFeedbackCount > 0 && (
-                <span style={{
-                  padding: '1px 6px',
-                  borderRadius: '8px',
-                  background: '#EC4899',
-                  color: '#fff',
-                  fontSize: '10px',
-                  fontWeight: '700',
-                }}>
-                  {unreadFeedbackCount}
-                </span>
-              )}
+              <span>Add Song</span>
             </button>
           </div>
         </header>
 
-        {/* Scrollable Main Area */}
-        <main style={{ flex: 1, overflow: 'auto' }}>
+        {/* Content Workspace — Strict boundary prevents page overflow */}
+        <main style={{
+          flex: 1,
+          minHeight: 0,
+          minWidth: 0,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          background: '#0a0910',
+        }}>
           <Outlet context={{ currentTab }} />
         </main>
       </div>
 
-      {/* Global Command Palette / Quick Search Modal */}
+      {/* Global Command Palette Modal */}
       {paletteOpen && (
         <div
           onClick={() => setPaletteOpen(false)}
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(5, 4, 8, 0.75)',
-            backdropFilter: 'blur(5px)',
+            background: 'rgba(5, 4, 8, 0.8)',
+            backdropFilter: 'blur(6px)',
             zIndex: 9999,
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'center',
-            paddingTop: '100px',
+            paddingTop: '80px',
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: '640px',
+              width: '620px',
               maxWidth: '92vw',
-              background: '#17151f',
-              border: '1px solid #3d3752',
+              background: '#151320',
+              border: '1px solid #362e49',
               borderRadius: '16px',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.7)',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.8)',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
-              animation: 'fadeIn 0.15s ease',
             }}
           >
             {/* Search Input Bar */}
@@ -479,15 +564,15 @@ export default function AdminLayout() {
               display: 'flex',
               alignItems: 'center',
               padding: '16px 20px',
-              borderBottom: '1px solid #2d293b',
+              borderBottom: '1px solid #282236',
               gap: '12px',
-              background: '#13111b',
+              background: '#110f1c',
             }}>
               <Search size={18} color="#8B5CF6" />
               <input
                 ref={searchInputRef}
                 type="text"
-                placeholder="Search songs to edit, copy ID, or play preview..."
+                placeholder="Search songs to edit, copy ID, or preview audio..."
                 value={paletteQuery}
                 onChange={(e) => setPaletteQuery(e.target.value)}
                 style={{
@@ -496,7 +581,7 @@ export default function AdminLayout() {
                   border: 'none',
                   outline: 'none',
                   color: '#fff',
-                  fontSize: '15px',
+                  fontSize: '14px',
                 }}
               />
               {paletteQuery ? (
@@ -507,14 +592,14 @@ export default function AdminLayout() {
                   <X size={16} />
                 </button>
               ) : (
-                <span style={{ fontSize: '11px', color: '#6B7280', border: '1px solid #2d293b', padding: '2px 6px', borderRadius: '4px' }}>
-                  ESC to close
+                <span style={{ fontSize: '11px', color: '#6B7280', border: '1px solid #282236', padding: '2px 6px', borderRadius: '4px' }}>
+                  ESC
                 </span>
               )}
             </div>
 
-            {/* Results or Quick Actions List */}
-            <div style={{ maxHeight: '420px', overflowY: 'auto', padding: '12px' }}>
+            {/* Results or Shortcuts */}
+            <div style={{ maxHeight: '400px', overflowY: 'auto', padding: '12px' }}>
               {paletteQuery.trim() ? (
                 paletteLoading ? (
                   <div style={{ padding: '30px', textAlign: 'center', color: '#9CA3AF', fontSize: '13px' }}>
@@ -540,29 +625,28 @@ export default function AdminLayout() {
                             justifyContent: 'space-between',
                             padding: '10px 14px',
                             borderRadius: '10px',
-                            background: '#1c1a27',
+                            background: '#1b1728',
                             marginBottom: '6px',
-                            border: '1px solid #282436',
-                            transition: 'border-color 0.15s ease',
+                            border: '1px solid #282236',
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                             {song.feature_image_url ? (
-                              <img src={song.feature_image_url} alt="" style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover' }} />
+                              <img src={song.feature_image_url} alt="" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover' }} />
                             ) : (
-                              <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: '#2d293b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#252136', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <Music size={16} color="#9CA3AF" />
                               </div>
                             )}
                             <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: '14px', fontWeight: '600', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {song.title}
                               </div>
-                              <div style={{ fontSize: '12px', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ fontSize: '11px', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span>{song.categories?.name || 'No Category'}</span>
                                 <span style={{
                                   fontSize: '10px',
-                                  padding: '1px 6px',
+                                  padding: '1px 5px',
                                   borderRadius: '4px',
                                   background: song.is_published ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
                                   color: song.is_published ? '#34D399' : '#F87171',
@@ -573,16 +657,14 @@ export default function AdminLayout() {
                             </div>
                           </div>
 
-                          {/* Quick Actions for this song */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                            {/* Audio Preview */}
                             {song.mp3_url && (
                               <button
                                 onClick={(e) => togglePaletteAudio(song, e)}
-                                title={isPlaying ? 'Pause audio' : 'Play audio preview'}
+                                title={isPlaying ? 'Pause' : 'Preview audio'}
                                 style={{
-                                  background: isPlaying ? '#8B5CF6' : '#272336',
-                                  border: '1px solid #3d3652',
+                                  background: isPlaying ? '#8B5CF6' : '#252136',
+                                  border: '1px solid #3c3552',
                                   color: '#fff',
                                   borderRadius: '8px',
                                   width: '32px',
@@ -593,17 +675,16 @@ export default function AdminLayout() {
                                   cursor: 'pointer',
                                 }}
                               >
-                                {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+                                {isPlaying ? <Pause size={13} /> : <Play size={13} />}
                               </button>
                             )}
 
-                            {/* Copy ID */}
                             <button
                               onClick={(e) => copyId(song.id, e)}
                               title="Copy Song ID"
                               style={{
-                                background: '#272336',
-                                border: '1px solid #3d3652',
+                                background: '#252136',
+                                border: '1px solid #3c3552',
                                 color: copiedId === song.id ? '#34D399' : '#9CA3AF',
                                 borderRadius: '8px',
                                 width: '32px',
@@ -614,10 +695,9 @@ export default function AdminLayout() {
                                 cursor: 'pointer',
                               }}
                             >
-                              {copiedId === song.id ? <Check size={14} /> : <Copy size={14} />}
+                              {copiedId === song.id ? <Check size={13} /> : <Copy size={13} />}
                             </button>
 
-                            {/* Edit Button */}
                             <button
                               onClick={() => {
                                 executeAction(() => {
@@ -648,106 +728,52 @@ export default function AdminLayout() {
                   </div>
                 )
               ) : (
-                /* Quick Shortcuts when search is empty */
                 <div>
                   <div style={{ fontSize: '11px', fontWeight: '600', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '6px 12px 8px 12px' }}>
                     Quick Actions
                   </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '0 6px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     <div
                       onClick={() => executeAction(() => navigate('/admin?tab=songs&newSong=true'))}
-                      style={{
-                        padding: '12px 14px',
-                        background: '#1d1b29',
-                        border: '1px solid #2e293d',
-                        borderRadius: '10px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#8B5CF6')}
-                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2e293d')}
+                      style={{ padding: '12px 14px', background: '#1b1728', border: '1px solid #2c253d', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
                     >
-                      <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                        <Plus size={16} />
-                      </div>
+                      <Plus size={16} color="#A78BFA" />
                       <div>
                         <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>Add New Song</div>
-                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Create song & upload audio</div>
+                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Create song & audio</div>
                       </div>
                     </div>
 
                     <div
                       onClick={() => executeAction(() => navigate('/admin?tab=feedback&filter=needs_reply'))}
-                      style={{
-                        padding: '12px 14px',
-                        background: '#1d1b29',
-                        border: '1px solid #2e293d',
-                        borderRadius: '10px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#EC4899')}
-                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2e293d')}
+                      style={{ padding: '12px 14px', background: '#1b1728', border: '1px solid #2c253d', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
                     >
-                      <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#EC4899', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                        <MessageSquare size={16} />
-                      </div>
+                      <MessageSquare size={16} color="#EC4899" />
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>Feedback & Chat</div>
-                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Respond to user reports</div>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>User Feedback</div>
+                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Support & song reports</div>
                       </div>
                     </div>
 
                     <div
                       onClick={() => executeAction(() => navigate('/admin?tab=songs&status=no_audio'))}
-                      style={{
-                        padding: '12px 14px',
-                        background: '#1d1b29',
-                        border: '1px solid #2e293d',
-                        borderRadius: '10px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#F59E0B')}
-                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2e293d')}
+                      style={{ padding: '12px 14px', background: '#1b1728', border: '1px solid #2c253d', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
                     >
-                      <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                        <Filter size={16} />
-                      </div>
+                      <Filter size={16} color="#F59E0B" />
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>Songs Missing Audio</div>
-                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Filter songs without MP3</div>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>Missing Audio</div>
+                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Songs without MP3 link</div>
                       </div>
                     </div>
 
                     <div
                       onClick={() => executeAction(() => navigate('/admin?tab=notifications'))}
-                      style={{
-                        padding: '12px 14px',
-                        background: '#1d1b29',
-                        border: '1px solid #2e293d',
-                        borderRadius: '10px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#3B82F6')}
-                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2e293d')}
+                      style={{ padding: '12px 14px', background: '#1b1728', border: '1px solid #2c253d', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
                     >
-                      <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#3B82F6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                        <Megaphone size={16} />
-                      </div>
+                      <Megaphone size={16} color="#3B82F6" />
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>Push Notifications</div>
-                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Broadcast to app users</div>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>Push Alerts</div>
+                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Broadcast to mobile users</div>
                       </div>
                     </div>
                   </div>

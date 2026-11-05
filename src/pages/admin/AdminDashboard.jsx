@@ -25,7 +25,6 @@ import FeedbackTab from './FeedbackTab';
 import NotificationsTab from './NotificationsTab';
 import AppUpdatesTab from './AppUpdatesTab';
 
-// ReactQuill toolbar config
 const quillModules = {
   toolbar: [
     [{ header: [1, 2, 3, false] }],
@@ -36,68 +35,72 @@ const quillModules = {
   ],
 };
 
-// ─── Shared inline style helpers ───
 const s = {
-  page: { padding: '32px', maxWidth: '100%', margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' },
-  title: { fontSize: '24px', fontWeight: '700', color: '#fff', margin: 0 },
-  subtitle: { fontSize: '13px', color: '#9CA3AF', margin: '4px 0 0 0' },
+  page: { padding: '24px 28px', width: '100%', maxWidth: '1400px', margin: '0 auto', boxSizing: 'border-box' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' },
+  title: { fontSize: '22px', fontWeight: '700', color: '#fff', margin: 0, letterSpacing: '-0.3px' },
+  subtitle: { fontSize: '13px', color: '#9CA3AF', margin: '2px 0 0 0' },
   btnPrimary: {
     display: 'inline-flex', alignItems: 'center', gap: '6px',
-    padding: '10px 18px', background: '#8B5CF6', color: '#fff',
+    padding: '9px 16px', background: '#8B5CF6', color: '#fff',
     border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+    transition: 'background 0.15s ease',
   },
   btnSecondary: {
     display: 'inline-flex', alignItems: 'center', gap: '6px',
-    padding: '10px 18px', background: '#2d293b', color: '#fff',
-    border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+    padding: '9px 16px', background: '#1e1a2c', color: '#fff',
+    border: '1px solid #332b47', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer',
   },
   btnDanger: {
     display: 'inline-flex', alignItems: 'center', gap: '4px',
     padding: '6px 10px', background: 'rgba(239,68,68,0.1)', color: '#EF4444',
-    border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
+    border: '1px solid rgba(239,68,68,0.25)', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
   },
   btnEdit: {
     display: 'inline-flex', alignItems: 'center', gap: '4px',
-    padding: '6px 10px', background: 'rgba(139,92,246,0.1)', color: '#A78BFA',
-    border: '1px solid rgba(139,92,246,0.2)', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
+    padding: '6px 10px', background: 'rgba(139,92,246,0.12)', color: '#C4B5FD',
+    border: '1px solid rgba(139,92,246,0.25)', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
   },
   card: {
-    background: '#17151f', border: '1px solid #2d293b', borderRadius: '12px', padding: '24px',
+    background: '#12101a', border: '1px solid #231f30', borderRadius: '14px', padding: '20px',
+    overflow: 'hidden',
   },
-  table: { width: '100%', borderCollapse: 'collapse' },
+  tableWrapper: {
+    width: '100%', overflowX: 'auto',
+  },
+  table: { width: '100%', borderCollapse: 'collapse', minWidth: '680px' },
   th: {
-    textAlign: 'left', padding: '12px', fontSize: '11px', fontWeight: '600',
-    color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px',
-    borderBottom: '1px solid #2d293b',
+    textAlign: 'left', padding: '12px 14px', fontSize: '11px', fontWeight: '600',
+    color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.6px',
+    borderBottom: '1px solid #231f30', background: '#0e0c15',
   },
   td: {
-    padding: '12px', borderBottom: '1px solid rgba(45,41,59,0.5)', fontSize: '14px', color: '#D1D5DB',
+    padding: '12px 14px', borderBottom: '1px solid #1c1827', fontSize: '13px', color: '#D1D5DB',
   },
-  label: { display: 'block', fontSize: '13px', fontWeight: '600', color: '#9CA3AF', marginBottom: '6px' },
+  label: { display: 'block', fontSize: '12px', fontWeight: '600', color: '#9CA3AF', marginBottom: '6px' },
   input: {
-    width: '100%', padding: '10px 12px', background: '#0d0c11', border: '1px solid #2d293b',
-    borderRadius: '8px', color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box',
+    width: '100%', padding: '9px 12px', background: '#0a0910', border: '1px solid #282136',
+    borderRadius: '8px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box',
   },
   textarea: {
-    width: '100%', padding: '10px 12px', background: '#0d0c11', border: '1px solid #2d293b',
-    borderRadius: '8px', color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box',
+    width: '100%', padding: '9px 12px', background: '#0a0910', border: '1px solid #282136',
+    borderRadius: '8px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box',
     resize: 'vertical', fontFamily: 'inherit',
   },
   select: {
-    width: '100%', padding: '10px 12px', background: '#0d0c11', border: '1px solid #2d293b',
-    borderRadius: '8px', color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box',
+    width: '100%', padding: '9px 12px', background: '#0a0910', border: '1px solid #282136',
+    borderRadius: '8px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box',
   },
   error: {
     background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-    color: '#EF4444', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px',
+    color: '#F87171', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px',
   },
   success: {
-    background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)',
-    color: '#22C55E', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px',
+    background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)',
+    color: '#34D399', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px',
   },
   badge: (published) => ({
-    display: 'inline-flex', alignItems: 'center', gap: '4px',
+    display: 'inline-flex', alignItems: 'center', gap: '5px',
     padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '600',
     background: published ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
     color: published ? '#34D399' : '#F87171',
@@ -106,8 +109,8 @@ const s = {
   }),
   formGroup: { marginBottom: '16px' },
   actions: { display: 'flex', gap: '6px', alignItems: 'center' },
-  empty: { textAlign: 'center', padding: '40px', color: '#6B7280', fontSize: '14px' },
-  imgThumb: { width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' },
+  empty: { textAlign: 'center', padding: '40px', color: '#6B7280', fontSize: '13px' },
+  imgThumb: { width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover' },
 };
 
 export default function AdminDashboard() {
@@ -123,7 +126,7 @@ export default function AdminDashboard() {
   const [songPage, setSongPage] = useState(0);
   const [hasMoreSongs, setHasMoreSongs] = useState(true);
 
-  // Search & Filter state for Songs tab
+  // Search & Filter state
   const [songSearch, setSongSearch] = useState(() => searchParams.get('search') || '');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || 'all');
@@ -150,7 +153,6 @@ export default function AdminDashboard() {
   const [catForm, setCatForm] = useState({ name: '', slug: '', sort_order: 0 });
   const [catImageFile, setCatImageFile] = useState(null);
 
-  // Cleanup audio preview on unmount or view change
   useEffect(() => {
     return () => {
       if (audioPlayerRef.current) {
@@ -190,7 +192,6 @@ export default function AdminDashboard() {
     }
   }, [searchParams]);
 
-  // Reset to list when tab changes
   useEffect(() => {
     setView('list');
     setErrorMsg('');
@@ -201,7 +202,7 @@ export default function AdminDashboard() {
     }
   }, [currentTab]);
 
-  // Fetch data with filters and pagination
+  // Fetch data with server-side filters and pagination
   const fetchData = useCallback(async (page = songPage, search = songSearch, catId = categoryFilter, status = statusFilter) => {
     setLoading(true);
     setErrorMsg('');
@@ -210,7 +211,6 @@ export default function AdminDashboard() {
       const from = page * pageSize;
       const to = from + pageSize - 1;
 
-      // Build songs query with search and filters
       let query = supabase
         .from('songs')
         .select('*, categories(name)', { count: 'exact' })
@@ -255,7 +255,6 @@ export default function AdminDashboard() {
     }
   }, [songPage, songSearch, categoryFilter, statusFilter]);
 
-  // Trigger search when search/filter inputs change
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchData(songPage, songSearch, categoryFilter, statusFilter);
@@ -264,15 +263,11 @@ export default function AdminDashboard() {
     return () => clearTimeout(timer);
   }, [fetchData, songPage, songSearch, categoryFilter, statusFilter]);
 
-  // ═══════════════════════════════════════
-  //  QUICK ACTIONS
-  // ═══════════════════════════════════════
-
-  // 1. Audio Preview Player (inline test)
+  // Audio preview toggle
   const toggleAudioPreview = (song, e) => {
     if (e) e.stopPropagation();
     if (!song.mp3_url) {
-      setErrorMsg(`No MP3 URL set for "${song.title}"`);
+      setErrorMsg(`No MP3 audio URL found for "${song.title}"`);
       setTimeout(() => setErrorMsg(''), 3000);
       return;
     }
@@ -293,13 +288,13 @@ export default function AdminDashboard() {
       });
       audio.onended = () => setPlayingAudioId(null);
       audio.onerror = () => {
-        setErrorMsg('Playback error: Audio URL is invalid or unreachable.');
+        setErrorMsg('Audio URL cannot be reached.');
         setPlayingAudioId(null);
       };
     }
   };
 
-  // 2. 1-Click Toggle Published/Draft status
+  // 1-Click Publish toggle
   const togglePublishStatus = async (song, e) => {
     if (e) e.stopPropagation();
     const nextStatus = !song.is_published;
@@ -320,7 +315,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // 3. Quick Copy Song ID
   const copySongId = (id, e) => {
     if (e) e.stopPropagation();
     navigator.clipboard.writeText(id);
@@ -328,7 +322,6 @@ export default function AdminDashboard() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Close form and clear deep link params
   const closeForm = () => {
     if (audioPlayerRef.current) {
       audioPlayerRef.current.pause();
@@ -341,9 +334,6 @@ export default function AdminDashboard() {
     setView('list');
   };
 
-  // ═══════════════════════════════════════
-  //  SONG CRUD
-  // ═══════════════════════════════════════
   function openAddSong() {
     setEditingSong(null);
     setSongForm({
@@ -378,7 +368,7 @@ export default function AdminDashboard() {
     setErrorMsg('');
 
     if (!songForm.category_id) {
-      setErrorMsg('Please select a category. Create one first in the Categories tab if none exist.');
+      setErrorMsg('Please select a category.');
       setSaving(false);
       return;
     }
@@ -386,7 +376,6 @@ export default function AdminDashboard() {
     try {
       let feature_image_url = editingSong?.feature_image_url || '';
 
-      // Upload image if provided
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
@@ -436,9 +425,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // ═══════════════════════════════════════
-  //  CATEGORY CRUD
-  // ═══════════════════════════════════════
   function openAddCategory() {
     setEditingCategory(null);
     setCatForm({ name: '', slug: '', sort_order: 0 });
@@ -513,9 +499,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // ═══════════════════════════════════════
-  //  RENDER: FEEDBACK TAB
-  // ═══════════════════════════════════════
   if (currentTab === 'feedback') {
     return <FeedbackTab />;
   }
@@ -529,7 +512,7 @@ export default function AdminDashboard() {
   }
 
   // ═══════════════════════════════════════
-  //  RENDER: SONG FORM
+  //  RENDER: SONG FORM (RESPONSIVE)
   // ═══════════════════════════════════════
   if (view === 'song-form') {
     return (
@@ -537,7 +520,7 @@ export default function AdminDashboard() {
         <div style={s.header}>
           <div>
             <h1 style={s.title}>{editingSong ? 'Edit Song' : 'Add New Song'}</h1>
-            <p style={s.subtitle}>Fill in the details below</p>
+            <p style={s.subtitle}>Update song information, audio files, and lyrics</p>
           </div>
           <button onClick={closeForm} style={s.btnSecondary}>
             <ArrowLeft size={14} /> Back to Songs
@@ -549,11 +532,11 @@ export default function AdminDashboard() {
 
         <div style={s.card}>
           <form onSubmit={saveSong}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-              {/* Left column */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+              {/* Left Column: Metadata & Audio */}
               <div>
                 <div style={s.formGroup}>
-                  <label style={s.label}>Title *</label>
+                  <label style={s.label}>Song Title *</label>
                   <input
                     type="text" required
                     value={songForm.title}
@@ -584,14 +567,14 @@ export default function AdminDashboard() {
                     rows={3}
                     value={songForm.writeup}
                     onChange={(e) => setSongForm({ ...songForm, writeup: e.target.value })}
-                    placeholder="A brief description of the song..."
+                    placeholder="Brief description or background for this song..."
                     style={s.textarea}
                   />
                 </div>
 
-                {/* MP3 URL with quick test button */}
+                {/* MP3 URL + Inline Audio Test Button */}
                 <div style={s.formGroup}>
-                  <label style={s.label}>MP3 URL</label>
+                  <label style={s.label}>MP3 Audio URL</label>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <input
                       type="url"
@@ -608,9 +591,9 @@ export default function AdminDashboard() {
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px',
-                          padding: '0 14px',
-                          background: playingAudioId === 'form_test' ? '#8B5CF6' : '#2d293b',
-                          border: '1px solid #3d3752',
+                          padding: '0 12px',
+                          background: playingAudioId === 'form_test' ? '#8B5CF6' : '#1e1a2c',
+                          border: '1px solid #332b47',
                           borderRadius: '8px',
                           color: '#fff',
                           fontSize: '12px',
@@ -619,8 +602,8 @@ export default function AdminDashboard() {
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {playingAudioId === 'form_test' ? <Pause size={14} /> : <Play size={14} />}
-                        {playingAudioId === 'form_test' ? 'Stop' : 'Test Audio'}
+                        {playingAudioId === 'form_test' ? <Pause size={13} /> : <Play size={13} />}
+                        {playingAudioId === 'form_test' ? 'Stop' : 'Test'}
                       </button>
                     )}
                   </div>
@@ -630,18 +613,18 @@ export default function AdminDashboard() {
                   <label style={s.label}>Feature Image</label>
                   {editingSong?.feature_image_url && !imageFile && (
                     <div style={{ marginBottom: '8px' }}>
-                      <img src={editingSong.feature_image_url} alt="Current" style={{ width: '120px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #2d293b' }} />
+                      <img src={editingSong.feature_image_url} alt="Current" style={{ width: '100px', height: '64px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #231f30' }} />
                     </div>
                   )}
                   <input
                     type="file"
                     accept="image/*"
                     onChange={(e) => setImageFile(e.target.files[0])}
-                    style={{ ...s.input, padding: '8px' }}
+                    style={{ ...s.input, padding: '7px' }}
                   />
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', background: '#0d0c11', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#0a0910', border: '1px solid #231f30', borderRadius: '8px' }}>
                   <input
                     type="checkbox"
                     id="is_published"
@@ -650,18 +633,18 @@ export default function AdminDashboard() {
                     style={{ accentColor: '#8B5CF6' }}
                   />
                   <label htmlFor="is_published" style={{ color: '#D1D5DB', fontSize: '13px', cursor: 'pointer', margin: 0 }}>
-                    Published (visible to app users)
+                    Published (visible to mobile app users)
                   </label>
                 </div>
               </div>
 
-              {/* Right column — Lyrics */}
+              {/* Right Column: Lyrics Editor */}
               <div>
-                <label style={s.label}>Lyrics (Rich Text)</label>
+                <label style={s.label}>Lyrics (Rich Text Editor)</label>
                 <style>{`
                   .admin-quill .ql-toolbar {
-                    background: #0d0c11;
-                    border: 1px solid #2d293b;
+                    background: #0a0910;
+                    border: 1px solid #231f30;
                     border-radius: 8px 8px 0 0;
                   }
                   .admin-quill .ql-toolbar .ql-stroke { stroke: #9CA3AF; }
@@ -672,17 +655,17 @@ export default function AdminDashboard() {
                   .admin-quill .ql-toolbar button:hover .ql-fill,
                   .admin-quill .ql-toolbar .ql-active .ql-fill { fill: #A78BFA; }
                   .admin-quill .ql-container {
-                    background: #0d0c11;
-                    border: 1px solid #2d293b;
+                    background: #0a0910;
+                    border: 1px solid #231f30;
                     border-top: none;
                     border-radius: 0 0 8px 8px;
                     color: #fff;
                     font-size: 14px;
-                    min-height: 450px;
+                    min-height: 400px;
                   }
-                  .admin-quill .ql-editor { min-height: 450px; line-height: 1.8; }
+                  .admin-quill .ql-editor { min-height: 400px; line-height: 1.8; }
                   .admin-quill .ql-editor.ql-blank::before { color: #6B7280; font-style: normal; }
-                  .admin-quill .ql-picker-options { background: #17151f; border-color: #2d293b; }
+                  .admin-quill .ql-picker-options { background: #12101a; border-color: #231f30; }
                   .admin-quill .ql-picker-item { color: #D1D5DB; }
                   .admin-quill .ql-picker-item:hover { color: #A78BFA; }
                 `}</style>
@@ -692,13 +675,13 @@ export default function AdminDashboard() {
                     value={songForm.lyrics}
                     onChange={(val) => setSongForm({ ...songForm, lyrics: val })}
                     modules={quillModules}
-                    placeholder="Type or paste the song lyrics here..."
+                    placeholder="Enter or paste song lyrics here..."
                   />
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px', paddingTop: '20px', borderTop: '1px solid #2d293b' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #231f30' }}>
               <button type="button" onClick={closeForm} style={s.btnSecondary}>Cancel</button>
               <button type="submit" disabled={saving} style={{ ...s.btnPrimary, opacity: saving ? 0.6 : 1 }}>
                 <Save size={14} /> {saving ? 'Saving...' : 'Save Song'}
@@ -719,7 +702,7 @@ export default function AdminDashboard() {
         <div style={s.header}>
           <div>
             <h1 style={s.title}>{editingCategory ? 'Edit Category' : 'Add New Category'}</h1>
-            <p style={s.subtitle}>Manage your song categories</p>
+            <p style={s.subtitle}>Organize your catalog by genres and categories</p>
           </div>
           <button onClick={() => setView('list')} style={s.btnSecondary}>
             <ArrowLeft size={14} /> Back
@@ -728,7 +711,7 @@ export default function AdminDashboard() {
 
         {errorMsg && <div style={s.error}>{errorMsg}</div>}
 
-        <div style={{ ...s.card, maxWidth: '500px' }}>
+        <div style={{ ...s.card, maxWidth: '520px' }}>
           <form onSubmit={saveCategory}>
             <div style={s.formGroup}>
               <label style={s.label}>Category Name *</label>
@@ -770,18 +753,18 @@ export default function AdminDashboard() {
               <label style={s.label}>Category Image</label>
               {editingCategory?.image_url && !catImageFile && (
                 <div style={{ marginBottom: '8px' }}>
-                  <img src={editingCategory.image_url} alt="Current" style={{ width: '120px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #2d293b' }} />
+                  <img src={editingCategory.image_url} alt="Current" style={{ width: '100px', height: '64px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #231f30' }} />
                 </div>
               )}
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => setCatImageFile(e.target.files[0])}
-                style={{ ...s.input, padding: '8px' }}
+                style={{ ...s.input, padding: '7px' }}
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #2d293b' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px', paddingTop: '14px', borderTop: '1px solid #231f30' }}>
               <button type="button" onClick={() => setView('list')} style={s.btnSecondary}>Cancel</button>
               <button type="submit" disabled={saving} style={{ ...s.btnPrimary, opacity: saving ? 0.6 : 1 }}>
                 <Save size={14} /> {saving ? 'Saving...' : 'Save Category'}
@@ -794,12 +777,11 @@ export default function AdminDashboard() {
   }
 
   // ═══════════════════════════════════════
-  //  RENDER: SONGS LIST (WITH SEARCH & QUICK ACTIONS)
+  //  RENDER: SONGS LIST (RESPONSIVE & FLUID)
   // ═══════════════════════════════════════
   if (currentTab === 'songs') {
     return (
       <div style={s.page}>
-        {/* Header */}
         <div style={s.header}>
           <div>
             <h1 style={s.title}>Songs Library</h1>
@@ -815,31 +797,30 @@ export default function AdminDashboard() {
         {errorMsg && <div style={s.error}>{errorMsg}</div>}
         {successMsg && <div style={s.success}>{successMsg}</div>}
 
-        {/* Search, Category Filter, and Status Filter Toolbar */}
+        {/* Toolbar: Search, Category, Status */}
         <div style={{
-          background: '#17151f',
-          border: '1px solid #2d293b',
+          background: '#12101a',
+          border: '1px solid #231f30',
           borderRadius: '12px',
-          padding: '16px',
-          marginBottom: '20px',
+          padding: '14px 16px',
+          marginBottom: '16px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '12px',
+          gap: '10px',
         }}>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            {/* Search Input */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{
               flex: 1,
-              minWidth: '240px',
+              minWidth: '220px',
               display: 'flex',
               alignItems: 'center',
-              background: '#0d0c11',
-              border: '1px solid #2d293b',
+              background: '#0a0910',
+              border: '1px solid #231f30',
               borderRadius: '8px',
-              padding: '0 12px',
-              gap: '8px',
+              padding: '0 10px',
+              gap: '6px',
             }}>
-              <Search size={16} color="#8B5CF6" />
+              <Search size={14} color="#8B5CF6" />
               <input
                 type="text"
                 placeholder="Search songs by title..."
@@ -854,8 +835,8 @@ export default function AdminDashboard() {
                   border: 'none',
                   outline: 'none',
                   color: '#fff',
-                  fontSize: '13px',
-                  padding: '10px 0',
+                  fontSize: '12px',
+                  padding: '8px 0',
                 }}
               />
               {songSearch && (
@@ -866,12 +847,11 @@ export default function AdminDashboard() {
                   }}
                   style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', padding: 0 }}
                 >
-                  <X size={14} />
+                  <X size={12} />
                 </button>
               )}
             </div>
 
-            {/* Category Selector */}
             <select
               value={categoryFilter}
               onChange={(e) => {
@@ -879,13 +859,13 @@ export default function AdminDashboard() {
                 setSongPage(0);
               }}
               style={{
-                width: '200px',
-                padding: '10px 12px',
-                background: '#0d0c11',
-                border: '1px solid #2d293b',
+                width: '180px',
+                padding: '8px 10px',
+                background: '#0a0910',
+                border: '1px solid #231f30',
                 borderRadius: '8px',
                 color: '#fff',
-                fontSize: '13px',
+                fontSize: '12px',
                 outline: 'none',
                 cursor: 'pointer',
               }}
@@ -898,8 +878,8 @@ export default function AdminDashboard() {
           </div>
 
           {/* Quick Filter Status Chips */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '10px', color: '#6B7280', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Filter:
             </span>
             {[
@@ -918,15 +898,14 @@ export default function AdminDashboard() {
                     setSongPage(0);
                   }}
                   style={{
-                    padding: '4px 12px',
+                    padding: '3px 10px',
                     borderRadius: '6px',
                     border: 'none',
-                    background: active ? '#8B5CF6' : '#221f2e',
+                    background: active ? '#8B5CF6' : '#1a1626',
                     color: active ? '#fff' : '#9CA3AF',
-                    fontSize: '12px',
+                    fontSize: '11px',
                     fontWeight: '500',
                     cursor: 'pointer',
-                    transition: 'all 0.15s ease',
                   }}
                 >
                   {st.label}
@@ -936,7 +915,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Songs Table with Quick Actions */}
+        {/* Responsive Table Card */}
         <div style={s.card}>
           {loading ? (
             <div style={s.empty}>Loading songs...</div>
@@ -958,54 +937,50 @@ export default function AdminDashboard() {
               )}
             </div>
           ) : (
-            <>
+            <div style={s.tableWrapper}>
               <table style={s.table}>
                 <thead>
                   <tr>
-                    <th style={{ ...s.th, width: '48px' }}></th>
+                    <th style={{ ...s.th, width: '44px' }}></th>
                     <th style={s.th}>Title</th>
                     <th style={s.th}>Category</th>
                     <th style={s.th}>Audio</th>
                     <th style={s.th}>Status</th>
                     <th style={s.th}>Created</th>
-                    <th style={{ ...s.th, textAlign: 'right' }}>Quick Actions</th>
+                    <th style={{ ...s.th, textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {songs.map((song) => {
                     const isPlaying = playingAudioId === song.id;
                     return (
-                      <tr key={song.id} style={{ transition: 'background 0.15s ease' }}>
-                        {/* Cover Image Thumbnail */}
+                      <tr key={song.id}>
                         <td style={s.td}>
                           {song.feature_image_url ? (
                             <img src={song.feature_image_url} alt="" style={s.imgThumb} />
                           ) : (
-                            <div style={{ ...s.imgThumb, background: '#252136', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <Music size={16} color="#6B7280" />
+                            <div style={{ ...s.imgThumb, background: '#252033', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Music size={15} color="#6B7280" />
                             </div>
                           )}
                         </td>
 
-                        {/* Title & Short ID */}
                         <td style={{ ...s.td, color: '#fff', fontWeight: '500' }}>
                           <div>{song.title}</div>
-                          <div style={{ fontSize: '11px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                          <div style={{ fontSize: '10px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                             <span>ID: {song.id.slice(0, 8)}...</span>
                             <button
                               onClick={(e) => copySongId(song.id, e)}
                               title="Copy full Song ID"
                               style={{ background: 'none', border: 'none', color: copiedId === song.id ? '#34D399' : '#6B7280', cursor: 'pointer', padding: 0 }}
                             >
-                              {copiedId === song.id ? <Check size={11} /> : <Copy size={11} />}
+                              {copiedId === song.id ? <Check size={10} /> : <Copy size={10} />}
                             </button>
                           </div>
                         </td>
 
-                        {/* Category */}
                         <td style={s.td}>{song.categories?.name || '—'}</td>
 
-                        {/* Audio Status & Inline Preview Player */}
                         <td style={s.td}>
                           {song.mp3_url ? (
                             <button
@@ -1014,67 +989,49 @@ export default function AdminDashboard() {
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '6px',
-                                padding: '4px 10px',
+                                gap: '5px',
+                                padding: '4px 8px',
                                 borderRadius: '6px',
-                                background: isPlaying ? '#8B5CF6' : '#252136',
-                                border: '1px solid #3c3552',
+                                background: isPlaying ? '#8B5CF6' : '#1e1a2c',
+                                border: '1px solid #332b47',
                                 color: '#fff',
                                 fontSize: '11px',
                                 fontWeight: '600',
                                 cursor: 'pointer',
                               }}
                             >
-                              {isPlaying ? <Pause size={12} /> : <Play size={12} />}
+                              {isPlaying ? <Pause size={11} /> : <Play size={11} />}
                               {isPlaying ? 'Playing' : 'Preview'}
                             </button>
                           ) : (
-                            <span style={{
-                              fontSize: '11px',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              background: 'rgba(239, 68, 68, 0.1)',
-                              color: '#F87171',
-                              border: '1px solid rgba(239, 68, 68, 0.25)',
-                            }}>
+                            <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(239,68,68,0.1)', color: '#F87171' }}>
                               No Audio
                             </span>
                           )}
                         </td>
 
-                        {/* Status (Clickable 1-Click Toggle Switch) */}
                         <td style={s.td}>
                           <span
                             onClick={(e) => togglePublishStatus(song, e)}
                             title="Click to toggle Published / Draft immediately"
                             style={s.badge(song.is_published)}
                           >
-                            <span style={{ width: '6px', height: '6px', borderRadius: '3px', background: song.is_published ? '#34D399' : '#F87171' }} />
+                            <span style={{ width: '5px', height: '5px', borderRadius: '3px', background: song.is_published ? '#34D399' : '#F87171' }} />
                             {song.is_published ? 'Published' : 'Draft'}
                           </span>
                         </td>
 
-                        {/* Created Date */}
-                        <td style={{ ...s.td, fontSize: '12px', color: '#9CA3AF' }}>
+                        <td style={{ ...s.td, fontSize: '11px', color: '#9CA3AF' }}>
                           {song.created_at ? new Date(song.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                         </td>
 
-                        {/* Quick Actions */}
                         <td style={{ ...s.td, textAlign: 'right' }}>
                           <div style={{ ...s.actions, justifyContent: 'flex-end' }}>
-                            <button
-                              onClick={() => openEditSong(song)}
-                              style={s.btnEdit}
-                              title="Edit song details and lyrics"
-                            >
-                              <Edit2 size={12} /> Edit
+                            <button onClick={() => openEditSong(song)} style={s.btnEdit} title="Edit song">
+                              <Edit2 size={11} /> Edit
                             </button>
-                            <button
-                              onClick={() => deleteSong(song.id)}
-                              style={s.btnDanger}
-                              title="Delete song"
-                            >
-                              <Trash2 size={12} />
+                            <button onClick={() => deleteSong(song.id)} style={s.btnDanger} title="Delete song">
+                              <Trash2 size={11} />
                             </button>
                           </div>
                         </td>
@@ -1084,8 +1041,7 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
 
-              {/* Pagination */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #2d293b' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #231f30' }}>
                 <button
                   onClick={() => setSongPage(p => Math.max(0, p - 1))}
                   disabled={songPage === 0}
@@ -1093,7 +1049,7 @@ export default function AdminDashboard() {
                 >
                   Previous
                 </button>
-                <span style={{ color: '#9CA3AF', fontSize: '13px' }}>
+                <span style={{ color: '#9CA3AF', fontSize: '12px' }}>
                   Page {songPage + 1} of {Math.ceil(totalSongsCount / 15) || 1}
                 </span>
                 <button
@@ -1104,7 +1060,7 @@ export default function AdminDashboard() {
                   Next
                 </button>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -1136,50 +1092,52 @@ export default function AdminDashboard() {
               <p>No categories yet. Click "Add Category" to create your first one.</p>
             </div>
           ) : (
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  <th style={s.th}></th>
-                  <th style={s.th}>Name</th>
-                  <th style={s.th}>Slug</th>
-                  <th style={s.th}>Sort Order</th>
-                  <th style={s.th}>Songs</th>
-                  <th style={{ ...s.th, textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {categories.map((cat) => {
-                  const songCount = songs.filter(s => s.category_id === cat.id).length;
-                  return (
-                    <tr key={cat.id}>
-                      <td style={s.td}>
-                        {cat.image_url ? (
-                          <img src={cat.image_url} alt="" style={s.imgThumb} />
-                        ) : (
-                          <div style={{ ...s.imgThumb, background: '#2d293b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ fontSize: '10px', color: '#6B7280' }}>N/A</span>
+            <div style={s.tableWrapper}>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    <th style={{ ...s.th, width: '44px' }}></th>
+                    <th style={s.th}>Name</th>
+                    <th style={s.th}>Slug</th>
+                    <th style={s.th}>Sort Order</th>
+                    <th style={s.th}>Songs</th>
+                    <th style={{ ...s.th, textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categories.map((cat) => {
+                    const songCount = songs.filter(s => s.category_id === cat.id).length;
+                    return (
+                      <tr key={cat.id}>
+                        <td style={s.td}>
+                          {cat.image_url ? (
+                            <img src={cat.image_url} alt="" style={s.imgThumb} />
+                          ) : (
+                            <div style={{ ...s.imgThumb, background: '#252033', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <span style={{ fontSize: '10px', color: '#6B7280' }}>N/A</span>
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ ...s.td, color: '#fff', fontWeight: '500' }}>{cat.name}</td>
+                        <td style={s.td}>{cat.slug}</td>
+                        <td style={s.td}>{cat.sort_order}</td>
+                        <td style={s.td}>{songCount}</td>
+                        <td style={{ ...s.td, textAlign: 'right' }}>
+                          <div style={{ ...s.actions, justifyContent: 'flex-end' }}>
+                            <button onClick={() => openEditCategory(cat)} style={s.btnEdit}>
+                              <Edit2 size={11} /> Edit
+                            </button>
+                            <button onClick={() => deleteCategory(cat.id)} style={s.btnDanger}>
+                              <Trash2 size={11} /> Delete
+                            </button>
                           </div>
-                        )}
-                      </td>
-                      <td style={{ ...s.td, color: '#fff', fontWeight: '500' }}>{cat.name}</td>
-                      <td style={s.td}>{cat.slug}</td>
-                      <td style={s.td}>{cat.sort_order}</td>
-                      <td style={s.td}>{songCount}</td>
-                      <td style={{ ...s.td, textAlign: 'right' }}>
-                        <div style={s.actions}>
-                          <button onClick={() => openEditCategory(cat)} style={s.btnEdit}>
-                            <Edit2 size={12} /> Edit
-                          </button>
-                          <button onClick={() => deleteCategory(cat.id)} style={s.btnDanger}>
-                            <Trash2 size={12} /> Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

@@ -17,11 +17,11 @@ export const AppContext = React.createContext();
 
 function PublicLayout() {
   return (
-    <>
+    <div className="app-container">
       <Outlet />
       <AudioPlayer />
       <Navigation />
-    </>
+    </div>
   );
 }
 
@@ -48,24 +48,22 @@ function App() {
   return (
     <AppContext.Provider value={{ currentSong, setCurrentSong, isPlaying, setIsPlaying, theme, setTheme }}>
       <BrowserRouter>
-        <div className="app-container">
-          <Routes>
-            {/* Public Routes with Navigation & AudioPlayer */}
-            <Route element={<PublicLayout />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/category/:slug" element={<CategoryView />} />
-              <Route path="/song/:id" element={<SongDetail />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/about" element={<About />} />
-            </Route>
-            
-            {/* Admin Routes (No Navigation/AudioPlayer) */}
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<AdminDashboard />} />
-            </Route>
-          </Routes>
-        </div>
+        <Routes>
+          {/* Public Routes with Navigation & AudioPlayer */}
+          <Route element={<PublicLayout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/category/:slug" element={<CategoryView />} />
+            <Route path="/song/:id" element={<SongDetail />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/about" element={<About />} />
+          </Route>
+          
+          {/* Admin Routes (Full screen, independent of public app container) */}
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+          </Route>
+        </Routes>
       </BrowserRouter>
     </AppContext.Provider>
   );
