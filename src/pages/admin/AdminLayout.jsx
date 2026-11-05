@@ -59,7 +59,7 @@ export default function AdminLayout() {
       const next = prev === 'dark' ? 'light' : 'dark';
       try {
         localStorage.setItem('admin_theme', next);
-      } catch (_) {}
+      } catch (_) { }
       return next;
     });
   };
@@ -82,7 +82,7 @@ export default function AdminLayout() {
       const next = !prev;
       try {
         localStorage.setItem('admin_sidebar_collapsed', String(next));
-      } catch (_) {}
+      } catch (_) { }
       return next;
     });
   };
@@ -112,7 +112,7 @@ export default function AdminLayout() {
       if (data) {
         setUnreadFeedbackCount(data.length);
       }
-    } catch (_) {}
+    } catch (_) { }
   }, []);
 
   useEffect(() => {
