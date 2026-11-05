@@ -398,9 +398,10 @@ export default function SongScreen({ route, navigation }) {
       const issueLabel = REPORT_ISSUES.find((i) => i.key === reportIssue)?.label || reportIssue;
       const msg = `[SONG REPORT] "${song.title}" (ID: ${song.id})\nIssue: ${issueLabel}${reportNote.trim() ? `\nNote: ${reportNote.trim()}` : ''}`;
       await supabase.from('feedback').insert([{
+        device_id: settings?.deviceId || null,
         message: msg,
         is_admin_reply: false,
-        device_meta: { os: Platform.OS, song_id: song.id, song_title: song.title, issue: reportIssue },
+        device_meta: { os: Platform.OS, version: Platform.Version, song_id: song.id, song_title: song.title, issue: reportIssue },
       }]);
       setReportDone(true);
       setTimeout(() => {
