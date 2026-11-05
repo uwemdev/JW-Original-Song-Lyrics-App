@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import {
   Send,
@@ -21,6 +22,7 @@ import {
   Clock,
   ExternalLink,
   Sparkles,
+  Edit2,
 } from 'lucide-react';
 
 // Play sound chime using Web Audio API (smooth 2-tone chime without external dependencies)
@@ -92,6 +94,7 @@ const QUICK_REPLIES = [
 ];
 
 export default function FeedbackTab() {
+  const navigate = useNavigate();
   const [conversations, setConversations] = useState([]);
   const [selectedConvoId, setSelectedConvoId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -975,7 +978,7 @@ export default function FeedbackTab() {
                             {report.songTitle}
                           </div>
                           {report.songId && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
                               <span style={{ fontSize: '11px', color: '#9CA3AF' }}>Song ID:</span>
                               <code style={{ fontSize: '11px', color: '#C4B5FD', background: '#0d0c11', padding: '2px 6px', borderRadius: '4px' }}>
                                 {report.songId}
@@ -994,6 +997,56 @@ export default function FeedbackTab() {
                                 }}
                               >
                                 {copiedId === report.songId ? <Check size={13} /> : <Copy size={13} />}
+                              </button>
+
+                              {/* Quick Action: Open Song Editor directly */}
+                              <button
+                                onClick={() => navigate(`/admin?tab=songs&editSongId=${report.songId}`)}
+                                title="Open this song in editor to fix issues"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  padding: '4px 10px',
+                                  background: '#8B5CF6',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  color: '#fff',
+                                  fontSize: '11px',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                  marginLeft: '4px',
+                                  transition: 'background 0.15s ease',
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = '#7C3AED')}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = '#8B5CF6')}
+                              >
+                                <Edit2 size={12} />
+                                Edit Song in Dashboard
+                              </button>
+                            </div>
+                          )}
+                          {!report.songId && report.songTitle && (
+                            <div style={{ marginTop: '6px' }}>
+                              <button
+                                onClick={() => navigate(`/admin?tab=songs&search=${encodeURIComponent(report.songTitle)}`)}
+                                title="Find this song in songs tab"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  padding: '4px 10px',
+                                  background: '#2d293b',
+                                  border: '1px solid #3d3752',
+                                  borderRadius: '6px',
+                                  color: '#C4B5FD',
+                                  fontSize: '11px',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <Search size={12} />
+                                Search Song in Dashboard
                               </button>
                             </div>
                           )}
