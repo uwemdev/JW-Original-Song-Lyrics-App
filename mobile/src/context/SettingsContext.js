@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
-import { scheduleSundayMeetingReminder, scheduleDailySongReminder, scheduleInactivityReminders } from '../lib/notificationScheduler';
+import { scheduleSundayMeetingReminder, scheduleDailySongReminder, scheduleInactivityReminders, triggerSystemNotification } from '../lib/notificationScheduler';
 
 const SettingsContext = createContext(null);
 
@@ -20,6 +20,7 @@ const KEYS = {
   deviceId: '@settings_device_id',
   installDate: '@settings_install_date',
   dismissedNotifs: '@settings_dismissed_notifs',
+  deliveredPushIds: '@settings_delivered_push_ids',
 };
 
 // Defaults
@@ -173,6 +174,93 @@ export function SettingsProvider({ children }) {
        supabase.removeChannel(channel);
     };
   }, [deviceId]);
+
+  // Sync broadcast notifications & listen for real-time admin push notifications
+  useEffect(() => {
+    // 1. Sync missed broadcast notifications when app comes online / opens
+    const syncMissedBroadcasts = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(KEYS.deliveredPushIds);
+        const delivered = raw ? JSON.parse(raw) : [];
+
+        // Check recent broadcast notifications from the last 14 days
+        const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+        const minDate = installDate ? (installDate > fourteenDaysAgo ? installDate : fourteenDaysAgo) : fourteenDaysAgo;
+
+        const { data } = await supabase
+          .from('app_notifications')
+          .select('*')
+          .gte('created_at', minDate)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (data && data.length > 0) {
+          const undelivered = data.filter((n) => !delivered.includes(n.id));
+          if (undelivered.length > 0) {
+            // Trigger system push notification for the newest undelivered message
+            const latest = undelivered[0];
+            await triggerSystemNotification({
+              title: latest.title,
+              message: latest.message,
+              linkUrl: latest.link_url,
+              id: latest.id,
+            });
+
+            // Mark all current notifications as delivered so we don't repeat
+            const updated = [...new Set([...delivered, ...data.map((n) => n.id)])];
+            await AsyncStorage.setItem(KEYS.deliveredPushIds, JSON.stringify(updated.slice(-100)));
+          }
+        }
+      } catch (err) {
+        console.warn('[BroadcastSync] Error:', err);
+      }
+    };
+
+    syncMissedBroadcasts();
+
+    // 2. Real-time listener for incoming push notifications while online
+    const broadcastChannel = supabase
+      .channel('realtime_admin_broadcasts')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'app_notifications',
+      }, async (payload) => {
+        const notif = payload.new;
+        if (!notif) return;
+
+        try {
+          const raw = await AsyncStorage.getItem(KEYS.deliveredPushIds);
+          const delivered = raw ? JSON.parse(raw) : [];
+
+          if (!delivered.includes(notif.id)) {
+            await triggerSystemNotification({
+              title: notif.title,
+              message: notif.message,
+              linkUrl: notif.link_url,
+              id: notif.id,
+            });
+
+            delivered.push(notif.id);
+            await AsyncStorage.setItem(KEYS.deliveredPushIds, JSON.stringify(delivered.slice(-100)));
+          }
+        } catch (err) {
+          console.warn('[BroadcastRealtime] Error:', err);
+        }
+      })
+      .subscribe();
+
+    const appStateSub = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        syncMissedBroadcasts();
+      }
+    });
+
+    return () => {
+      appStateSub.remove();
+      supabase.removeChannel(broadcastChannel);
+    };
+  }, [installDate]);
 
   // Setter helpers — update state immediately + persist
   const setTheme = useCallback(async (val) => {

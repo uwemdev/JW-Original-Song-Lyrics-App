@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Platform, LogBox, ActivityIndicator, Text, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +27,7 @@ import LyricQuizScreen from './src/screens/LyricQuizScreen';
 import AppUpdateChecker from './src/components/AppUpdateChecker';
 import { initMobileAds } from './src/lib/adMob';
 import { requestNotificationPermissions, scheduleDailySongReminder, scheduleSundayMeetingReminder, scheduleInactivityReminders } from './src/lib/notificationScheduler';
+import * as Notifications from 'expo-notifications';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
 import { AudioProvider } from './src/context/AudioContext';
 import { PlaylistProvider } from './src/context/PlaylistContext';
@@ -40,6 +41,7 @@ const FavoritesStackNav = createNativeStackNavigator();
 const SearchStackNav = createNativeStackNavigator();
 const SettingsStackNav = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
+export const navigationRef = createNavigationContainerRef();
 
 LogBox.ignoreLogs(['setLayoutAnimationEnabledExperimental']);
 
@@ -327,9 +329,16 @@ function MainNavigation() {
       }
     });
 
-    return () => {
-      appStateSub.remove();
-    };
+    const notifResponseSub = Notifications.addNotificationResponseReceivedListener(() => {
+        if (navigationRef.isReady()) {
+          navigationRef.navigate('Notifications');
+        }
+      });
+
+      return () => {
+        appStateSub.remove();
+        notifResponseSub.remove();
+      };
   }, [loaded]);
 
   const MyTheme = {
@@ -354,7 +363,7 @@ function MainNavigation() {
   }
 
   return (
-    <NavigationContainer theme={MyTheme}>
+    <NavigationContainer ref={navigationRef} theme={MyTheme}>
       <RootStack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
         <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
         <RootStack.Screen name="MainApp" component={MainTabs} />

@@ -242,3 +242,30 @@ export async function triggerTestWarmReminder(days = 7) {
     return false;
   }
 }
+
+/**
+ * Trigger an immediate native push notification banner for admin broadcasts
+ */
+export async function triggerSystemNotification({ title, message, linkUrl, id }) {
+  try {
+    const hasPermission = await requestNotificationPermissions();
+    if (!hasPermission) return false;
+    await setupAndroidChannel();
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: id ? `admin-push-${id}` : `admin-push-${Date.now()}`,
+      content: {
+        title,
+        body: message,
+        sound: 'default',
+        channelId: 'reminders',
+        data: { link_url: linkUrl, id },
+      },
+      trigger: null, // null trigger presents notification immediately
+    });
+    return true;
+  } catch (err) {
+    console.warn('[NotificationScheduler] Failed to trigger system notification:', err?.message || err);
+    return false;
+  }
+}
