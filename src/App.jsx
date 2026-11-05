@@ -26,7 +26,8 @@ function PublicLayout() {
 }
 
 function App() {
-  const [showSplash, setShowSplash] = useState(true);
+  const isAdminPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+  const [showSplash, setShowSplash] = useState(!isAdminPath);
   const [currentSong, setCurrentSong] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');

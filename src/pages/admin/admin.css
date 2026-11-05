@@ -356,6 +356,14 @@
   background: var(--admin-primary-dark);
 }
 
+.mobile-brand-header {
+  display: none;
+}
+
+.desktop-only-btn {
+  display: inline-flex;
+}
+
 /* Content Area */
 .admin-content {
   flex: 1;
@@ -1190,6 +1198,20 @@
     display: block;
   }
 
+  .mobile-brand-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-breadcrumb {
+    display: none !important;
+  }
+
+  .desktop-only-btn {
+    display: none !important;
+  }
+
   .admin-header .mobile-menu-btn {
     display: flex;
   }
@@ -1198,22 +1220,11 @@
     display: none;
   }
 
-  .admin-header .header-breadcrumb .bc-dim,
-  .admin-header .header-breadcrumb .bc-sep {
-    display: none;
-  }
-
-  .admin-header .add-song-btn .btn-label-text {
-    display: none;
-  }
-
-  .admin-page {
-    padding: 16px;
-  }
-
   .admin-page-header {
-    flex-direction: column;
+    flex-direction: row;
     align-items: flex-start;
+    justify-content: space-between;
+    width: 100%;
   }
 
   .admin-stats-grid {

@@ -306,29 +306,48 @@ export default function AdminLayout() {
         {/* User Footer */}
         <div className="sidebar-footer">
           {/* Collapse/Expand Toggle (Desktop only) */}
-          <button
-            onClick={toggleSidebar}
-            className="footer-btn"
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {sidebarCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
-            <span className="btn-label">Collapse</span>
-          </button>
+          {!mobileMenuOpen && (
+            <button
+              onClick={toggleSidebar}
+              className="footer-btn collapse-toggle-btn"
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {sidebarCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+              <span className="btn-label">Collapse</span>
+            </button>
+          )}
 
-          {/* User Email */}
-          <div className="user-email" title={session.user?.email}>
-            {session.user?.email || 'Admin User'}
+          {/* User Profile Info in Drawer */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 4px 10px 4px' }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              fontSize: '13px',
+              fontWeight: '700',
+              flexShrink: 0,
+            }}>
+              {userInitial}
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className="user-email" style={{ padding: 0, fontSize: '12px', fontWeight: '500', color: '#fafafa' }} title={session.user?.email}>
+                {session.user?.email || 'Admin User'}
+              </div>
+              <div
+                onClick={handleLogout}
+                style={{ fontSize: '11px', color: '#f87171', fontWeight: '600', cursor: 'pointer', marginTop: '2px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                title="Sign Out"
+              >
+                <LogOut size={11} />
+                <span>Sign Out</span>
+              </div>
+            </div>
           </div>
-
-          {/* Sign Out */}
-          <button
-            onClick={handleLogout}
-            className="footer-btn sign-out"
-            title="Sign Out"
-          >
-            <LogOut size={14} />
-            <span className="btn-label">Sign Out</span>
-          </button>
         </div>
       </aside>
 
@@ -336,7 +355,7 @@ export default function AdminLayout() {
       <div className="admin-main">
         {/* Top Header Bar */}
         <header className="admin-header">
-          {/* Left: Mobile hamburger menu + Breadcrumb */}
+          {/* Left: Mobile Hamburger + Mobile Brand Logo / Desktop Breadcrumb */}
           <div className="header-left">
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -347,6 +366,22 @@ export default function AdminLayout() {
               <Menu size={18} />
             </button>
 
+            {/* Mobile Brand Logo displayed in top bar */}
+            <div className="mobile-brand-header">
+              <div className="brand-icon" style={{ width: '28px', height: '28px', borderRadius: '7px' }}>
+                <Music2 color="white" size={16} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#fff', lineHeight: '1.2' }}>
+                  JW Original Songs
+                </span>
+                <span style={{ fontSize: '9px', color: '#a78bfa', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                  Admin
+                </span>
+              </div>
+            </div>
+
+            {/* Desktop Breadcrumb */}
             <div className="header-breadcrumb">
               <span className="bc-dim">Admin</span>
               <span className="bc-sep">/</span>
@@ -356,7 +391,7 @@ export default function AdminLayout() {
 
           {/* Right: Quick Search, Add Song, Notifications, Avatar */}
           <div className="header-right">
-            {/* Quick Search Palette Trigger */}
+            {/* Quick Search Palette Trigger (Desktop only) */}
             <div
               className="search-trigger"
               onClick={() => setPaletteOpen(true)}
@@ -390,10 +425,10 @@ export default function AdminLayout() {
               )}
             </button>
 
-            {/* Add Song Shortcut Button */}
+            {/* Add Song Shortcut Button (Desktop only) */}
             <button
               onClick={() => navigate('/admin?tab=songs&newSong=true')}
-              className="add-song-btn"
+              className="add-song-btn desktop-only-btn"
               title="Add a new song"
             >
               <Plus size={14} />
@@ -402,6 +437,7 @@ export default function AdminLayout() {
 
             {/* User Avatar Circle */}
             <div
+              onClick={() => setMobileMenuOpen(true)}
               style={{
                 width: '32px',
                 height: '32px',
