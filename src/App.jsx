@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
 import Splash from './pages/Splash';
 import Home from './pages/Home';
+import Search from './pages/Search';
+import Favorites from './pages/Favorites';
 import CategoryView from './pages/CategoryView';
 import SongDetail from './pages/SongDetail';
 import Settings from './pages/Settings';
@@ -53,6 +55,8 @@ function App() {
           {/* Public Routes with Navigation & AudioPlayer */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<Home />} />
+            <Route path="/search" element={<Search />} />
+            <Route path="/favorites" element={<Favorites />} />
             <Route path="/category/:slug" element={<CategoryView />} />
             <Route path="/song/:id" element={<SongDetail />} />
             <Route path="/settings" element={<Settings />} />

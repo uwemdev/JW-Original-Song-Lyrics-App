@@ -25,6 +25,8 @@ import {
   User,
   Filter,
   LayoutDashboard,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -44,6 +46,23 @@ export default function AdminLayout() {
     }
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [adminTheme, setAdminTheme] = useState(() => {
+    try {
+      return localStorage.getItem('admin_theme') || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  const toggleAdminTheme = () => {
+    setAdminTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      try {
+        localStorage.setItem('admin_theme', next);
+      } catch (_) {}
+      return next;
+    });
+  };
 
   // Global Command Palette State
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -242,7 +261,7 @@ export default function AdminLayout() {
   const userInitial = session.user?.email ? session.user.email[0].toUpperCase() : 'U';
 
   return (
-    <div className="admin-shell">
+    <div className="admin-shell" data-theme={adminTheme}>
       {/* Mobile Drawer Overlay */}
       <div
         className={`sidebar-overlay ${mobileMenuOpen ? 'visible' : ''}`}
@@ -253,8 +272,16 @@ export default function AdminLayout() {
       <aside className={`admin-sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         {/* Brand Header */}
         <div className="sidebar-brand">
-          <div className="brand-icon">
-            <Music2 color="white" size={18} />
+          <div className="brand-icon" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img
+              src="/logo.png"
+              alt="Logo"
+              style={{ width: '22px', height: '22px', objectFit: 'contain' }}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+            <Music2 color="white" size={18} style={{ display: 'none' }} className="fallback-icon" />
           </div>
           <div className="brand-text">
             <div style={{ fontWeight: '700', fontSize: '13px', lineHeight: '1.2', color: '#fff' }}>
@@ -368,8 +395,15 @@ export default function AdminLayout() {
 
             {/* Mobile Brand Logo displayed in top bar */}
             <div className="mobile-brand-header">
-              <div className="brand-icon" style={{ width: '28px', height: '28px', borderRadius: '7px' }}>
-                <Music2 color="white" size={16} />
+              <div className="brand-icon" style={{ width: '28px', height: '28px', borderRadius: '7px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img
+                  src="/logo.png"
+                  alt="Logo"
+                  style={{ width: '20px', height: '20px', objectFit: 'contain' }}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: '12px', fontWeight: '700', color: '#fff', lineHeight: '1.2' }}>
@@ -389,7 +423,7 @@ export default function AdminLayout() {
             </div>
           </div>
 
-          {/* Right: Quick Search, Add Song, Notifications, Avatar */}
+          {/* Right: Quick Search, Theme, Notifications, Avatar */}
           <div className="header-right">
             {/* Quick Search Palette Trigger (Desktop only) */}
             <div
@@ -399,7 +433,7 @@ export default function AdminLayout() {
             >
               <Search size={14} color="#8b5cf6" />
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                Search songs, feedback...
+                Search songs, feedback, or actions...
               </span>
               <span className="kbd">Ctrl K</span>
             </div>
@@ -425,14 +459,13 @@ export default function AdminLayout() {
               )}
             </button>
 
-            {/* Add Song Shortcut Button (Desktop only) */}
+            {/* Theme Switcher Toggle (Desktop only) */}
             <button
-              onClick={() => navigate('/admin?tab=songs&newSong=true')}
-              className="add-song-btn desktop-only-btn"
-              title="Add a new song"
+              onClick={toggleAdminTheme}
+              className="btn-icon-admin desktop-only-btn"
+              title={adminTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
             >
-              <Plus size={14} />
-              <span className="btn-label-text">Add Song</span>
+              {adminTheme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
             </button>
 
             {/* User Avatar Circle */}
