@@ -108,6 +108,9 @@ export default function FeedbackTab() {
 
   // Notifications & Sound
   const [notifPermission, setNotifPermission] = useState('default');
+  const [liveToast, setLiveToast] = useState(null);
+  const [notifHelpModalOpen, setNotifHelpModalOpen] = useState(false);
+  const [notifHelpType, setNotifHelpType] = useState('unsupported');
   const [soundEnabled, setSoundEnabled] = useState(() => {
     try {
       const saved = localStorage.getItem('admin_feedback_sound');
@@ -144,8 +147,19 @@ export default function FeedbackTab() {
   };
 
   const requestNotificationPermission = async () => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    const isTelegramOrInApp = /Telegram|FBAN|FBAV|Instagram|Line/i.test(navigator.userAgent);
+
     if (!('Notification' in window)) {
-      alert('Browser notifications are not supported on this device.');
+      if (isIOS && !isStandalone) {
+        setNotifHelpType('ios_pwa');
+      } else if (isTelegramOrInApp) {
+        setNotifHelpType('in_app_browser');
+      } else {
+        setNotifHelpType('unsupported');
+      }
+      setNotifHelpModalOpen(true);
       return;
     }
 
@@ -153,20 +167,45 @@ export default function FeedbackTab() {
       const perm = await Notification.requestPermission();
       setNotifPermission(perm);
       if (perm === 'granted') {
-        new Notification('JW Original Songs Admin', {
-          body: 'Browser notifications are now enabled for incoming messages.',
-          icon: '/favicon.ico',
-        });
+        // Send a test notification using Service Worker or Notification constructor
+        if ('serviceWorker' in navigator) {
+          try {
+            const reg = await navigator.serviceWorker.ready;
+            await reg.showNotification('JW Original Songs Admin', {
+              body: 'Notifications are now active for incoming messages.',
+              icon: '/logo.png',
+              badge: '/logo.png',
+              vibrate: [200, 100, 200],
+            });
+          } catch (_) {
+            try {
+              new Notification('JW Original Songs Admin', {
+                body: 'Notifications are now active for incoming messages.',
+                icon: '/logo.png',
+              });
+            } catch (_) {}
+          }
+        } else {
+          try {
+            new Notification('JW Original Songs Admin', {
+              body: 'Notifications are now active for incoming messages.',
+              icon: '/logo.png',
+            });
+          } catch (_) {}
+        }
         if (soundEnabledRef.current) playChime();
+      } else if (perm === 'denied') {
+        setNotifHelpType('denied');
+        setNotifHelpModalOpen(true);
       }
     } catch (err) {
       console.error('Notification permission error:', err);
+      setNotifHelpType('error');
+      setNotifHelpModalOpen(true);
     }
   };
 
   const triggerNotification = useCallback((msg) => {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-
     try {
       const report = parseSongReport(msg);
       let title = 'New Feedback Message';
@@ -179,18 +218,61 @@ export default function FeedbackTab() {
         title = `Message from User ${msg.device_id.slice(-4)}`;
       }
 
-      const notif = new Notification(title, {
+      const targetConvoId = msg.device_id || `anon_${msg.id}`;
+
+      // 1. In-Dashboard Live Alert Banner
+      setLiveToast({
+        id: msg.id,
+        title,
         body,
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
-        tag: `feedback_${msg.id}`,
+        convoId: targetConvoId,
       });
 
-      notif.onclick = () => {
-        window.focus();
-        const targetConvoId = msg.device_id || `anon_${msg.id}`;
-        setSelectedConvoId(targetConvoId);
-      };
+      // 2. Audible chime if sound is enabled
+      if (soundEnabledRef.current) {
+        playChime();
+      }
+
+      // 3. System Push / Service Worker notification if permitted
+      if ('Notification' in window && Notification.permission === 'granted') {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then((reg) => {
+            reg.showNotification(title, {
+              body,
+              icon: '/logo.png',
+              badge: '/logo.png',
+              vibrate: [200, 100, 200],
+              tag: `feedback_${msg.id}`,
+            });
+          }).catch(() => {
+            try {
+              const notif = new Notification(title, {
+                body,
+                icon: '/logo.png',
+                badge: '/logo.png',
+                tag: `feedback_${msg.id}`,
+              });
+              notif.onclick = () => {
+                window.focus();
+                setSelectedConvoId(targetConvoId);
+              };
+            } catch (_) {}
+          });
+        } else {
+          try {
+            const notif = new Notification(title, {
+              body,
+              icon: '/logo.png',
+              badge: '/logo.png',
+              tag: `feedback_${msg.id}`,
+            });
+            notif.onclick = () => {
+              window.focus();
+              setSelectedConvoId(targetConvoId);
+            };
+          } catch (_) {}
+        }
+      }
     } catch (err) {
       console.error('Failed to trigger notification:', err);
     }
@@ -319,6 +401,15 @@ export default function FeedbackTab() {
       supabase.removeChannel(channel);
     };
   }, [fetchConversations, triggerNotification]);
+
+  // Auto-dismiss live toast
+  useEffect(() => {
+    if (!liveToast) return;
+    const timer = setTimeout(() => {
+      setLiveToast(null);
+    }, 7000);
+    return () => clearTimeout(timer);
+  }, [liveToast]);
 
   const selectedConvo = useMemo(() => {
     return conversations.find((c) => c.id === selectedConvoId) || null;
@@ -938,6 +1029,217 @@ export default function FeedbackTab() {
           )}
         </div>
       </div>
+
+      {/* Floating In-Dashboard Live Alert Toast */}
+      {liveToast && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            zIndex: 150,
+            maxWidth: '380px',
+            width: 'calc(100% - 40px)',
+            background: '#18181b',
+            border: '1px solid #8b5cf6',
+            borderRadius: '12px',
+            padding: '14px 16px',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(139, 92, 246, 0.3)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
+            animation: 'adminSlideDown 0.25s ease',
+          }}
+        >
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              background: 'rgba(139, 92, 246, 0.2)',
+              color: '#8b5cf6',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Bell size={16} />
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#fff', marginBottom: '2px' }}>
+              {liveToast.title}
+            </div>
+            <p style={{ fontSize: '12px', color: '#a1a1aa', margin: '0 0 8px 0', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+              {liveToast.body}
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => {
+                  const convo = conversations.find((c) => c.id === liveToast.convoId);
+                  if (convo) {
+                    handleSelect(convo);
+                  } else {
+                    setSelectedConvoId(liveToast.convoId);
+                  }
+                  setLiveToast(null);
+                }}
+                className="btn-admin-primary"
+                style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '6px' }}
+              >
+                View Message
+              </button>
+              <button
+                onClick={() => setLiveToast(null)}
+                className="btn-admin-secondary"
+                style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px' }}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setLiveToast(null)}
+            style={{ background: 'transparent', border: 'none', color: '#71717a', cursor: 'pointer', padding: '2px' }}
+            title="Close"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Browser Notification Guidance Modal */}
+      {notifHelpModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 140,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+          onClick={() => setNotifHelpModalOpen(false)}
+        >
+          <div
+            className="admin-card"
+            style={{
+              maxWidth: '460px',
+              width: '100%',
+              padding: '24px',
+              background: '#121215',
+              border: '1px solid #27272a',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Bell size={18} color="#8b5cf6" />
+                <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#fff', margin: 0 }}>
+                  {notifHelpType === 'ios_pwa'
+                    ? 'Enable Alerts on iPhone or iPad'
+                    : notifHelpType === 'in_app_browser'
+                    ? 'Open in External Browser'
+                    : notifHelpType === 'denied'
+                    ? 'Notifications Are Blocked'
+                    : 'Device Notification Support'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setNotifHelpModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: '#71717a', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {notifHelpType === 'ios_pwa' ? (
+              <div>
+                <p style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: '1.5', margin: '0 0 12px 0' }}>
+                  Apple iOS restricts browser push notifications when visiting via Safari tabs. To enable full alerts on your phone:
+                </p>
+                <div style={{ background: '#09090b', border: '1px solid #27272a', borderRadius: '8px', padding: '12px', marginBottom: '14px' }}>
+                  <div style={{ fontSize: '12px', color: '#fafafa', marginBottom: '8px' }}>
+                    <strong>1.</strong> Tap the <strong>Share</strong> button at the bottom of Safari (square with arrow).
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#fafafa', marginBottom: '8px' }}>
+                    <strong>2.</strong> Scroll down and tap <strong>Add to Home Screen</strong>.
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#fafafa' }}>
+                    <strong>3.</strong> Open <strong>JW Songs Admin</strong> from your Home Screen. Push alerts will then work smoothly!
+                  </div>
+                </div>
+                <div style={{ fontSize: '11px', color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.1)', padding: '8px 10px', borderRadius: '6px' }}>
+                  Live audio chime and in-dashboard banner alerts are currently active in this window.
+                </div>
+              </div>
+            ) : notifHelpType === 'in_app_browser' ? (
+              <div>
+                <p style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: '1.5', margin: '0 0 12px 0' }}>
+                  You are currently viewing this page inside an in-app browser (such as Telegram or WhatsApp), which disables system notification permissions.
+                </p>
+                <div style={{ background: '#09090b', border: '1px solid #27272a', borderRadius: '8px', padding: '12px', marginBottom: '14px' }}>
+                  <div style={{ fontSize: '12px', color: '#fafafa', marginBottom: '6px' }}>
+                    <strong>1.</strong> Tap the three dots menu at the top or bottom right.
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#fafafa' }}>
+                    <strong>2.</strong> Choose <strong>Open in Chrome</strong> or <strong>Open in Safari</strong>.
+                  </div>
+                </div>
+                <p style={{ fontSize: '11px', color: '#71717a', margin: 0 }}>
+                  Once opened in your main browser, you will be able to enable alerts directly.
+                </p>
+              </div>
+            ) : notifHelpType === 'denied' ? (
+              <div>
+                <p style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: '1.5', margin: '0 0 12px 0' }}>
+                  Notifications were previously denied or blocked for this site.
+                </p>
+                <div style={{ background: '#09090b', border: '1px solid #27272a', borderRadius: '8px', padding: '12px', marginBottom: '14px' }}>
+                  <div style={{ fontSize: '12px', color: '#fafafa', marginBottom: '6px' }}>
+                    <strong>1.</strong> Tap the settings / tune icon beside the URL in your browser bar.
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#fafafa', marginBottom: '6px' }}>
+                    <strong>2.</strong> Tap <strong>Permissions</strong> or <strong>Notifications</strong>.
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#fafafa' }}>
+                    <strong>3.</strong> Change the setting to <strong>Allow</strong>.
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: '1.5', margin: '0 0 12px 0' }}>
+                  System push notifications are not exposed by this browser. However:
+                </p>
+                <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.25)', borderRadius: '8px', padding: '12px', marginBottom: '14px' }}>
+                  <div style={{ fontSize: '12px', color: '#22c55e', fontWeight: '600', marginBottom: '4px' }}>
+                    Live In-App Alerts Are Active
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#a1a1aa', lineHeight: '1.4' }}>
+                    Whenever a user sends a message or submits a song report, an audible chime plays and a notification toast appears at the top of your dashboard.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #27272a' }}>
+              <button
+                onClick={() => setNotifHelpModalOpen(false)}
+                className="btn-admin-primary"
+                style={{ padding: '6px 14px', fontSize: '12px' }}
+              >
+                Understood
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
