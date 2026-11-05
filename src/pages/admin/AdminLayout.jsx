@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Outlet, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import './admin.css';
 import {
   LogOut,
   Music,
@@ -23,6 +24,7 @@ import {
   Bell,
   User,
   Filter,
+  LayoutDashboard,
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -31,9 +33,9 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const currentTab = searchParams.get('tab') || 'songs';
+  const currentTab = searchParams.get('tab') || 'dashboard';
 
-  // Responsive sidebar collapse state
+  // Sidebar states
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem('admin_sidebar_collapsed') === 'true';
@@ -41,6 +43,7 @@ export default function AdminLayout() {
       return false;
     }
   });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Global Command Palette State
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -172,6 +175,7 @@ export default function AdminLayout() {
 
   const setTab = (tab) => {
     setSearchParams({ tab });
+    setMobileMenuOpen(false);
   };
 
   const executeAction = (action) => {
@@ -212,8 +216,8 @@ export default function AdminLayout() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#0a0910',
-        color: '#9CA3AF',
+        background: '#09090b',
+        color: '#a1a1aa',
         fontFamily: 'Inter, system-ui, sans-serif',
       }}>
         <p>Loading admin panel...</p>
@@ -226,136 +230,71 @@ export default function AdminLayout() {
   }
 
   const navItems = [
-    { key: 'songs', label: 'Songs Library', icon: Music },
+    { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { key: 'songs', label: 'Songs', icon: Music },
     { key: 'categories', label: 'Categories', icon: FolderTree },
-    { key: 'feedback', label: 'User Feedback', icon: MessageSquare, badge: unreadFeedbackCount },
-    { key: 'notifications', label: 'Push Alerts', icon: Megaphone },
+    { key: 'feedback', label: 'Feedback & Chat', icon: MessageSquare, badge: unreadFeedbackCount },
+    { key: 'notifications', label: 'Push Notifications', icon: Megaphone },
     { key: 'updates', label: 'App Updates', icon: Smartphone },
   ];
 
   const currentTabLabel = navItems.find((n) => n.key === currentTab)?.label || 'Dashboard';
+  const userInitial = session.user?.email ? session.user.email[0].toUpperCase() : 'U';
 
   return (
-    <div style={{
-      display: 'flex',
-      width: '100%',
-      maxWidth: '100vw',
-      height: '100vh',
-      maxHeight: '100vh',
-      overflow: 'hidden',
-      background: '#0a0910',
-      color: '#fff',
-      fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-      boxSizing: 'border-box',
-    }}>
-      {/* Sleek Collapsible Sidebar */}
-      <aside style={{
-        width: sidebarCollapsed ? '72px' : '240px',
-        minWidth: sidebarCollapsed ? '72px' : '240px',
-        maxWidth: sidebarCollapsed ? '72px' : '240px',
-        background: '#12101a',
-        borderRight: '1px solid #231f30',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-        height: '100vh',
-        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-        zIndex: 50,
-      }}>
+    <div className="admin-shell">
+      {/* Mobile Drawer Overlay */}
+      <div
+        className={`sidebar-overlay ${mobileMenuOpen ? 'visible' : ''}`}
+        onClick={() => setMobileMenuOpen(false)}
+      />
+
+      {/* Sidebar: Persistent on Desktop, Slide-over Drawer on Mobile */}
+      <aside className={`admin-sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         {/* Brand Header */}
-        <div style={{
-          height: '64px',
-          padding: sidebarCollapsed ? '0 16px' : '0 20px',
-          borderBottom: '1px solid #231f30',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: sidebarCollapsed ? 'center' : 'space-between',
-          flexShrink: 0,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #8B5CF6, #EC4899)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              boxShadow: '0 2px 8px rgba(139, 92, 246, 0.3)',
-            }}>
-              <Music2 color="white" size={18} />
-            </div>
-            {!sidebarCollapsed && (
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: '700', fontSize: '13px', lineHeight: '1.2', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  JW Lyrics
-                </div>
-                <div style={{ fontSize: '10px', color: '#A78BFA', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  Admin Console
-                </div>
-              </div>
-            )}
+        <div className="sidebar-brand">
+          <div className="brand-icon">
+            <Music2 color="white" size={18} />
           </div>
+          <div className="brand-text">
+            <div style={{ fontWeight: '700', fontSize: '13px', lineHeight: '1.2', color: '#fff' }}>
+              JW Original Songs
+            </div>
+            <div style={{ fontSize: '10px', color: '#a78bfa', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+              Admin
+            </div>
+          </div>
+
+          {/* Close button on mobile drawer */}
+          {mobileMenuOpen && (
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="btn-icon-admin"
+              style={{ marginLeft: 'auto', border: 'none', background: 'transparent' }}
+              title="Close menu"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         {/* Navigation Items */}
-        <nav style={{ padding: '16px 10px', flex: 1, overflowY: 'auto' }}>
+        <nav className="sidebar-nav">
           {navItems.map(({ key, label, icon: Icon, badge }) => {
             const isActive = currentTab === key;
             return (
               <button
                 key={key}
                 onClick={() => setTab(key)}
+                className={`nav-btn ${isActive ? 'active' : ''}`}
                 title={sidebarCollapsed ? label : undefined}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  width: '100%',
-                  padding: sidebarCollapsed ? '12px 0' : '10px 14px',
-                  justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-                  marginBottom: '6px',
-                  background: isActive ? '#8B5CF6' : 'transparent',
-                  color: isActive ? '#fff' : '#9CA3AF',
-                  border: 'none',
-                  borderRadius: '10px',
-                  fontSize: '13px',
-                  fontWeight: isActive ? '600' : '500',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  position: 'relative',
-                  transition: 'all 0.15s ease',
-                  boxShadow: isActive ? '0 2px 10px rgba(139, 92, 246, 0.3)' : 'none',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = '#1c1829';
-                    e.currentTarget.style.color = '#fff';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = '#9CA3AF';
-                  }
-                }}
               >
-                <Icon size={18} style={{ flexShrink: 0 }} />
-                {!sidebarCollapsed && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>}
+                <Icon size={17} style={{ flexShrink: 0 }} />
+                <span className="nav-label" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {label}
+                </span>
                 {Boolean(badge && badge > 0) && (
-                  <span style={{
-                    position: sidebarCollapsed ? 'absolute' : 'static',
-                    top: sidebarCollapsed ? '6px' : 'auto',
-                    right: sidebarCollapsed ? '6px' : 'auto',
-                    padding: '2px 6px',
-                    borderRadius: '10px',
-                    background: '#EC4899',
-                    color: '#fff',
-                    fontSize: '10px',
-                    fontWeight: '700',
-                    lineHeight: '1',
-                  }}>
+                  <span className="nav-badge">
                     {badge}
                   </span>
                 )}
@@ -364,254 +303,178 @@ export default function AdminLayout() {
           })}
         </nav>
 
-        {/* User Footer with Collapse Toggle and Sign Out */}
-        <div style={{ padding: '12px', borderTop: '1px solid #231f30', background: '#0e0c16', flexShrink: 0 }}>
-          {/* Toggle Sidebar Button */}
+        {/* User Footer */}
+        <div className="sidebar-footer">
+          {/* Collapse/Expand Toggle (Desktop only) */}
           <button
             onClick={toggleSidebar}
+            className="footer-btn"
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-              gap: '10px',
-              width: '100%',
-              padding: '8px 10px',
-              marginBottom: '8px',
-              background: '#1a1626',
-              border: '1px solid #2c263d',
-              borderRadius: '8px',
-              color: '#9CA3AF',
-              fontSize: '12px',
-              cursor: 'pointer',
-            }}
           >
-            {sidebarCollapsed ? <ChevronRight size={16} /> : (
-              <>
-                <ChevronLeft size={16} />
-                <span>Collapse Sidebar</span>
-              </>
-            )}
+            {sidebarCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+            <span className="btn-label">Collapse</span>
           </button>
 
-          {/* User Email & Sign Out */}
-          {!sidebarCollapsed && (
-            <div style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '8px', padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {session.user?.email || 'Admin User'}
-            </div>
-          )}
+          {/* User Email */}
+          <div className="user-email" title={session.user?.email}>
+            {session.user?.email || 'Admin User'}
+          </div>
+
+          {/* Sign Out */}
           <button
             onClick={handleLogout}
+            className="footer-btn sign-out"
             title="Sign Out"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-              gap: '8px',
-              width: '100%',
-              padding: '8px 10px',
-              background: 'rgba(239, 68, 68, 0.08)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              borderRadius: '8px',
-              color: '#F87171',
-              fontSize: '12px',
-              fontWeight: '500',
-              cursor: 'pointer',
-            }}
           >
             <LogOut size={14} />
-            {!sidebarCollapsed && <span>Sign Out</span>}
+            <span className="btn-label">Sign Out</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Layout Area: Header + Scrollable Workspace */}
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        minWidth: 0,
-        height: '100vh',
-        overflow: 'hidden',
-      }}>
-        {/* Unified Top Header Bar */}
-        <header style={{
-          height: '64px',
-          background: '#12101a',
-          borderBottom: '1px solid #231f30',
-          padding: '0 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexShrink: 0,
-          gap: '16px',
-        }}>
-          {/* Breadcrumb / Title */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-            <span style={{ fontSize: '13px', color: '#6B7280', fontWeight: '500' }}>Admin</span>
-            <span style={{ fontSize: '13px', color: '#4B5563' }}>/</span>
-            <span style={{ fontSize: '14px', color: '#fff', fontWeight: '700' }}>{currentTabLabel}</span>
+      {/* Main Area: Top Bar + Scrollable Content */}
+      <div className="admin-main">
+        {/* Top Header Bar */}
+        <header className="admin-header">
+          {/* Left: Mobile hamburger menu + Breadcrumb */}
+          <div className="header-left">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="mobile-menu-btn"
+              title="Open Navigation"
+              aria-label="Open Navigation"
+            >
+              <Menu size={18} />
+            </button>
+
+            <div className="header-breadcrumb">
+              <span className="bc-dim">Admin</span>
+              <span className="bc-sep">/</span>
+              <span className="bc-active">{currentTabLabel}</span>
+            </div>
           </div>
 
-          {/* Quick Search & Actions Trigger */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Right: Quick Search, Add Song, Notifications, Avatar */}
+          <div className="header-right">
+            {/* Quick Search Palette Trigger */}
             <div
+              className="search-trigger"
               onClick={() => setPaletteOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                background: '#1a1626',
-                border: '1px solid #2c263d',
-                borderRadius: '8px',
-                padding: '7px 12px',
-                width: 'clamp(200px, 28vw, 360px)',
-                cursor: 'pointer',
-                color: '#9CA3AF',
-                transition: 'border-color 0.15s ease',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#8B5CF6')}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2c263d')}
+              title="Search songs, feedback, or actions (Ctrl + K)"
             >
-              <Search size={14} color="#8B5CF6" />
-              <span style={{ fontSize: '12px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                Quick search songs or actions...
+              <Search size={14} color="#8b5cf6" />
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                Search songs, feedback...
               </span>
-              <span style={{
-                fontSize: '10px',
-                background: '#252136',
-                border: '1px solid #3c3552',
-                borderRadius: '4px',
-                padding: '2px 5px',
-                color: '#C4B5FD',
-                fontWeight: '600',
-              }}>
-                Ctrl K
-              </span>
+              <span className="kbd">Ctrl K</span>
             </div>
 
-            {/* Quick Action Button */}
+            {/* Notification Bell with indicator */}
+            <button
+              onClick={() => setTab('feedback')}
+              className="btn-icon-admin"
+              title={unreadFeedbackCount > 0 ? `${unreadFeedbackCount} unread message(s)` : 'Feedback Notifications'}
+              style={{ position: 'relative' }}
+            >
+              <Bell size={16} />
+              {unreadFeedbackCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '6px',
+                  right: '6px',
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: '#ec4899',
+                }} />
+              )}
+            </button>
+
+            {/* Add Song Shortcut Button */}
             <button
               onClick={() => navigate('/admin?tab=songs&newSong=true')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '7px 12px',
-                background: '#8B5CF6',
-                border: 'none',
-                borderRadius: '8px',
-                color: '#fff',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
+              className="add-song-btn"
+              title="Add a new song"
             >
               <Plus size={14} />
-              <span>Add Song</span>
+              <span className="btn-label-text">Add Song</span>
             </button>
+
+            {/* User Avatar Circle */}
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                fontSize: '13px',
+                fontWeight: '700',
+                flexShrink: 0,
+                cursor: 'pointer',
+              }}
+              title={session.user?.email || 'Admin'}
+            >
+              {userInitial}
+            </div>
           </div>
         </header>
 
-        {/* Content Workspace — Strict boundary prevents page overflow */}
-        <main style={{
-          flex: 1,
-          minHeight: 0,
-          minWidth: 0,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          background: '#0a0910',
-        }}>
+        {/* Content Workspace */}
+        <main className="admin-content">
           <Outlet context={{ currentTab }} />
         </main>
       </div>
 
-      {/* Global Command Palette Modal */}
+      {/* Global Command Palette Modal (Ctrl + K) */}
       {paletteOpen && (
         <div
+          className="palette-overlay"
           onClick={() => setPaletteOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(5, 4, 8, 0.8)',
-            backdropFilter: 'blur(6px)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'center',
-            paddingTop: '80px',
-          }}
         >
           <div
+            className="palette-container"
             onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '620px',
-              maxWidth: '92vw',
-              background: '#151320',
-              border: '1px solid #362e49',
-              borderRadius: '16px',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.8)',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
           >
             {/* Search Input Bar */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '16px 20px',
-              borderBottom: '1px solid #282236',
-              gap: '12px',
-              background: '#110f1c',
-            }}>
-              <Search size={18} color="#8B5CF6" />
+            <div className="palette-search">
+              <Search size={16} color="#8b5cf6" />
               <input
                 ref={searchInputRef}
                 type="text"
-                placeholder="Search songs to edit, copy ID, or preview audio..."
+                placeholder="Type a song title or action..."
                 value={paletteQuery}
                 onChange={(e) => setPaletteQuery(e.target.value)}
-                style={{
-                  flex: 1,
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  color: '#fff',
-                  fontSize: '14px',
-                }}
               />
               {paletteQuery ? (
                 <button
                   onClick={() => setPaletteQuery('')}
-                  style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', padding: 0 }}
+                  style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', padding: '4px' }}
                 >
-                  <X size={16} />
+                  <X size={15} />
                 </button>
               ) : (
-                <span style={{ fontSize: '11px', color: '#6B7280', border: '1px solid #282236', padding: '2px 6px', borderRadius: '4px' }}>
-                  ESC
-                </span>
+                <span className="kbd" style={{ fontSize: '10px', color: '#a1a1aa' }}>ESC</span>
               )}
             </div>
 
-            {/* Results or Shortcuts */}
-            <div style={{ maxHeight: '400px', overflowY: 'auto', padding: '12px' }}>
+            {/* Results or Quick Actions */}
+            <div className="palette-results">
               {paletteQuery.trim() ? (
                 paletteLoading ? (
-                  <div style={{ padding: '30px', textAlign: 'center', color: '#9CA3AF', fontSize: '13px' }}>
+                  <div style={{ padding: '24px', textAlign: 'center', color: '#a1a1aa', fontSize: '13px' }}>
                     Searching songs...
                   </div>
                 ) : paletteResults.length === 0 ? (
-                  <div style={{ padding: '30px', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>
+                  <div style={{ padding: '24px', textAlign: 'center', color: '#71717a', fontSize: '13px' }}>
                     No songs found matching "{paletteQuery}"
                   </div>
                 ) : (
                   <div>
-                    <div style={{ fontSize: '11px', fontWeight: '600', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '6px 12px 8px 12px' }}>
+                    <div style={{ fontSize: '11px', color: '#71717a', padding: '6px 10px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
                       Matching Songs ({paletteResults.length})
                     </div>
                     {paletteResults.map((song) => {
@@ -619,61 +482,37 @@ export default function AdminLayout() {
                       return (
                         <div
                           key={song.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '10px 14px',
-                            borderRadius: '10px',
-                            background: '#1b1728',
-                            marginBottom: '6px',
-                            border: '1px solid #282236',
-                          }}
+                          className="palette-result-item"
+                          onClick={() => executeAction(() => navigate(`/admin?tab=songs&editSongId=${song.id}`))}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
-                            {song.feature_image_url ? (
-                              <img src={song.feature_image_url} alt="" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover' }} />
-                            ) : (
-                              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#252136', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Music size={16} color="#9CA3AF" />
-                              </div>
-                            )}
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {song.title}
-                              </div>
-                              <div style={{ fontSize: '11px', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span>{song.categories?.name || 'No Category'}</span>
-                                <span style={{
-                                  fontSize: '10px',
-                                  padding: '1px 5px',
-                                  borderRadius: '4px',
-                                  background: song.is_published ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                                  color: song.is_published ? '#34D399' : '#F87171',
-                                }}>
-                                  {song.is_published ? 'Published' : 'Draft'}
-                                </span>
-                              </div>
+                          {song.feature_image_url ? (
+                            <img src={song.feature_image_url} alt="" className="result-img" />
+                          ) : (
+                            <div className="result-img-placeholder">
+                              <Music size={16} color="#71717a" />
+                            </div>
+                          )}
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {song.title}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#a1a1aa', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span>{song.categories?.name || 'Uncategorized'}</span>
+                              <span>·</span>
+                              <span style={{ color: song.is_published ? '#22c55e' : '#f87171' }}>
+                                {song.is_published ? 'Published' : 'Draft'}
+                              </span>
                             </div>
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             {song.mp3_url && (
                               <button
                                 onClick={(e) => togglePaletteAudio(song, e)}
-                                title={isPlaying ? 'Pause' : 'Preview audio'}
-                                style={{
-                                  background: isPlaying ? '#8B5CF6' : '#252136',
-                                  border: '1px solid #3c3552',
-                                  color: '#fff',
-                                  borderRadius: '8px',
-                                  width: '32px',
-                                  height: '32px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  cursor: 'pointer',
-                                }}
+                                title={isPlaying ? 'Pause' : 'Play Preview'}
+                                className="btn-icon-admin"
+                                style={{ width: '30px', height: '30px', background: isPlaying ? '#8b5cf6' : undefined, color: isPlaying ? '#fff' : undefined }}
                               >
                                 {isPlaying ? <Pause size={13} /> : <Play size={13} />}
                               </button>
@@ -682,44 +521,18 @@ export default function AdminLayout() {
                             <button
                               onClick={(e) => copyId(song.id, e)}
                               title="Copy Song ID"
-                              style={{
-                                background: '#252136',
-                                border: '1px solid #3c3552',
-                                color: copiedId === song.id ? '#34D399' : '#9CA3AF',
-                                borderRadius: '8px',
-                                width: '32px',
-                                height: '32px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                              }}
+                              className="btn-icon-admin"
+                              style={{ width: '30px', height: '30px' }}
                             >
-                              {copiedId === song.id ? <Check size={13} /> : <Copy size={13} />}
+                              {copiedId === song.id ? <Check size={13} color="#22c55e" /> : <Copy size={13} />}
                             </button>
 
                             <button
-                              onClick={() => {
-                                executeAction(() => {
-                                  navigate(`/admin?tab=songs&editSongId=${song.id}`);
-                                });
-                              }}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '5px',
-                                background: '#8B5CF6',
-                                border: 'none',
-                                color: '#fff',
-                                borderRadius: '8px',
-                                padding: '6px 12px',
-                                fontSize: '12px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                              }}
+                              onClick={() => executeAction(() => navigate(`/admin?tab=songs&editSongId=${song.id}`))}
+                              className="btn-admin-edit"
+                              style={{ padding: '5px 8px', fontSize: '11px' }}
                             >
-                              <Edit2 size={12} />
-                              Edit
+                              <Edit2 size={11} /> Edit
                             </button>
                           </div>
                         </div>
@@ -728,54 +541,43 @@ export default function AdminLayout() {
                   </div>
                 )
               ) : (
-                <div>
-                  <div style={{ fontSize: '11px', fontWeight: '600', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '6px 12px 8px 12px' }}>
+                /* Quick Shortcuts when search is empty */
+                <div className="palette-actions">
+                  <div style={{ fontSize: '11px', color: '#71717a', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
                     Quick Actions
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <div
+                  <div className="palette-action-grid">
+                    <button
                       onClick={() => executeAction(() => navigate('/admin?tab=songs&newSong=true'))}
-                      style={{ padding: '12px 14px', background: '#1b1728', border: '1px solid #2c253d', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
+                      className="palette-action-btn"
                     >
-                      <Plus size={16} color="#A78BFA" />
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>Add New Song</div>
-                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Create song & audio</div>
-                      </div>
-                    </div>
+                      <Plus size={15} color="#8b5cf6" />
+                      <span>Add New Song</span>
+                    </button>
 
-                    <div
-                      onClick={() => executeAction(() => navigate('/admin?tab=feedback&filter=needs_reply'))}
-                      style={{ padding: '12px 14px', background: '#1b1728', border: '1px solid #2c253d', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
+                    <button
+                      onClick={() => executeAction(() => navigate('/admin?tab=feedback'))}
+                      className="palette-action-btn"
                     >
-                      <MessageSquare size={16} color="#EC4899" />
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>User Feedback</div>
-                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Support & song reports</div>
-                      </div>
-                    </div>
+                      <MessageSquare size={15} color="#ec4899" />
+                      <span>User Feedback</span>
+                    </button>
 
-                    <div
+                    <button
                       onClick={() => executeAction(() => navigate('/admin?tab=songs&status=no_audio'))}
-                      style={{ padding: '12px 14px', background: '#1b1728', border: '1px solid #2c253d', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
+                      className="palette-action-btn"
                     >
-                      <Filter size={16} color="#F59E0B" />
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>Missing Audio</div>
-                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Songs without MP3 link</div>
-                      </div>
-                    </div>
+                      <Filter size={15} color="#f59e0b" />
+                      <span>Missing Audio</span>
+                    </button>
 
-                    <div
+                    <button
                       onClick={() => executeAction(() => navigate('/admin?tab=notifications'))}
-                      style={{ padding: '12px 14px', background: '#1b1728', border: '1px solid #2c253d', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
+                      className="palette-action-btn"
                     >
-                      <Megaphone size={16} color="#3B82F6" />
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>Push Alerts</div>
-                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Broadcast to mobile users</div>
-                      </div>
-                    </div>
+                      <Megaphone size={15} color="#3b82f6" />
+                      <span>Push Alerts</span>
+                    </button>
                   </div>
                 </div>
               )}

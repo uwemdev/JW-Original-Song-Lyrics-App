@@ -41,48 +41,50 @@ export default function AdminLogin() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: '#0d0c11',
+      background: '#09090b',
       padding: '16px',
       fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+      boxSizing: 'border-box',
     }}>
       <div style={{
         width: '100%',
         maxWidth: '400px',
-        background: '#17151f',
-        border: '1px solid #2d293b',
+        background: '#111113',
+        border: '1px solid #27272a',
         borderRadius: '16px',
-        padding: '40px 32px',
+        padding: '36px 28px',
+        boxSizing: 'border-box',
       }}>
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
           <div style={{
-            width: '56px',
-            height: '56px',
+            width: '52px',
+            height: '52px',
             borderRadius: '14px',
-            background: 'linear-gradient(135deg, #A78BFA, #F472B6)',
+            background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: '16px',
+            marginBottom: '14px',
           }}>
-            <Music2 color="white" size={28} />
+            <Music2 color="white" size={26} />
           </div>
-          <h1 style={{ color: '#fff', fontSize: '22px', fontWeight: '700', margin: '0 0 4px 0' }}>
+          <h1 style={{ color: '#fff', fontSize: '20px', fontWeight: '700', margin: '0 0 4px 0' }}>
             JW Original Songs
           </h1>
-          <p style={{ color: '#9CA3AF', fontSize: '14px', margin: 0 }}>Admin Panel</p>
+          <p style={{ color: '#a1a1aa', fontSize: '13px', margin: 0 }}>Admin Portal</p>
         </div>
 
         {/* Error */}
         {error && (
           <div style={{
-            background: 'rgba(239,68,68,0.1)',
-            border: '1px solid rgba(239,68,68,0.3)',
-            color: '#EF4444',
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            color: '#f87171',
             padding: '10px 14px',
             borderRadius: '8px',
             fontSize: '13px',
-            marginBottom: '20px',
+            marginBottom: '18px',
           }}>
             {error}
           </div>
@@ -91,11 +93,11 @@ export default function AdminLogin() {
         {/* Form */}
         <form onSubmit={handleLogin}>
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', color: '#9CA3AF', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>
+            <label style={{ display: 'block', color: '#a1a1aa', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>
               Email
             </label>
             <div style={{ position: 'relative' }}>
-              <Mail size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#6B7280' }} />
+              <Mail size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#71717a' }} />
               <input
                 type="email"
                 required
@@ -104,12 +106,12 @@ export default function AdminLogin() {
                 placeholder="admin@example.com"
                 style={{
                   width: '100%',
-                  padding: '10px 12px 10px 36px',
-                  background: '#0d0c11',
-                  border: '1px solid #2d293b',
+                  padding: '10px 12px 10px 38px',
+                  background: '#09090b',
+                  border: '1px solid #27272a',
                   borderRadius: '8px',
                   color: '#fff',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   outline: 'none',
                   boxSizing: 'border-box',
                 }}
@@ -117,12 +119,12 @@ export default function AdminLogin() {
             </div>
           </div>
 
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', color: '#9CA3AF', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>
+          <div style={{ marginBottom: '22px' }}>
+            <label style={{ display: 'block', color: '#a1a1aa', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>
               Password
             </label>
             <div style={{ position: 'relative' }}>
-              <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#6B7280' }} />
+              <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#71717a' }} />
               <input
                 type="password"
                 required
@@ -131,12 +133,12 @@ export default function AdminLogin() {
                 placeholder="••••••••"
                 style={{
                   width: '100%',
-                  padding: '10px 12px 10px 36px',
-                  background: '#0d0c11',
-                  border: '1px solid #2d293b',
+                  padding: '10px 12px 10px 38px',
+                  background: '#09090b',
+                  border: '1px solid #27272a',
                   borderRadius: '8px',
                   color: '#fff',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   outline: 'none',
                   boxSizing: 'border-box',
                 }}
@@ -149,15 +151,16 @@ export default function AdminLogin() {
             disabled={loading}
             style={{
               width: '100%',
-              padding: '12px',
-              background: loading ? '#4a2e85' : 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
+              padding: '11px',
+              background: loading ? '#6d28d9' : 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
               color: '#fff',
               border: 'none',
               borderRadius: '8px',
-              fontSize: '14px',
+              fontSize: '13px',
               fontWeight: '600',
               cursor: loading ? 'not-allowed' : 'pointer',
               opacity: loading ? 0.7 : 1,
+              transition: 'opacity 0.15s ease',
             }}
           >
             {loading ? 'Signing in...' : 'Sign In'}

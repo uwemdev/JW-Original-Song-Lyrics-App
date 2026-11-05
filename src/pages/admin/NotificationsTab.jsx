@@ -1,131 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Send, Trash2, Megaphone, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
-
-const s = {
-  page: {
-    maxWidth: '1400px',
-    width: '100%',
-    padding: '24px 28px',
-    boxSizing: 'border-box',
-    fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-    color: '#fff',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '24px',
-    flexWrap: 'wrap',
-    gap: '12px',
-  },
-  title: { fontSize: '22px', fontWeight: '700', color: '#fff', margin: 0, letterSpacing: '-0.3px' },
-  subtitle: { fontSize: '13px', color: '#9CA3AF', margin: '4px 0 0 0' },
-  card: {
-    background: '#12101a',
-    border: '1px solid #231f30',
-    borderRadius: '12px',
-    padding: '22px',
-    boxSizing: 'border-box',
-  },
-  formGroup: { marginBottom: '16px' },
-  label: { display: 'block', fontSize: '12px', fontWeight: '600', color: '#9CA3AF', marginBottom: '6px' },
-  input: {
-    width: '100%',
-    padding: '10px 12px',
-    background: '#0a0910',
-    border: '1px solid #231f30',
-    borderRadius: '8px',
-    color: '#fff',
-    fontSize: '13px',
-    outline: 'none',
-    boxSizing: 'border-box',
-    transition: 'border-color 0.15s ease',
-  },
-  textarea: {
-    width: '100%',
-    padding: '10px 12px',
-    background: '#0a0910',
-    border: '1px solid #231f30',
-    borderRadius: '8px',
-    color: '#fff',
-    fontSize: '13px',
-    outline: 'none',
-    boxSizing: 'border-box',
-    minHeight: '100px',
-    resize: 'vertical',
-    fontFamily: 'inherit',
-    transition: 'border-color 0.15s ease',
-  },
-  btnPrimary: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '10px 18px',
-    background: '#8B5CF6',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '13px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'background 0.15s ease',
-  },
-  btnDanger: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '4px',
-    padding: '6px 10px',
-    background: 'rgba(239, 68, 68, 0.1)',
-    color: '#EF4444',
-    border: '1px solid rgba(239, 68, 68, 0.2)',
-    borderRadius: '6px',
-    fontSize: '12px',
-    cursor: 'pointer',
-  },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th: {
-    textAlign: 'left',
-    padding: '10px 12px',
-    fontSize: '11px',
-    fontWeight: '600',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    borderBottom: '1px solid #231f30',
-  },
-  td: {
-    padding: '12px',
-    borderBottom: '1px solid #1c1827',
-    fontSize: '13px',
-    color: '#D1D5DB',
-  },
-  empty: { textAlign: 'center', padding: '40px', color: '#6B7280', fontSize: '13px' },
-  error: {
-    background: 'rgba(239, 68, 68, 0.1)',
-    border: '1px solid rgba(239, 68, 68, 0.3)',
-    color: '#EF4444',
-    padding: '10px 14px',
-    borderRadius: '8px',
-    fontSize: '13px',
-    marginBottom: '16px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  success: {
-    background: 'rgba(34, 197, 94, 0.1)',
-    border: '1px solid rgba(34, 197, 94, 0.3)',
-    color: '#22C55E',
-    padding: '10px 14px',
-    borderRadius: '8px',
-    fontSize: '13px',
-    marginBottom: '16px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-};
+import { Send, Trash2, Megaphone, Clock, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react';
 
 export default function NotificationsTab() {
   const [notifications, setNotifications] = useState([]);
@@ -173,14 +48,14 @@ export default function NotificationsTab() {
       const { error } = await supabase
         .from('app_notifications')
         .insert([{
-          title: form.title,
-          message: form.message,
-          link_url: form.link_url || null,
+          title: form.title.trim(),
+          message: form.message.trim(),
+          link_url: form.link_url ? form.link_url.trim() : null,
         }]);
 
       if (error) throw error;
 
-      setSuccessMsg('Notification broadcast sent successfully! Mobile users will receive this in real-time or upon opening the app.');
+      setSuccessMsg('Notification sent successfully! App users will see this alert.');
       setForm({ title: '', message: '', link_url: '' });
       fetchNotifications();
     } catch (err) {
@@ -192,7 +67,7 @@ export default function NotificationsTab() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this notification? It will be removed from all users immediately.')) return;
+    if (!confirm('Delete this notification? It will be removed from users immediately.')) return;
 
     try {
       const { error } = await supabase
@@ -209,43 +84,41 @@ export default function NotificationsTab() {
   };
 
   return (
-    <div style={s.page}>
-      <div style={s.header}>
+    <div className="admin-page">
+      <div className="admin-page-header">
         <div>
-          <h1 style={s.title}>Push Notifications</h1>
-          <p style={s.subtitle}>Send real-time broadcast banners and in-app alerts to mobile users</p>
+          <h1>Push Notifications</h1>
+          <p className="page-subtitle">Send in-app announcements and updates to all users</p>
         </div>
       </div>
 
       {errorMsg && (
-        <div style={s.error}>
-          <AlertCircle size={16} />
+        <div className="admin-alert error">
+          <AlertCircle size={15} />
           <span>{errorMsg}</span>
         </div>
       )}
       {successMsg && (
-        <div style={s.success}>
-          <CheckCircle2 size={16} />
+        <div className="admin-alert success">
+          <CheckCircle2 size={15} />
           <span>{successMsg}</span>
         </div>
       )}
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-        gap: '20px',
-        alignItems: 'start',
-      }}>
+      {/* Side-by-side on desktop, stacked on mobile */}
+      <div className="notifications-grid">
         {/* Composer Card */}
-        <div style={s.card}>
+        <div className="admin-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <Megaphone size={16} color="#8B5CF6" />
-            <h2 style={{ color: '#fff', fontSize: '15px', fontWeight: '700', margin: 0 }}>Compose Message</h2>
+            <Megaphone size={16} color="#8b5cf6" />
+            <h2 style={{ color: '#fff', fontSize: '15px', fontWeight: '700', margin: 0 }}>
+              Compose Message
+            </h2>
           </div>
 
-          {/* Quick Presets */}
+          {/* Quick Templates */}
           <div style={{ marginBottom: '16px' }}>
-            <span style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', color: '#71717a', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>
               Quick Templates
             </span>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -256,7 +129,7 @@ export default function NotificationsTab() {
                   message: 'Hope your week is going well. Whenever you need a peaceful moment, your favorite Kingdom songs are here to encourage you.',
                   link_url: '',
                 })}
-                style={{ padding: '5px 9px', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#A78BFA', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
+                className="admin-template-btn"
               >
                 7-Day Warm Check-in
               </button>
@@ -267,7 +140,7 @@ export default function NotificationsTab() {
                   message: 'Take a peaceful moment today. An uplifting song can bring comfort and strength during a busy week.',
                   link_url: '',
                 })}
-                style={{ padding: '5px 9px', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#A78BFA', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
+                className="admin-template-btn"
               >
                 14-Day Warm Check-in
               </button>
@@ -278,7 +151,7 @@ export default function NotificationsTab() {
                   message: 'Hope you had an encouraging meeting! Relax this evening with an uplifting song.',
                   link_url: '',
                 })}
-                style={{ padding: '5px 9px', background: 'rgba(236,72,153,0.15)', border: '1px solid rgba(236,72,153,0.3)', color: '#F472B6', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
+                className="admin-template-btn pink"
               >
                 Sunday Reflection
               </button>
@@ -286,93 +159,122 @@ export default function NotificationsTab() {
           </div>
 
           <form onSubmit={handleSend}>
-            <div style={s.formGroup}>
-              <label style={s.label}>Title *</label>
+            <div style={{ marginBottom: '14px' }}>
+              <label className="admin-label">Title *</label>
               <input
                 type="text"
                 required
                 value={form.title}
-                onChange={e => setForm({ ...form, title: e.target.value })}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
                 placeholder="e.g. New Songs Added"
-                style={s.input}
+                className="admin-input"
               />
             </div>
-            <div style={s.formGroup}>
-              <label style={s.label}>Message *</label>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label className="admin-label">Message *</label>
               <textarea
                 required
+                rows={4}
                 value={form.message}
-                onChange={e => setForm({ ...form, message: e.target.value })}
-                placeholder="Describe the update..."
-                style={s.textarea}
+                onChange={(e) => setForm({ ...form, message: e.target.value })}
+                placeholder="Describe the update or announcement..."
+                className="admin-textarea"
               />
             </div>
-            <div style={s.formGroup}>
-              <label style={s.label}>Link URL (Optional)</label>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label className="admin-label">Link URL (Optional)</label>
               <input
                 type="url"
                 value={form.link_url}
-                onChange={e => setForm({ ...form, link_url: e.target.value })}
+                onChange={(e) => setForm({ ...form, link_url: e.target.value })}
                 placeholder="https://..."
-                style={s.input}
+                className="admin-input"
               />
-              <p style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px', margin: '4px 0 0 0' }}>Makes the notification clickable to open a web link.</p>
+              <p style={{ fontSize: '11px', color: '#71717a', margin: '4px 0 0 0' }}>
+                Makes the notification clickable to open a web link.
+              </p>
             </div>
+
             <button
               type="submit"
               disabled={saving}
-              style={{ ...s.btnPrimary, width: '100%', justifyContent: 'center', opacity: saving ? 0.7 : 1 }}
+              className="btn-admin-primary"
+              style={{ width: '100%', justifyContent: 'center', padding: '10px' }}
             >
               <Send size={15} />
-              <span>{saving ? 'Sending...' : 'Send Push Notification'}</span>
+              <span>{saving ? 'Sending...' : 'Send Notification'}</span>
             </button>
           </form>
         </div>
 
-        {/* History Card with responsive horizontal scroll */}
-        <div style={s.card}>
+        {/* Sent History Card matching Screen 5 in Reference */}
+        <div className="admin-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <Clock size={16} color="#8B5CF6" />
-            <h2 style={{ color: '#fff', fontSize: '15px', fontWeight: '700', margin: 0 }}>Sent History</h2>
+            <Clock size={16} color="#8b5cf6" />
+            <h2 style={{ color: '#fff', fontSize: '15px', fontWeight: '700', margin: 0 }}>
+              Sent History
+            </h2>
           </div>
 
           {loading ? (
-            <div style={s.empty}>Loading notifications...</div>
+            <div className="admin-empty">Loading history...</div>
           ) : notifications.length === 0 ? (
-            <div style={s.empty}>No notifications sent yet.</div>
+            <div className="admin-empty">No notifications sent yet.</div>
           ) : (
-            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-              <table style={s.table}>
-                <thead>
-                  <tr>
-                    <th style={s.th}>Date</th>
-                    <th style={s.th}>Title</th>
-                    <th style={s.th}>Message</th>
-                    <th style={{ ...s.th, textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {notifications.map(n => (
-                    <tr key={n.id}>
-                      <td style={{ ...s.td, fontSize: '11px', whiteSpace: 'nowrap', color: '#9CA3AF' }}>
-                        {new Date(n.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </td>
-                      <td style={{ ...s.td, color: '#fff', fontWeight: '600', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {n.title}
-                      </td>
-                      <td style={{ ...s.td, fontSize: '12px', color: '#9CA3AF', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {n.message}
-                      </td>
-                      <td style={{ ...s.td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <button onClick={() => handleDelete(n.id)} style={s.btnDanger} title="Delete notification">
-                          <Trash2 size={13} />
-                          <span>Delete</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {notifications.map((n) => (
+                <div
+                  key={n.id}
+                  style={{
+                    background: '#09090b',
+                    border: '1px solid #27272a',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {n.title}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px' }}>
+                      {new Date(n.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#a1a1aa', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {n.message}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    <span style={{
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '50%',
+                      background: 'rgba(34, 197, 94, 0.15)',
+                      color: '#22c55e',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <CheckCircle2 size={13} />
+                    </span>
+
+                    <button
+                      onClick={() => handleDelete(n.id)}
+                      className="btn-admin-danger"
+                      title="Delete notification"
+                      style={{ padding: '4px 8px' }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

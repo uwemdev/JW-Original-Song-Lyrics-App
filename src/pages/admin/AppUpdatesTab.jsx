@@ -1,105 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Save, RefreshCw, Smartphone, AlertTriangle, Sparkles, ExternalLink, CheckCircle2, AlertCircle } from 'lucide-react';
-
-const s = {
-  page: {
-    maxWidth: '1400px',
-    width: '100%',
-    padding: '24px 28px',
-    boxSizing: 'border-box',
-    fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-    color: '#fff',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '24px',
-    flexWrap: 'wrap',
-    gap: '12px',
-  },
-  title: { fontSize: '22px', fontWeight: '700', color: '#fff', margin: 0, letterSpacing: '-0.3px' },
-  subtitle: { fontSize: '13px', color: '#9CA3AF', margin: '4px 0 0 0' },
-  btnPrimary: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px 20px',
-    background: '#8B5CF6',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '13px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'background 0.15s ease',
-  },
-  card: {
-    background: '#12101a',
-    border: '1px solid #231f30',
-    borderRadius: '12px',
-    padding: '22px',
-    boxSizing: 'border-box',
-  },
-  label: { display: 'block', fontSize: '12px', fontWeight: '600', color: '#9CA3AF', marginBottom: '6px' },
-  input: {
-    width: '100%',
-    padding: '10px 12px',
-    background: '#0a0910',
-    border: '1px solid #231f30',
-    borderRadius: '8px',
-    color: '#fff',
-    fontSize: '13px',
-    outline: 'none',
-    boxSizing: 'border-box',
-    transition: 'border-color 0.15s ease',
-  },
-  textarea: {
-    width: '100%',
-    padding: '10px 12px',
-    background: '#0a0910',
-    border: '1px solid #231f30',
-    borderRadius: '8px',
-    color: '#fff',
-    fontSize: '13px',
-    outline: 'none',
-    boxSizing: 'border-box',
-    resize: 'vertical',
-    fontFamily: 'inherit',
-    transition: 'border-color 0.15s ease',
-  },
-  formGroup: { marginBottom: '16px' },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: '16px',
-  },
-  error: {
-    background: 'rgba(239, 68, 68, 0.1)',
-    border: '1px solid rgba(239, 68, 68, 0.3)',
-    color: '#EF4444',
-    padding: '10px 14px',
-    borderRadius: '8px',
-    fontSize: '13px',
-    marginBottom: '16px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  success: {
-    background: 'rgba(34, 197, 94, 0.1)',
-    border: '1px solid rgba(34, 197, 94, 0.3)',
-    color: '#22C55E',
-    padding: '10px 14px',
-    borderRadius: '8px',
-    fontSize: '13px',
-    marginBottom: '16px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-};
+import { Save, RefreshCw, Smartphone, AlertTriangle, Sparkles, ExternalLink, CheckCircle2, AlertCircle, Music2 } from 'lucide-react';
 
 export default function AppUpdatesTab() {
   const [loading, setLoading] = useState(true);
@@ -112,7 +13,7 @@ export default function AppUpdatesTab() {
     min_required_version: '1.0.0',
     force_update: false,
     title: 'New Update Available',
-    message: 'A new version of JW Original Song Lyrics is available on Google Play. Update now for the latest features and improvements.',
+    message: 'A new version of JW Original Songs Lyrics is available on Google Play. Update now for the latest features and improvements.',
     release_notes: '• Improved audio player performance\n• Skip 10s forward/backward controls\n• Bug fixes and stability enhancements',
     store_url: 'market://details?id=com.jworiginalsongslyrics.app',
   });
@@ -177,7 +78,7 @@ export default function AppUpdatesTab() {
         );
 
       if (error) throw error;
-      setSuccessMsg('App version settings updated successfully! Mobile users will receive the update prompt immediately.');
+      setSuccessMsg('App version settings updated successfully! Mobile users will see the update prompt.');
     } catch (err) {
       setErrorMsg('Failed to save settings: ' + err.message);
     } finally {
@@ -186,90 +87,81 @@ export default function AppUpdatesTab() {
   }
 
   return (
-    <div style={s.page}>
-      <div style={s.header}>
+    <div className="admin-page">
+      <div className="admin-page-header">
         <div>
-          <h1 style={s.title}>App Version & Google Play Updates</h1>
-          <p style={s.subtitle}>
-            Manage release versions, release notes, and toggle forced updates for Android users on Google Play.
+          <h1>App Version & Google Play Updates</h1>
+          <p className="page-subtitle">
+            Control app updates, release notes, and toggle forced updates for Android users on Google Play
           </p>
         </div>
         <button
           onClick={fetchConfig}
           disabled={loading}
-          style={{
-            ...s.btnPrimary,
-            background: '#1a1626',
-            color: '#A78BFA',
-            border: '1px solid #2d263e',
-          }}
+          className="btn-admin-secondary"
         >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          <RefreshCw size={14} />
           <span>Refresh</span>
         </button>
       </div>
 
       {errorMsg && (
-        <div style={s.error}>
-          <AlertCircle size={16} />
+        <div className="admin-alert error">
+          <AlertCircle size={15} />
           <span>{errorMsg}</span>
         </div>
       )}
       {successMsg && (
-        <div style={s.success}>
-          <CheckCircle2 size={16} />
+        <div className="admin-alert success">
+          <CheckCircle2 size={15} />
           <span>{successMsg}</span>
         </div>
       )}
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-        gap: '20px',
-        alignItems: 'start',
-      }}>
+      {/* Side-by-side on desktop, stacked on mobile */}
+      <div className="app-updates-grid">
         {/* Settings Form Card */}
-        <div style={s.card}>
+        <div className="admin-card">
           <form onSubmit={handleSubmit}>
-            <div style={s.grid}>
-              <div style={s.formGroup}>
-                <label style={s.label}>Latest Play Store Version *</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+              <div>
+                <label className="admin-label">Latest Play Store Version *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. 1.0.3"
                   value={form.latest_version}
                   onChange={(e) => setForm({ ...form, latest_version: e.target.value })}
-                  style={s.input}
+                  className="admin-input"
                 />
-                <span style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px', display: 'block' }}>
-                  Users below this version will see the update banner or dialog.
+                <span style={{ fontSize: '11px', color: '#71717a', marginTop: '3px', display: 'block' }}>
+                  Users below this see the update modal.
                 </span>
               </div>
 
-              <div style={s.formGroup}>
-                <label style={s.label}>Minimum Required Version *</label>
+              <div>
+                <label className="admin-label">Minimum Required Version *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. 1.0.0"
                   value={form.min_required_version}
                   onChange={(e) => setForm({ ...form, min_required_version: e.target.value })}
-                  style={s.input}
+                  className="admin-input"
                 />
-                <span style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px', display: 'block' }}>
-                  Users below this version are <strong>forced</strong> to update.
+                <span style={{ fontSize: '11px', color: '#71717a', marginTop: '3px', display: 'block' }}>
+                  Users below this are forced to update.
                 </span>
               </div>
             </div>
 
-            {/* Force Update Toggle */}
+            {/* Force Update Toggle Switch */}
             <div
               style={{
-                marginBottom: '20px',
-                padding: '14px 16px',
-                background: form.force_update ? 'rgba(239, 68, 68, 0.08)' : '#0e0c16',
-                border: form.force_update ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #231f30',
+                marginBottom: '16px',
+                padding: '12px 14px',
+                background: form.force_update ? 'rgba(239, 68, 68, 0.08)' : '#09090b',
+                border: form.force_update ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid #27272a',
                 borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
@@ -278,14 +170,14 @@ export default function AppUpdatesTab() {
               }}
               onClick={() => setForm({ ...form, force_update: !form.force_update })}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <AlertTriangle size={18} color={form.force_update ? '#EF4444' : '#9CA3AF'} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <AlertTriangle size={17} color={form.force_update ? '#ef4444' : '#a1a1aa'} />
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: '600', color: form.force_update ? '#EF4444' : '#fff' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: form.force_update ? '#ef4444' : '#fff' }}>
                     Force Immediate Update (Lock App)
                   </div>
-                  <div style={{ fontSize: '11px', color: '#9CA3AF' }}>
-                    Prevent all users on older versions from closing the modal until they update.
+                  <div style={{ fontSize: '11px', color: '#71717a' }}>
+                    Prevent users on older versions from closing the modal until they update.
                   </div>
                 </div>
               </div>
@@ -293,161 +185,127 @@ export default function AppUpdatesTab() {
                 type="checkbox"
                 checked={form.force_update}
                 onChange={(e) => setForm({ ...form, force_update: e.target.checked })}
-                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                style={{ width: '18px', height: '18px', accentColor: '#8b5cf6', cursor: 'pointer' }}
               />
             </div>
 
-            {/* Title */}
-            <div style={s.formGroup}>
-              <label style={s.label}>Modal Title *</label>
+            {/* Modal Title */}
+            <div style={{ marginBottom: '14px' }}>
+              <label className="admin-label">Modal Title *</label>
               <input
                 type="text"
                 required
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
-                style={s.input}
+                className="admin-input"
               />
             </div>
 
-            {/* Message */}
-            <div style={s.formGroup}>
-              <label style={s.label}>Announcement Message</label>
+            {/* Announcement Message */}
+            <div style={{ marginBottom: '14px' }}>
+              <label className="admin-label">Announcement Message</label>
               <textarea
                 rows={2}
                 value={form.message}
                 onChange={(e) => setForm({ ...form, message: e.target.value })}
-                style={s.textarea}
+                className="admin-textarea"
               />
             </div>
 
-            {/* Release notes */}
-            <div style={s.formGroup}>
-              <label style={s.label}>What's New / Release Notes</label>
+            {/* Release Notes */}
+            <div style={{ marginBottom: '14px' }}>
+              <label className="admin-label">What's New / Release Notes</label>
               <textarea
                 rows={4}
                 value={form.release_notes}
                 onChange={(e) => setForm({ ...form, release_notes: e.target.value })}
-                style={s.textarea}
-                placeholder="Feature 1&#10;Bug fixes..."
+                className="admin-textarea"
+                placeholder="• Feature 1&#10;• Bug fixes..."
               />
             </div>
 
-            {/* Store URL */}
-            <div style={s.formGroup}>
-              <label style={s.label}>Play Store URL</label>
+            {/* Play Store URL */}
+            <div style={{ marginBottom: '16px' }}>
+              <label className="admin-label">Play Store URL</label>
               <input
                 type="text"
                 value={form.store_url}
                 onChange={(e) => setForm({ ...form, store_url: e.target.value })}
-                style={s.input}
+                className="admin-input"
               />
             </div>
 
             <button
               type="submit"
               disabled={saving}
-              style={{ ...s.btnPrimary, width: '100%', justifyContent: 'center', opacity: saving ? 0.7 : 1 }}
+              className="btn-admin-primary"
+              style={{ width: '100%', justifyContent: 'center', padding: '10px' }}
             >
-              <Save size={16} />
+              <Save size={15} />
               <span>{saving ? 'Saving...' : 'Save & Publish Version'}</span>
             </button>
           </form>
         </div>
 
-        {/* Live Preview Panel */}
-        <div style={s.card}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-            <Smartphone size={16} color="#A78BFA" />
+        {/* Live In-App Preview Phone Card matching Screen 6 in Reference */}
+        <div className="admin-card">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <Smartphone size={16} color="#a78bfa" />
             <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#fff', margin: 0 }}>
               Live In-App Preview
             </h2>
           </div>
-          <p style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '18px' }}>
-            Preview of the update modal displayed to users upon opening the mobile app:
+          <p style={{ fontSize: '12px', color: '#71717a', margin: '0 0 16px 0' }}>
+            This is how the update modal looks to users in the app.
           </p>
 
           {/* Simulated Phone Card */}
           <div
             style={{
-              background: '#0d0b14',
+              background: '#09090b',
               borderRadius: '16px',
               border: form.force_update ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(139, 92, 246, 0.25)',
-              padding: '22px 18px',
+              padding: '24px 20px',
               textAlign: 'center',
               boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+              maxWidth: '360px',
+              margin: '0 auto',
             }}
           >
-            {/* Badge */}
+            {/* Gradient Icon Badge */}
             <div
               style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                background: form.force_update
+                  ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                  : 'linear-gradient(135deg, #8b5cf6, #ec4899)',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '4px 10px',
-                borderRadius: '16px',
-                background: form.force_update ? 'rgba(239, 68, 68, 0.15)' : 'rgba(139, 92, 246, 0.15)',
-                border: form.force_update ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(139, 92, 246, 0.3)',
-                marginBottom: '14px',
-              }}
-            >
-              {form.force_update ? (
-                <AlertTriangle size={12} color="#EF4444" />
-              ) : (
-                <Sparkles size={12} color="#A78BFA" />
-              )}
-              <span
-                style={{
-                  fontSize: '10px',
-                  fontWeight: '800',
-                  color: form.force_update ? '#EF4444' : '#A78BFA',
-                  letterSpacing: '0.5px',
-                }}
-              >
-                {form.force_update ? 'REQUIRED UPDATE' : 'GOOGLE PLAY UPDATE'}
-              </span>
-            </div>
-
-            {/* Version pills */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
                 justifyContent: 'center',
-                gap: '8px',
                 marginBottom: '12px',
-                fontSize: '12px',
+                color: '#fff',
               }}
             >
-              <span style={{ color: '#9CA3AF' }}>Installed: v1.0.2</span>
-              <span style={{ color: '#6B7280' }}>→</span>
-              <span
-                style={{
-                  background: '#6D28D9',
-                  color: '#fff',
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  fontWeight: '700',
-                }}
-              >
-                v{form.latest_version || '1.0.3'}
-              </span>
+              <Music2 size={22} />
             </div>
 
-            {/* Title & Message */}
-            <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#fff', margin: '0 0 8px 0' }}>
+            {/* Title & Announcement */}
+            <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#fff', margin: '0 0 6px 0' }}>
               {form.title}
             </h3>
-            <p style={{ fontSize: '12px', color: '#9CA3AF', lineHeight: '18px', margin: '0 0 16px 0' }}>
+            <p style={{ fontSize: '12px', color: '#a1a1aa', lineHeight: '18px', margin: '0 0 14px 0' }}>
               {form.message}
             </p>
 
-            {/* Notes box */}
+            {/* What's New Box */}
             {form.release_notes && (
               <div
                 style={{
                   background: 'rgba(255, 255, 255, 0.03)',
                   borderRadius: '8px',
-                  padding: '12px',
+                  padding: '10px 12px',
                   textAlign: 'left',
                   marginBottom: '16px',
                   border: '1px solid rgba(255, 255, 255, 0.06)',
@@ -457,18 +315,18 @@ export default function AppUpdatesTab() {
                   style={{
                     fontSize: '10px',
                     fontWeight: '700',
-                    color: '#9CA3AF',
+                    color: '#a1a1aa',
                     textTransform: 'uppercase',
-                    marginBottom: '6px',
+                    marginBottom: '4px',
                     letterSpacing: '0.5px',
                   }}
                 >
-                  What's New:
+                  WHAT'S NEW:
                 </div>
                 <pre
                   style={{
                     fontSize: '11px',
-                    color: '#E5E7EB',
+                    color: '#e4e4e7',
                     margin: 0,
                     whiteSpace: 'pre-wrap',
                     fontFamily: 'inherit',
@@ -480,20 +338,23 @@ export default function AppUpdatesTab() {
               </div>
             )}
 
-            {/* Action buttons */}
+            {/* Action Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div
                 style={{
-                  background: form.force_update ? '#EF4444' : '#6D28D9',
+                  background: form.force_update
+                    ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                    : 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
                   color: '#fff',
                   padding: '10px',
                   borderRadius: '10px',
-                  fontSize: '12px',
+                  fontSize: '13px',
                   fontWeight: '700',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
+                  cursor: 'pointer',
                 }}
               >
                 <span>{form.force_update ? 'Update on Google Play' : 'Update Now'}</span>
@@ -503,9 +364,9 @@ export default function AppUpdatesTab() {
               {!form.force_update && (
                 <div
                   style={{
-                    color: '#9CA3AF',
-                    fontSize: '11px',
-                    fontWeight: '600',
+                    color: '#71717a',
+                    fontSize: '12px',
+                    fontWeight: '500',
                     padding: '4px',
                   }}
                 >
