@@ -186,7 +186,7 @@ export default function Home() {
   };
 
   return (
-    <div className="main-content animate-fade-in pb-28" style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem 1.25rem' }}>
+    <div className="main-content animate-fade-in pb-10" style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem 1.25rem' }}>
       {/* Top Navbar */}
       <header
         style={{

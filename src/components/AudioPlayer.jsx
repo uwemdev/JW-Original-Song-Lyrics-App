@@ -1,9 +1,12 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { AppContext } from '../App';
 import { Play, Pause, X } from 'lucide-react';
 
 export default function AudioPlayer() {
   const { currentSong, setCurrentSong, isPlaying, setIsPlaying } = useContext(AppContext);
+  const location = useLocation();
+  const isLanding = location.pathname === '/';
   const audioRef = useRef(null);
   const [progress, setProgress] = useState(0);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -44,7 +47,7 @@ export default function AudioPlayer() {
   return (
     <div style={{
       position: 'fixed',
-      bottom: '60px', // above nav
+      bottom: isLanding ? '0px' : '56px',
       left: 0,
       right: 0,
       backgroundColor: 'var(--bg-card)',

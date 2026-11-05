@@ -1,8 +1,15 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Search, Heart, Settings } from 'lucide-react';
 
 export default function Navigation() {
+  const location = useLocation();
+
+  // Do not render bottom navigation on the landing page or admin portal
+  if (location.pathname === '/' || location.pathname.startsWith('/admin')) {
+    return null;
+  }
+
   return (
     <nav
       style={{
