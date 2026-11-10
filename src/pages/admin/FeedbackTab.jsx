@@ -2,6 +2,11 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import {
+  getLocalReadMap,
+  markConversationAsRead,
+  markAllConversationsAsRead,
+} from './feedbackUtils';
+import {
   Send,
   MessageSquare,
   Bell,
@@ -11,6 +16,7 @@ import {
   Search,
   AlertCircle,
   CheckCircle2,
+  CheckCheck,
   Music,
   RefreshCw,
   X,
@@ -323,6 +329,8 @@ export default function FeedbackTab() {
         }
       }
 
+      const readMap = getLocalReadMap();
+
       const list = Array.from(convoMap.values()).map((c) => {
         c.messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         const last = c.messages[c.messages.length - 1];
@@ -339,6 +347,21 @@ export default function FeedbackTab() {
         c.latest = last?.created_at || c.latest;
         c.requiresAction = last ? !last.is_admin_reply : false;
 
+        const readEntry = readMap[c.id];
+        const lastReadMsgId = typeof readEntry === 'object' ? readEntry.lastMsgId : readEntry;
+        const readTimestamp = typeof readEntry === 'object' ? readEntry.timestamp : null;
+        const isReadLocally = Boolean(
+          (lastReadMsgId && last?.id && lastReadMsgId === last.id) ||
+          (readTimestamp && last?.created_at && new Date(readTimestamp) >= new Date(last.created_at))
+        );
+
+        c.isUnread = Boolean(
+          last &&
+          !last.is_admin_reply &&
+          !last.is_read &&
+          !isReadLocally
+        );
+
         return c;
       });
 
@@ -350,10 +373,12 @@ export default function FeedbackTab() {
         const found = list.find((c) => c.id === selectedConvoIdRef.current);
         if (found) {
           setMessages(found.messages);
+          markConversationAsRead(found.id, found.messages, supabase);
         }
       } else if (isInitial && list.length > 0 && window.innerWidth > 768) {
         setSelectedConvoId(list[0].id);
         setMessages(list[0].messages);
+        markConversationAsRead(list[0].id, list[0].messages, supabase);
       }
     } catch (err) {
       console.error('Error fetching feedback:', err);
@@ -362,9 +387,16 @@ export default function FeedbackTab() {
     }
   }, []);
 
-  // Real-time listener
+  // Real-time listener and window sync
   useEffect(() => {
     fetchConversations(true);
+
+    const handleExternalUpdate = () => {
+      fetchConversations(false);
+    };
+
+    window.addEventListener('admin_feedback_updated', handleExternalUpdate);
+    window.addEventListener('storage', handleExternalUpdate);
 
     const channel = supabase
       .channel('admin_feedback_panel')
@@ -389,15 +421,25 @@ export default function FeedbackTab() {
               if (prev.some((m) => m.id === newMsg.id)) return prev;
               return [...prev, newMsg];
             });
+            markConversationAsRead(targetConvoId, [newMsg], supabase);
             setTimeout(() => {
               chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
             }, 50);
           }
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'feedback' },
+        () => {
+          fetchConversations(false);
+        }
+      )
       .subscribe();
 
     return () => {
+      window.removeEventListener('admin_feedback_updated', handleExternalUpdate);
+      window.removeEventListener('storage', handleExternalUpdate);
       supabase.removeChannel(channel);
     };
   }, [fetchConversations, triggerNotification]);
@@ -418,6 +460,8 @@ export default function FeedbackTab() {
   const handleSelect = (convo) => {
     setSelectedConvoId(convo.id);
     setMessages(convo.messages);
+    convo.isUnread = false;
+    markConversationAsRead(convo.id, convo.messages, supabase);
     setTimeout(() => {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       inputRef.current?.focus();
@@ -426,6 +470,21 @@ export default function FeedbackTab() {
 
   const handleBackToList = () => {
     setSelectedConvoId(null);
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllConversationsAsRead(conversations, supabase);
+      setConversations((prev) =>
+        prev.map((c) => ({
+          ...c,
+          isUnread: false,
+          messages: c.messages.map((m) => (!m.is_admin_reply ? { ...m, is_read: true } : m)),
+        }))
+      );
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+    }
   };
 
   const handleSend = async (e) => {
@@ -457,6 +516,10 @@ export default function FeedbackTab() {
         });
         setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
       }
+
+      selectedConvo.requiresAction = false;
+      selectedConvo.isUnread = false;
+      await markConversationAsRead(selectedConvo.id, [...(selectedConvo.messages || []), ...(data || [])], supabase);
 
       fetchConversations();
     } catch (err) {
@@ -568,6 +631,16 @@ export default function FeedbackTab() {
             style={{ width: '32px', height: '32px', color: soundEnabled ? '#a78bfa' : undefined }}
           >
             {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+          </button>
+
+          {/* Mark All Read */}
+          <button
+            onClick={handleMarkAllRead}
+            title="Mark all conversations as read"
+            className="btn-icon-admin"
+            style={{ width: '32px', height: '32px' }}
+          >
+            <CheckCheck size={15} />
           </button>
 
           {/* Refresh */}
@@ -715,17 +788,33 @@ export default function FeedbackTab() {
                       )}
                     </div>
 
-                    {/* Unread dot */}
-                    {c.requiresAction && (
-                      <span style={{
-                        width: '7px',
-                        height: '7px',
-                        borderRadius: '50%',
-                        background: '#8b5cf6',
-                        flexShrink: 0,
-                        marginTop: '4px',
-                      }} />
-                    )}
+                    {/* Unread / Needs Reply Indicator */}
+                    {c.isUnread ? (
+                      <span
+                        title="Unread message"
+                        style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: '#ec4899',
+                          flexShrink: 0,
+                          marginTop: '4px',
+                          boxShadow: '0 0 6px rgba(236, 72, 153, 0.6)',
+                        }}
+                      />
+                    ) : c.requiresAction ? (
+                      <span
+                        title="Awaiting your reply"
+                        style={{
+                          width: '7px',
+                          height: '7px',
+                          borderRadius: '50%',
+                          background: '#8b5cf6',
+                          flexShrink: 0,
+                          marginTop: '4px',
+                        }}
+                      />
+                    ) : null}
                   </div>
                 );
               })

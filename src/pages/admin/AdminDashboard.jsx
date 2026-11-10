@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useOutletContext, useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { fetchUnreadCountFromDb } from './feedbackUtils';
 import {
   Plus,
   Edit2,
@@ -103,10 +104,10 @@ export default function AdminDashboard() {
   // Fetch Dashboard Stats
   const fetchDashboardStats = useCallback(async () => {
     try {
-      const [songsCountRes, catsCountRes, feedbackCountRes, versionRes, allSongsRes] = await Promise.all([
+      const [songsCountRes, catsCountRes, unreadFeedbackCount, versionRes, allSongsRes] = await Promise.all([
         supabase.from('songs').select('*', { count: 'exact', head: true }),
         supabase.from('categories').select('*', { count: 'exact', head: true }),
-        supabase.from('feedback').select('*', { count: 'exact', head: true }).eq('is_admin_reply', false),
+        fetchUnreadCountFromDb(supabase),
         supabase.from('app_version_config').select('latest_version').eq('platform', 'android').limit(1).maybeSingle(),
         supabase.from('songs').select('category_id'),
       ]);
@@ -124,7 +125,7 @@ export default function AdminDashboard() {
       setDashboardStats({
         totalSongs: songsCountRes.count || 0,
         totalCategories: catsCountRes.count || 0,
-        newFeedback: feedbackCountRes.count || 0,
+        newFeedback: unreadFeedbackCount || 0,
         appVersion: versionRes.data?.latest_version ? `v${versionRes.data.latest_version}` : 'v1.0.2',
       });
     } catch (err) {
@@ -134,6 +135,18 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchDashboardStats();
+
+    const handleLocalUpdate = () => {
+      fetchDashboardStats();
+    };
+
+    window.addEventListener('admin_feedback_updated', handleLocalUpdate);
+    window.addEventListener('storage', handleLocalUpdate);
+
+    return () => {
+      window.removeEventListener('admin_feedback_updated', handleLocalUpdate);
+      window.removeEventListener('storage', handleLocalUpdate);
+    };
   }, [fetchDashboardStats]);
 
   // Handle URL deep links: editSongId, newSong, search, status

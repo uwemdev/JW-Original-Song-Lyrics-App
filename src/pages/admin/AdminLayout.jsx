@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Outlet, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { fetchUnreadCountFromDb } from './feedbackUtils';
 import './admin.css';
 import {
   LogOut,
@@ -105,26 +106,34 @@ export default function AdminLayout() {
   // Fetch unread feedback count
   const fetchUnreadFeedback = useCallback(async () => {
     try {
-      const { data } = await supabase
-        .from('feedback')
-        .select('id, is_admin_reply')
-        .eq('is_admin_reply', false);
-      if (data) {
-        setUnreadFeedbackCount(data.length);
-      }
+      const count = await fetchUnreadCountFromDb(supabase);
+      setUnreadFeedbackCount(count);
     } catch (_) { }
   }, []);
 
   useEffect(() => {
     fetchUnreadFeedback();
+
+    const handleLocalUpdate = () => {
+      fetchUnreadFeedback();
+    };
+
+    window.addEventListener('admin_feedback_updated', handleLocalUpdate);
+    window.addEventListener('storage', handleLocalUpdate);
+
     const channel = supabase
       .channel('admin_nav_feedback_live')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feedback' }, () => {
         fetchUnreadFeedback();
       })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'feedback' }, () => {
+        fetchUnreadFeedback();
+      })
       .subscribe();
 
     return () => {
+      window.removeEventListener('admin_feedback_updated', handleLocalUpdate);
+      window.removeEventListener('storage', handleLocalUpdate);
       supabase.removeChannel(channel);
     };
   }, [fetchUnreadFeedback]);
