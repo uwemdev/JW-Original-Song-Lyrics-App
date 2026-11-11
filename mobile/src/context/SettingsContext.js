@@ -185,12 +185,11 @@ export function SettingsProvider({ children }) {
 
         // Check recent broadcast notifications from the last 14 days
         const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-        const minDate = installDate ? (installDate > fourteenDaysAgo ? installDate : fourteenDaysAgo) : fourteenDaysAgo;
 
         const { data } = await supabase
           .from('app_notifications')
           .select('*')
-          .gte('created_at', minDate)
+          .gte('created_at', fourteenDaysAgo)
           .order('created_at', { ascending: false })
           .limit(10);
 
@@ -206,8 +205,8 @@ export function SettingsProvider({ children }) {
               id: latest.id,
             });
 
-            // Mark all current notifications as delivered so we don't repeat
-            const updated = [...new Set([...delivered, ...data.map((n) => n.id)])];
+            // Mark delivered so we don't duplicate on next app open
+            const updated = [...new Set([...delivered, latest.id])];
             await AsyncStorage.setItem(KEYS.deliveredPushIds, JSON.stringify(updated.slice(-100)));
           }
         }

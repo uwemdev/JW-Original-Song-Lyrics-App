@@ -6,8 +6,11 @@ try {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: true,
       shouldSetBadge: false,
+      priority: Notifications.AndroidNotificationPriority?.MAX || 'max',
     }),
   });
 } catch (_) {}
@@ -30,17 +33,29 @@ export async function requestNotificationPermissions() {
 }
 
 /**
- * Configure Android notification channel
+ * Configure Android notification channels
  */
 async function setupAndroidChannel() {
   if (Platform.OS === 'android') {
     try {
       await Notifications.setNotificationChannelAsync('reminders', {
         name: 'Daily Songs & Reminders',
-        importance: Notifications.AndroidImportance.HIGH,
+        importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#6D28D9',
         sound: 'default',
+        enableLights: true,
+        enableVibrate: true,
+      });
+
+      await Notifications.setNotificationChannelAsync('announcements', {
+        name: 'Special Announcements & Updates',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#8B5CF6',
+        sound: 'default',
+        enableLights: true,
+        enableVibrate: true,
       });
     } catch (_) {}
   }
@@ -258,7 +273,8 @@ export async function triggerSystemNotification({ title, message, linkUrl, id })
         title,
         body: message,
         sound: 'default',
-        channelId: 'reminders',
+        channelId: 'announcements',
+        priority: Notifications.AndroidNotificationPriority?.MAX || 'max',
         data: { link_url: linkUrl, id },
       },
       trigger: null, // null trigger presents notification immediately

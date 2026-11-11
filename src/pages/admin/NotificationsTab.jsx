@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Send, Trash2, Megaphone, Clock, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react';
+import {
+  Send,
+  Trash2,
+  Megaphone,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  ExternalLink,
+  RotateCcw,
+  Copy,
+} from 'lucide-react';
 
 export default function NotificationsTab() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [resendingId, setResendingId] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -81,6 +92,44 @@ export default function NotificationsTab() {
       console.error(err);
       alert('Failed to delete notification');
     }
+  };
+
+  const handleResend = async (notif) => {
+    if (!confirm(`Resend notification "${notif.title}" now to all users?`)) return;
+
+    setResendingId(notif.id);
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    try {
+      const { error } = await supabase
+        .from('app_notifications')
+        .insert([{
+          title: notif.title.trim(),
+          message: notif.message.trim(),
+          link_url: notif.link_url ? notif.link_url.trim() : null,
+        }]);
+
+      if (error) throw error;
+
+      setSuccessMsg(`Notification "${notif.title}" resent successfully! Users will see this alert.`);
+      fetchNotifications();
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.message || 'Failed to resend notification');
+    } finally {
+      setResendingId(null);
+    }
+  };
+
+  const handleReuse = (notif) => {
+    setForm({
+      title: notif.title || '',
+      message: notif.message || '',
+      link_url: notif.link_url || '',
+    });
+    setSuccessMsg(`Loaded "${notif.title}" into composer. You can edit and send.`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -243,32 +292,62 @@ export default function NotificationsTab() {
                       {n.title}
                     </div>
                     <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px' }}>
-                      {new Date(n.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {new Date(n.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                     <div style={{ fontSize: '12px', color: '#a1a1aa', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {n.message}
                     </div>
+                    {n.link_url && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                        <ExternalLink size={11} color="#8b5cf6" />
+                        <span style={{ fontSize: '11px', color: '#a78bfa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {n.link_url}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                    <span style={{
-                      width: '20px',
-                      height: '20px',
-                      borderRadius: '50%',
-                      background: 'rgba(34, 197, 94, 0.15)',
-                      color: '#22c55e',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      <CheckCircle2 size={13} />
-                    </span>
-
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                    {/* One-click Resend button */}
                     <button
+                      type="button"
+                      onClick={() => handleResend(n)}
+                      disabled={resendingId === n.id}
+                      className="btn-admin-primary"
+                      title="Resend this notification now to all users"
+                      style={{
+                        padding: '5px 10px',
+                        fontSize: '11px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        borderRadius: '6px',
+                        background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                        cursor: resendingId === n.id ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      <RotateCcw size={12} className={resendingId === n.id ? 'spin' : ''} />
+                      <span>{resendingId === n.id ? 'Sending...' : 'Resend'}</span>
+                    </button>
+
+                    {/* Reuse in Composer */}
+                    <button
+                      type="button"
+                      onClick={() => handleReuse(n)}
+                      className="btn-icon-admin"
+                      title="Load into Composer to edit"
+                      style={{ width: '28px', height: '28px', borderRadius: '6px' }}
+                    >
+                      <Copy size={12} />
+                    </button>
+
+                    {/* Delete */}
+                    <button
+                      type="button"
                       onClick={() => handleDelete(n.id)}
                       className="btn-admin-danger"
                       title="Delete notification"
-                      style={{ padding: '4px 8px' }}
+                      style={{ padding: '5px 8px', borderRadius: '6px' }}
                     >
                       <Trash2 size={12} />
                     </button>
