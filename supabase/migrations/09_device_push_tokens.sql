@@ -18,3 +18,4 @@ CREATE POLICY "Anyone can upsert push tokens"
   WITH CHECK (true);
 
 CREATE INDEX IF NOT EXISTS idx_device_push_tokens_device_id ON public.device_push_tokens(device_id);
+

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "211487185669",
+    "project_id": "jw-original-songs-lyrics",
+    "storage_bucket": "jw-original-songs-lyrics.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:211487185669:android:0c5aeaf6d5e965eb03356c",
+        "android_client_info": {
+          "package_name": "com.jworiginalsongslyrics.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCscV-6PxKBx3P8V7gXLfPYTrcv9QkBA8E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
