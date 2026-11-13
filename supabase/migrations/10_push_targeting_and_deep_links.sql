@@ -19,3 +19,4 @@ ALTER TABLE public.app_notifications
 
 CREATE INDEX IF NOT EXISTS idx_app_notifications_song_id 
   ON public.app_notifications(song_id);
+
