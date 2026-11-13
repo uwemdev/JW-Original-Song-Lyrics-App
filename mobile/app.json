@@ -16,7 +16,8 @@
         "foregroundImage": "./assets/adaptive-icon.png"
       },
       "package": "com.jworiginalsongslyrics.app",
-      "versionCode": 8
+      "versionCode": 8,
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"

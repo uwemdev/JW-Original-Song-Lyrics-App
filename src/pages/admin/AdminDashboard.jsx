@@ -799,33 +799,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Welcome Card */}
-        <div className="admin-welcome-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-            <div style={{ maxWidth: '640px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', margin: '0 0 6px 0' }}>
-                JW Original Songs Admin
-              </h2>
-              <p style={{ fontSize: '13px', color: '#a1a1aa', margin: 0, lineHeight: '1.5' }}>
-                Add songs, organize categories, respond to feedback, send notifications, and manage app updates — all in one place.
-              </p>
-            </div>
-            <div style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(236, 72, 153, 0.2))',
-              border: '1px solid rgba(139, 92, 246, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}>
-              <Music size={28} color="#a78bfa" />
-            </div>
-          </div>
-        </div>
-
         {/* Quick Actions */}
         <div className="admin-card">
           <div style={{ fontSize: '13px', fontWeight: '700', color: '#fff', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
