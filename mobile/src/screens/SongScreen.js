@@ -46,6 +46,7 @@ import {
   Wifi,
   WifiOff,
   Radio,
+  Moon,
 } from 'lucide-react-native';
 import { Replay10Icon, Forward10Icon } from '../components/SeekIcons';
 import AddToPlaylistModal from '../components/AddToPlaylistModal';
@@ -150,6 +151,7 @@ export default function SongScreen({ route, navigation }) {
   const [toastMsg, setToastMsg] = useState('');
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+  const [showSleepTimerModal, setShowSleepTimerModal] = useState(false);
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -179,6 +181,10 @@ export default function SongScreen({ route, navigation }) {
     togglePlayPause,
     seekBy: audioSeekBy,
     setCurrentScreen,
+    sleepTimerOption,
+    sleepTimerRemainingSec,
+    setSleepTimer,
+    clearSleepTimer,
   } = useAudio();
 
   const [isConnected, setIsConnected] = useState(true);
@@ -681,6 +687,47 @@ export default function SongScreen({ route, navigation }) {
         </TouchableOpacity>
 
         <View style={styles.floatingRightRow}>
+          <TouchableOpacity
+            style={[
+              styles.floatingBtn,
+              Boolean(sleepTimerOption) && styles.floatingBtnTimerActive,
+            ]}
+            onPress={() => setShowSleepTimerModal(true)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              sleepTimerOption
+                ? `Sleep timer active: ${
+                    sleepTimerOption === 'end_of_song'
+                      ? 'End of song'
+                      : sleepTimerRemainingSec
+                      ? Math.ceil(sleepTimerRemainingSec / 60) + ' min left'
+                      : sleepTimerOption + ' min'
+                  }`
+                : 'Set sleep timer'
+            }
+            activeOpacity={0.75}
+          >
+            <Moon
+              color={sleepTimerOption ? '#A78BFA' : '#FFF'}
+              size={19}
+              fill={sleepTimerOption ? '#A78BFA' : 'transparent'}
+            />
+            {Boolean(sleepTimerOption && sleepTimerRemainingSec) && (
+              <View style={styles.floatingTimerBadge}>
+                <Text style={styles.floatingTimerBadgeText}>
+                  {sleepTimerRemainingSec >= 60
+                    ? `${Math.ceil(sleepTimerRemainingSec / 60)}m`
+                    : `${sleepTimerRemainingSec}s`}
+                </Text>
+              </View>
+            )}
+            {Boolean(sleepTimerOption === 'end_of_song') && (
+              <View style={styles.floatingTimerBadge}>
+                <Text style={styles.floatingTimerBadgeText}>End</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[
               styles.floatingBtn,
@@ -1195,6 +1242,113 @@ export default function SongScreen({ route, navigation }) {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* ── Sleep Timer Modal ── */}
+      <Modal
+        visible={showSleepTimerModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowSleepTimerModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.sleepModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSleepTimerModal(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.sleepModalCard}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.sleepModalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Moon size={20} color="#A78BFA" fill="#A78BFA" />
+                <Text style={styles.sleepModalTitle}>Sleep Timer</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowSleepTimerModal(false)}
+                style={styles.sleepModalCloseBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Close sleep timer modal"
+              >
+                <X size={18} color="#A1A1AA" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.sleepModalSubtitle}>
+              Audio playback will gently pause once the timer completes.
+            </Text>
+
+            {Boolean(sleepTimerOption && sleepTimerRemainingSec) && (
+              <View style={styles.sleepModalCountdownRow}>
+                <Text style={styles.sleepModalCountdownText}>
+                  Time remaining: {Math.floor(sleepTimerRemainingSec / 60)}:
+                  {String(sleepTimerRemainingSec % 60).padStart(2, '0')}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.sleepModalOptionsList}>
+              {[
+                { key: '15', label: '15 minutes' },
+                { key: '30', label: '30 minutes' },
+                { key: '45', label: '45 minutes' },
+                { key: '60', label: '60 minutes' },
+                { key: 'end_of_song', label: 'End of current song' },
+              ].map((opt) => {
+                const isSelected = sleepTimerOption === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[
+                      styles.sleepOptionBtn,
+                      isSelected && styles.sleepOptionBtnSelected,
+                    ]}
+                    onPress={() => {
+                      setSleepTimer(opt.key);
+                      setShowSleepTimerModal(false);
+                      setToastMsg(
+                        opt.key === 'end_of_song'
+                          ? 'Sleep timer set for end of song'
+                          : `Sleep timer set for ${opt.label}`
+                      );
+                      setShowToast(true);
+                      setTimeout(() => setShowToast(false), 2200);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.sleepOptionText,
+                        isSelected && styles.sleepOptionTextSelected,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                    {isSelected && <CheckCircle size={18} color="#A78BFA" />}
+                  </TouchableOpacity>
+                );
+              })}
+
+              {Boolean(sleepTimerOption) && (
+                <TouchableOpacity
+                  style={styles.sleepTurnOffBtn}
+                  onPress={() => {
+                    clearSleepTimer();
+                    setShowSleepTimerModal(false);
+                    setToastMsg('Sleep timer turned off');
+                    setShowToast(true);
+                    setTimeout(() => setShowToast(false), 2200);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.sleepTurnOffText}>Turn Off Timer</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       {/* ── Add to Playlist Modal ── */}
       <AddToPlaylistModal
         visible={showPlaylistModal}
@@ -1291,6 +1445,28 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     backgroundColor: isDark ? 'rgba(16, 185, 129, 0.28)' : 'rgba(16, 185, 129, 0.20)',
     borderWidth: 1,
     borderColor: isDark ? 'rgba(134, 239, 172, 0.45)' : 'rgba(16, 185, 129, 0.35)',
+  },
+  floatingBtnTimerActive: {
+    backgroundColor: isDark ? 'rgba(167, 139, 250, 0.28)' : 'rgba(167, 139, 250, 0.20)',
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(167, 139, 250, 0.60)' : 'rgba(167, 139, 250, 0.45)',
+  },
+  floatingTimerBadge: {
+    position: 'absolute',
+    bottom: -6,
+    right: -6,
+    backgroundColor: '#7C3AED',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 8,
+    minWidth: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  floatingTimerBadgeText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '700',
   },
 
   // ── Content ──
@@ -1903,6 +2079,97 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
   },
   toastText: {
     color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // ── Sleep Timer Modal ──
+  sleepModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  sleepModalCard: {
+    backgroundColor: isDark ? '#18181B' : '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
+    borderWidth: 1,
+    borderColor: isDark ? '#27272A' : '#E4E4E7',
+  },
+  sleepModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  sleepModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textWhite,
+  },
+  sleepModalCloseBtn: {
+    padding: 6,
+  },
+  sleepModalSubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginBottom: 16,
+  },
+  sleepModalCountdownRow: {
+    backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.10)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.3)',
+    alignItems: 'center',
+  },
+  sleepModalCountdownText: {
+    color: '#A78BFA',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  sleepModalOptionsList: {
+    gap: 8,
+  },
+  sleepOptionBtn: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: isDark ? '#27272A' : '#F4F4F5',
+  },
+  sleepOptionBtnSelected: {
+    backgroundColor: isDark ? 'rgba(139, 92, 246, 0.22)' : 'rgba(139, 92, 246, 0.15)',
+    borderWidth: 1,
+    borderColor: '#8B5CF6',
+  },
+  sleepOptionText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textWhite,
+  },
+  sleepOptionTextSelected: {
+    color: '#A78BFA',
+    fontWeight: '700',
+  },
+  sleepTurnOffBtn: {
+    marginTop: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  sleepTurnOffText: {
+    color: '#F87171',
     fontSize: 14,
     fontWeight: '600',
   },

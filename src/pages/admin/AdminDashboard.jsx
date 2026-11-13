@@ -25,6 +25,10 @@ import {
   Layers,
   Send,
   MoreVertical,
+  Activity,
+  RefreshCw,
+  AlertCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -64,6 +68,20 @@ export default function AdminDashboard() {
     appVersion: 'v1.0.2',
   });
   const [categorySongCounts, setCategorySongCounts] = useState({});
+
+  // Song Health Checker state
+  const [healthModalOpen, setHealthModalOpen] = useState(false);
+  const [healthScanning, setHealthScanning] = useState(false);
+  const [healthFilter, setHealthFilter] = useState('all');
+  const [healthReport, setHealthReport] = useState({
+    total: 0,
+    healthy: 0,
+    issues: [],
+    missingAudioCount: 0,
+    missingLyricsCount: 0,
+    missingCategoryCount: 0,
+    draftCount: 0,
+  });
 
   // Search & Filter state
   const [songSearch, setSongSearch] = useState(() => searchParams.get('search') || '');
@@ -491,6 +509,250 @@ export default function AdminDashboard() {
   }
 
   // ═══════════════════════════════════════
+  //  SONG HEALTH CHECKER
+  // ═══════════════════════════════════════
+  const runHealthCheck = useCallback(async () => {
+    setHealthScanning(true);
+    try {
+      const { data, error } = await supabase
+        .from('songs')
+        .select('*, categories(name)')
+        .order('song_number', { ascending: true });
+
+      if (error) throw error;
+      const allSongs = data || [];
+
+      let missingAudio = 0;
+      let missingLyrics = 0;
+      let missingCategory = 0;
+      let draft = 0;
+      const issues = [];
+
+      for (const song of allSongs) {
+        const hasAudio = Boolean(song.mp3_url && song.mp3_url.trim().length > 0);
+        const strippedLyrics = (song.lyrics || '').replace(/<[^>]*>/g, '').trim();
+        const hasLyrics = strippedLyrics.length >= 15;
+        const hasCategory = Boolean(song.category_id);
+        const isPublished = song.is_published !== false;
+
+        const songIssues = [];
+        if (!hasAudio) {
+          songIssues.push({ type: 'audio', label: 'Missing Audio MP3' });
+          missingAudio++;
+        }
+        if (!hasLyrics) {
+          songIssues.push({ type: 'lyrics', label: 'Missing Lyrics' });
+          missingLyrics++;
+        }
+        if (!hasCategory) {
+          songIssues.push({ type: 'category', label: 'No Category' });
+          missingCategory++;
+        }
+        if (!isPublished) {
+          songIssues.push({ type: 'draft', label: 'Unpublished Draft' });
+          draft++;
+        }
+
+        if (songIssues.length > 0) {
+          issues.push({
+            ...song,
+            songIssues,
+            hasAudio,
+            hasLyrics,
+            hasCategory,
+            isPublished,
+          });
+        }
+      }
+
+      setHealthReport({
+        total: allSongs.length,
+        healthy: allSongs.length - issues.filter((i) => !i.hasAudio || !i.hasLyrics || !i.hasCategory).length,
+        issues,
+        missingAudioCount: missingAudio,
+        missingLyricsCount: missingLyrics,
+        missingCategoryCount: missingCategory,
+        draftCount: draft,
+      });
+    } catch (err) {
+      console.error('Failed to run song health check:', err);
+    } finally {
+      setHealthScanning(false);
+    }
+  }, []);
+
+  const renderHealthModal = () => {
+    if (!healthModalOpen) return null;
+
+    const filteredIssues = healthReport.issues.filter((item) => {
+      if (healthFilter === 'audio') return !item.hasAudio;
+      if (healthFilter === 'lyrics') return !item.hasLyrics;
+      if (healthFilter === 'category') return !item.hasCategory;
+      if (healthFilter === 'draft') return !item.isPublished;
+      return true;
+    });
+
+    return (
+      <div
+        className="health-modal-backdrop"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setHealthModalOpen(false);
+        }}
+      >
+        <div className="health-modal-card">
+          <div className="health-modal-header">
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Activity size={18} color="#a78bfa" />
+                <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', margin: 0 }}>
+                  Audio & Lyric Health Checker
+                </h2>
+              </div>
+              <p style={{ fontSize: '12px', color: '#a1a1aa', margin: '4px 0 0 0' }}>
+                Diagnostic scan across all songs for missing audio URLs, blank lyrics, or unassigned categories.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                onClick={runHealthCheck}
+                disabled={healthScanning}
+                className="btn-admin-secondary"
+                style={{ padding: '6px 12px', fontSize: '12px' }}
+                title="Re-run diagnostic scan"
+              >
+                <RefreshCw size={13} className={healthScanning ? 'spin' : ''} />
+                <span>Re-scan</span>
+              </button>
+              <button
+                onClick={() => setHealthModalOpen(false)}
+                className="btn-icon-admin"
+                style={{ width: '32px', height: '32px' }}
+                title="Close modal"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className="health-summary-row">
+            <div className="health-summary-stat">
+              <span className="health-stat-label">Total Songs</span>
+              <span className="health-stat-num">{healthReport.total}</span>
+            </div>
+            <div className="health-summary-stat healthy">
+              <span className="health-stat-label">Fully Healthy</span>
+              <span className="health-stat-num healthy">
+                {healthReport.healthy}
+              </span>
+            </div>
+            <div className="health-summary-stat warning">
+              <span className="health-stat-label">Issues Found</span>
+              <span className="health-stat-num warning">
+                {healthReport.issues.length}
+              </span>
+            </div>
+            <div className="health-summary-stat">
+              <span className="health-stat-label">Missing Audio</span>
+              <span className="health-stat-num danger">
+                {healthReport.missingAudioCount}
+              </span>
+            </div>
+            <div className="health-summary-stat">
+              <span className="health-stat-label">Missing Lyrics</span>
+              <span className="health-stat-num amber">
+                {healthReport.missingLyricsCount}
+              </span>
+            </div>
+            <div className="health-summary-stat">
+              <span className="health-stat-label">No Category</span>
+              <span className="health-stat-num purple">
+                {healthReport.missingCategoryCount}
+              </span>
+            </div>
+          </div>
+
+          <div className="health-filter-bar">
+            {[
+              { key: 'all', label: `All Issues (${healthReport.issues.length})` },
+              { key: 'audio', label: `Missing Audio (${healthReport.missingAudioCount})` },
+              { key: 'lyrics', label: `Missing Lyrics (${healthReport.missingLyricsCount})` },
+              { key: 'category', label: `No Category (${healthReport.missingCategoryCount})` },
+              { key: 'draft', label: `Drafts (${healthReport.draftCount})` },
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setHealthFilter(f.key)}
+                className={`admin-chip ${healthFilter === f.key ? 'active' : ''}`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="health-modal-body">
+            {healthScanning ? (
+              <div className="admin-empty" style={{ padding: '40px 0' }}>
+                <RefreshCw size={24} color="#8b5cf6" className="spin" style={{ marginBottom: '10px' }} />
+                <div>Scanning song library in database...</div>
+              </div>
+            ) : filteredIssues.length === 0 ? (
+              <div className="admin-empty" style={{ padding: '40px 0' }}>
+                <CheckCircle2 size={32} color="#10b981" style={{ marginBottom: '10px' }} />
+                <div style={{ color: '#fff', fontWeight: '600', fontSize: '14px' }}>
+                  No issues found in this category
+                </div>
+                <p style={{ color: '#a1a1aa', fontSize: '12px', marginTop: '4px' }}>
+                  All scanned songs meet the required audio, lyric, and category criteria.
+                </p>
+              </div>
+            ) : (
+              filteredIssues.map((song) => (
+                <div key={song.id} className="health-issue-item">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span className="health-song-number">
+                        #{song.song_number || '?'}
+                      </span>
+                      <span className="health-song-title">
+                        {song.title}
+                      </span>
+                      {song.categories?.name && (
+                        <span className="health-cat-badge">
+                          {song.categories.name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="health-pills-row">
+                      {song.songIssues.map((iss, idx) => (
+                        <span key={idx} className={`health-issue-pill ${iss.type}`}>
+                          {iss.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setHealthModalOpen(false);
+                      navigate('/admin?tab=songs');
+                      openEditSong(song);
+                    }}
+                    className="btn-admin-primary"
+                    style={{ padding: '6px 12px', fontSize: '11px', flexShrink: 0 }}
+                  >
+                    <Edit2 size={12} />
+                    <span>Fix Song</span>
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ═══════════════════════════════════════
   //  TAB DISPATCH
   // ═══════════════════════════════════════
   if (currentTab === 'feedback') {
@@ -833,6 +1095,18 @@ export default function AdminDashboard() {
             </button>
 
             <button
+              onClick={() => {
+                setHealthModalOpen(true);
+                runHealthCheck();
+              }}
+              className="btn-admin-secondary"
+              style={{ justifyContent: 'center', padding: '12px 14px' }}
+            >
+              <Activity size={15} color="#10b981" />
+              <span>Song Health Check</span>
+            </button>
+
+            <button
               onClick={() => navigate('/admin?tab=updates')}
               className="btn-admin-secondary"
               style={{ justifyContent: 'center', padding: '12px 14px' }}
@@ -842,6 +1116,8 @@ export default function AdminDashboard() {
             </button>
           </div>
         </div>
+
+        {renderHealthModal()}
       </div>
     );
   }
@@ -859,9 +1135,23 @@ export default function AdminDashboard() {
               Showing {songs.length} of {totalSongsCount} songs
             </p>
           </div>
-          <button onClick={openAddSong} className="btn-admin-primary">
-            <Plus size={14} /> Add Song
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={() => {
+                setHealthModalOpen(true);
+                runHealthCheck();
+              }}
+              className="btn-admin-secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              title="Audit songs for missing audio, empty lyrics, or unassigned categories"
+            >
+              <Activity size={14} color="#a78bfa" />
+              <span>Health Check</span>
+            </button>
+            <button onClick={openAddSong} className="btn-admin-primary">
+              <Plus size={14} /> Add Song
+            </button>
+          </div>
         </div>
 
         {errorMsg && <div className="admin-alert error">{errorMsg}</div>}
@@ -1166,6 +1456,8 @@ export default function AdminDashboard() {
             </>
           )}
         </div>
+
+        {renderHealthModal()}
       </div>
     );
   }

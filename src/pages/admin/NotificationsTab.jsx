@@ -10,6 +10,7 @@ import {
   ExternalLink,
   RotateCcw,
   Copy,
+  Smartphone,
 } from 'lucide-react';
 
 export default function NotificationsTab() {
@@ -17,6 +18,7 @@ export default function NotificationsTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resendingId, setResendingId] = useState(null);
+  const [deviceCount, setDeviceCount] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -24,7 +26,19 @@ export default function NotificationsTab() {
 
   useEffect(() => {
     fetchNotifications();
+    fetchDeviceCount();
   }, []);
+
+  const fetchDeviceCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('device_push_tokens')
+        .select('*', { count: 'exact', head: true });
+      if (!error && count !== null) {
+        setDeviceCount(count);
+      }
+    } catch (_) {}
+  };
 
   const fetchNotifications = async () => {
     setLoading(true);
@@ -188,6 +202,25 @@ export default function NotificationsTab() {
           <h1>Push Notifications</h1>
           <p className="page-subtitle">Send in-app announcements and updates to all users</p>
         </div>
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '7px',
+          padding: '6px 14px',
+          background: 'rgba(139, 92, 246, 0.12)',
+          border: '1px solid rgba(139, 92, 246, 0.3)',
+          borderRadius: '20px',
+          fontSize: '12px',
+          color: '#a78bfa',
+          fontWeight: '600',
+        }}>
+          <Smartphone size={14} color="#8b5cf6" />
+          <span>
+            {deviceCount !== null
+              ? `${deviceCount} Registered Device${deviceCount === 1 ? '' : 's'}`
+              : 'Checking devices...'}
+          </span>
+        </div>
       </div>
 
       {errorMsg && (
@@ -293,6 +326,26 @@ export default function NotificationsTab() {
               <p style={{ fontSize: '11px', color: '#71717a', margin: '4px 0 0 0' }}>
                 Makes the notification clickable to open a web link.
               </p>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '16px',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              background: '#09090b',
+              border: '1px solid #27272a',
+              fontSize: '12px',
+              color: '#a1a1aa',
+            }}>
+              <Smartphone size={15} color="#8b5cf6" style={{ flexShrink: 0 }} />
+              <span>
+                {deviceCount !== null && deviceCount > 0
+                  ? `Reaches ${deviceCount} registered Android device${deviceCount === 1 ? '' : 's'} via Google FCM push.`
+                  : 'Delivers to all active devices via in-app broadcast and Google FCM once devices register.'}
+              </span>
             </div>
 
             <button

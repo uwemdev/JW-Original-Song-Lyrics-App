@@ -14,11 +14,76 @@ export function AudioProvider({ children, navigationRef }) {
   const [currentScreen, setCurrentScreen] = useState('');
   const [isAudioOffline, setIsAudioOffline] = useState(false);
 
+  // Sleep Timer state
+  const [sleepTimerOption, setSleepTimerOption] = useState(null); // null | '15' | '30' | '45' | '60' | 'end_of_song'
+  const [sleepTimerRemainingSec, setSleepTimerRemainingSec] = useState(null);
+  const sleepTimerIntervalRef = useRef(null);
+
   // Single persistent expo-audio player instance with high-frequency progress updates (250ms)
   const player = useAudioPlayer(null, { updateInterval: 250 });
   const status = useAudioPlayerStatus(player);
 
   const prevDidFinishRef = useRef(false);
+
+  // Sleep Timer controllers
+  const clearSleepTimer = useCallback(() => {
+    if (sleepTimerIntervalRef.current) {
+      clearInterval(sleepTimerIntervalRef.current);
+      sleepTimerIntervalRef.current = null;
+    }
+    setSleepTimerOption(null);
+    setSleepTimerRemainingSec(null);
+  }, []);
+
+  const setSleepTimer = useCallback((option) => {
+    if (sleepTimerIntervalRef.current) {
+      clearInterval(sleepTimerIntervalRef.current);
+      sleepTimerIntervalRef.current = null;
+    }
+
+    if (!option || option === 'off') {
+      setSleepTimerOption(null);
+      setSleepTimerRemainingSec(null);
+      return;
+    }
+
+    if (option === 'end_of_song') {
+      setSleepTimerOption('end_of_song');
+      setSleepTimerRemainingSec(null);
+      return;
+    }
+
+    const minutes = parseInt(option, 10);
+    if (!isNaN(minutes) && minutes > 0) {
+      const totalSec = minutes * 60;
+      setSleepTimerOption(option);
+      setSleepTimerRemainingSec(totalSec);
+
+      sleepTimerIntervalRef.current = setInterval(() => {
+        setSleepTimerRemainingSec((prev) => {
+          if (prev === null || prev <= 1) {
+            clearInterval(sleepTimerIntervalRef.current);
+            sleepTimerIntervalRef.current = null;
+            try {
+              player.pause();
+            } catch (_) {}
+            setSleepTimerOption(null);
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+  }, [player]);
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (sleepTimerIntervalRef.current) {
+        clearInterval(sleepTimerIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Play a song and optionally set/update the playback queue
   const playSong = useCallback((song, newQueue = null) => {
@@ -152,17 +217,22 @@ export function AudioProvider({ children, navigationRef }) {
     setIsMiniPlayerVisible(false);
   }, [player]);
 
-  // Continuous Play: Auto-advance when track finishes
+  // Continuous Play & Sleep Timer check: Auto-advance or pause when track finishes
   useEffect(() => {
     if (status.didJustFinish && !prevDidFinishRef.current) {
       prevDidFinishRef.current = true;
-      if (settings?.autoPlay) {
+      if (sleepTimerOption === 'end_of_song') {
+        try {
+          player.pause();
+        } catch (_) {}
+        clearSleepTimer();
+      } else if (settings?.autoPlay) {
         playNext();
       }
     } else if (!status.didJustFinish) {
       prevDidFinishRef.current = false;
     }
-  }, [status.didJustFinish, settings?.autoPlay, playNext]);
+  }, [status.didJustFinish, sleepTimerOption, settings?.autoPlay, playNext, player, clearSleepTimer]);
 
   // Progress fraction (0 to 1)
   const progress = status.duration > 0 ? Math.min(1, Math.max(0, status.currentTime / status.duration)) : 0;
@@ -180,6 +250,10 @@ export function AudioProvider({ children, navigationRef }) {
     progress,
     isAudioOffline,
     isMiniPlayerVisible: isMiniPlayerVisible && !!currentSong && currentScreen !== 'Song',
+    sleepTimerOption,
+    sleepTimerRemainingSec,
+    setSleepTimer,
+    clearSleepTimer,
     setCurrentScreen,
     playSong,
     togglePlayPause,
