@@ -2,7 +2,7 @@
   "expo": {
     "name": "JW Original Song Lyrics",
     "slug": "mobile",
-    "version": "1.3.2",
+    "version": "1.3.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -16,7 +16,7 @@
         "foregroundImage": "./assets/adaptive-icon.png"
       },
       "package": "com.jworiginalsongslyrics.app",
-      "versionCode": 8,
+      "versionCode": 9,
       "googleServicesFile": "./google-services.json"
     },
     "web": {
