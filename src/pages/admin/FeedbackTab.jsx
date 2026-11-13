@@ -31,6 +31,7 @@ import {
   ArrowLeft,
   MoreVertical,
   Paperclip,
+  Smartphone,
 } from 'lucide-react';
 
 // Web Audio API harmonic chime (2-tone sine sweep, zero external files)
@@ -457,6 +458,24 @@ export default function FeedbackTab() {
     return conversations.find((c) => c.id === selectedConvoId) || null;
   }, [conversations, selectedConvoId]);
 
+  const [selectedDeviceHasPush, setSelectedDeviceHasPush] = useState(false);
+
+  useEffect(() => {
+    if (!selectedConvo?.deviceId) {
+      setSelectedDeviceHasPush(false);
+      return;
+    }
+    supabase
+      .from('device_push_tokens')
+      .select('push_token')
+      .eq('device_id', selectedConvo.deviceId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setSelectedDeviceHasPush(Boolean(data?.push_token));
+      })
+      .catch(() => setSelectedDeviceHasPush(false));
+  }, [selectedConvo?.deviceId]);
+
   const handleSelect = (convo) => {
     setSelectedConvoId(convo.id);
     setMessages(convo.messages);
@@ -487,6 +506,65 @@ export default function FeedbackTab() {
     }
   };
 
+  const dispatchSupportReplyPush = async (targetDeviceId, replyMessage, reportInfo = null) => {
+    if (!targetDeviceId || targetDeviceId.startsWith('anon_')) return;
+
+    try {
+      const { data: tokenData, error } = await supabase
+        .from('device_push_tokens')
+        .select('push_token')
+        .eq('device_id', targetDeviceId)
+        .maybeSingle();
+
+      if (error || !tokenData?.push_token) return;
+
+      const pushToken = tokenData.push_token;
+      if (!pushToken.startsWith('ExponentPushToken[')) return;
+
+      const title = reportInfo?.songTitle
+        ? `Reply: ${reportInfo.songTitle}`
+        : 'Support Reply';
+
+      const payload = {
+        to: pushToken,
+        sound: 'default',
+        title,
+        body: replyMessage,
+        channelId: 'announcements',
+        priority: 'high',
+        data: {
+          screen: 'FeedbackScreen',
+          type: 'support_reply',
+          deviceId: targetDeviceId,
+        },
+      };
+
+      const res = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+      if (
+        result?.data?.status === 'error' &&
+        (result.data?.details?.error === 'DeviceNotRegistered' ||
+          result.data?.message?.includes('DeviceNotRegistered'))
+      ) {
+        await supabase
+          .from('device_push_tokens')
+          .delete()
+          .eq('push_token', pushToken);
+        setSelectedDeviceHasPush(false);
+      }
+    } catch (err) {
+      console.warn('[SupportPush] Failed to dispatch reply push:', err);
+    }
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
     if (!replyText.trim() || !selectedConvo || sending) return;
@@ -508,6 +586,9 @@ export default function FeedbackTab() {
 
       if (error) throw error;
       setReplyText('');
+
+      // Send instant push notification to recipient's mobile device
+      dispatchSupportReplyPush(targetDeviceId, text, selectedConvo.reportInfo);
 
       if (data && data[0]) {
         setMessages((prev) => {
@@ -874,6 +955,22 @@ export default function FeedbackTab() {
                       {selectedConvo.deviceMeta?.os && (
                         <span>· {selectedConvo.deviceMeta.os.toUpperCase()}</span>
                       )}
+                      {selectedDeviceHasPush && (
+                        <span style={{
+                          color: '#22c55e',
+                          background: 'rgba(34, 197, 94, 0.12)',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          fontWeight: '600',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                        }}>
+                          <Smartphone size={10} />
+                          Push Active
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1053,6 +1150,23 @@ export default function FeedbackTab() {
                   </button>
                 ))}
               </div>
+
+              {/* Push delivery indicator note */}
+              {selectedDeviceHasPush && (
+                <div style={{
+                  padding: '5px 14px',
+                  background: 'rgba(34, 197, 94, 0.08)',
+                  borderTop: '1px solid rgba(34, 197, 94, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '11px',
+                  color: '#4ade80',
+                }}>
+                  <Smartphone size={12} />
+                  <span>Reply will trigger a Google FCM push notification popup on this user's phone.</span>
+                </div>
+              )}
 
               {/* Reply Form */}
               <form onSubmit={handleSend} style={{

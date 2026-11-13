@@ -334,6 +334,12 @@ function MainNavigation() {
       if (!navigationRef.isReady()) return;
       const data = response?.notification?.request?.content?.data;
 
+      // Direct navigation to Support / Feedback Chat screen
+      if (data?.screen === 'FeedbackScreen' || data?.type === 'support_reply') {
+        navigationRef.navigate('FeedbackScreen');
+        return;
+      }
+
       if (data?.song_id) {
         try {
           const { data: songData } = await supabase
