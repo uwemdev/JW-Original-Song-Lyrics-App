@@ -44,6 +44,47 @@ export default function NotificationsTab() {
     }
   };
 
+  const dispatchExpoPush = async (title, message, linkUrl) => {
+    try {
+      const { data: tokens, error } = await supabase
+        .from('device_push_tokens')
+        .select('push_token');
+
+      if (error || !tokens || tokens.length === 0) return 0;
+
+      const pushMessages = tokens
+        .filter((t) => t.push_token && t.push_token.startsWith('ExponentPushToken['))
+        .map((t) => ({
+          to: t.push_token,
+          sound: 'default',
+          title,
+          body: message,
+          channelId: 'announcements',
+          priority: 'high',
+          data: { link_url: linkUrl },
+        }));
+
+      if (pushMessages.length === 0) return 0;
+
+      for (let i = 0; i < pushMessages.length; i += 100) {
+        const chunk = pushMessages.slice(i, i + 100);
+        await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(chunk),
+        });
+      }
+
+      return pushMessages.length;
+    } catch (err) {
+      console.warn('[ExpoPush] Broadcast error:', err);
+      return 0;
+    }
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
     if (!form.title || !form.message) {
@@ -66,7 +107,11 @@ export default function NotificationsTab() {
 
       if (error) throw error;
 
-      setSuccessMsg('Notification sent successfully! App users will see this alert.');
+      // Broadcast directly to registered Google FCM / Expo Push devices
+      const pushedCount = await dispatchExpoPush(form.title.trim(), form.message.trim(), form.link_url?.trim());
+      const pushNote = pushedCount > 0 ? ` (Delivered to ${pushedCount} mobile device(s))` : '';
+
+      setSuccessMsg(`Notification sent successfully!${pushNote}`);
       setForm({ title: '', message: '', link_url: '' });
       fetchNotifications();
     } catch (err) {
@@ -112,7 +157,11 @@ export default function NotificationsTab() {
 
       if (error) throw error;
 
-      setSuccessMsg(`Notification "${notif.title}" resent successfully! Users will see this alert.`);
+      // Broadcast directly to registered Google FCM / Expo Push devices
+      const pushedCount = await dispatchExpoPush(notif.title.trim(), notif.message.trim(), notif.link_url?.trim());
+      const pushNote = pushedCount > 0 ? ` (Delivered to ${pushedCount} mobile device(s))` : '';
+
+      setSuccessMsg(`Notification "${notif.title}" resent successfully!${pushNote}`);
       fetchNotifications();
     } catch (err) {
       console.error(err);

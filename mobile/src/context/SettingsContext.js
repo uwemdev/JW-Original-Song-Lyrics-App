@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useColorScheme, AppState } from 'react-native';
+import { useColorScheme, AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { supabase } from '../lib/supabase';
 import { scheduleSundayMeetingReminder, scheduleDailySongReminder, scheduleInactivityReminders, triggerSystemNotification } from '../lib/notificationScheduler';
 
@@ -172,6 +173,45 @@ export function SettingsProvider({ children }) {
       
     return () => {
        supabase.removeChannel(channel);
+    };
+  }, [deviceId]);
+
+  // Register Expo Push Token for Google FCM
+  useEffect(() => {
+    if (!deviceId) return;
+
+    let isMounted = true;
+    const registerPushToken = async () => {
+      try {
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status !== 'granted') return;
+
+        const tokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: '7f7c824c-9014-473d-ba1c-f8243e4940f1',
+        });
+        const pushToken = tokenData?.data;
+
+        if (pushToken && isMounted) {
+          await supabase
+            .from('device_push_tokens')
+            .upsert(
+              {
+                device_id: deviceId,
+                push_token: pushToken,
+                platform: Platform.OS,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'device_id' }
+            );
+        }
+      } catch (err) {
+        console.warn('[PushToken] Registration skipped:', err?.message || err);
+      }
+    };
+
+    registerPushToken();
+    return () => {
+      isMounted = false;
     };
   }, [deviceId]);
 
