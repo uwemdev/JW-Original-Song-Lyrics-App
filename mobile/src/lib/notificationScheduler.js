@@ -261,7 +261,7 @@ export async function triggerTestWarmReminder(days = 7) {
 /**
  * Trigger an immediate native push notification banner for admin broadcasts
  */
-export async function triggerSystemNotification({ title, message, linkUrl, id }) {
+export async function triggerSystemNotification({ title, message, linkUrl, songId, id }) {
   try {
     const hasPermission = await requestNotificationPermissions();
     if (!hasPermission) return false;
@@ -275,7 +275,7 @@ export async function triggerSystemNotification({ title, message, linkUrl, id })
         sound: 'default',
         channelId: 'announcements',
         priority: Notifications.AndroidNotificationPriority?.MAX || 'max',
-        data: { link_url: linkUrl, id },
+        data: { link_url: linkUrl, song_id: songId, id },
       },
       trigger: null, // null trigger presents notification immediately
     });

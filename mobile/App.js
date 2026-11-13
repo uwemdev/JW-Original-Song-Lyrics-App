@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Platform, LogBox, ActivityIndicator, Text, AppState } from 'react-native';
+import { View, StyleSheet, Platform, LogBox, ActivityIndicator, Text, AppState, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './src/lib/supabase';
 
 import { NavigationContainer, DarkTheme, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -329,16 +330,48 @@ function MainNavigation() {
       }
     });
 
-    const notifResponseSub = Notifications.addNotificationResponseReceivedListener(() => {
-        if (navigationRef.isReady()) {
-          navigationRef.navigate('Notifications');
-        }
-      });
+    const handleNotificationNavigation = async (response) => {
+      if (!navigationRef.isReady()) return;
+      const data = response?.notification?.request?.content?.data;
 
-      return () => {
-        appStateSub.remove();
-        notifResponseSub.remove();
-      };
+      if (data?.song_id) {
+        try {
+          const { data: songData } = await supabase
+            .from('songs')
+            .select('*, categories(name)')
+            .eq('id', data.song_id)
+            .single();
+
+          if (songData) {
+            navigationRef.navigate('Song', { song: songData });
+            return;
+          }
+        } catch (err) {
+          console.warn('[DeepLink] Failed to load song for notification:', err);
+        }
+      }
+
+      if (data?.link_url) {
+        Linking.openURL(data.link_url).catch(() => {});
+        return;
+      }
+
+      navigationRef.navigate('Notifications');
+    };
+
+    const notifResponseSub = Notifications.addNotificationResponseReceivedListener(handleNotificationNavigation);
+
+    // Handle cold-start launch from push notification tap
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        handleNotificationNavigation(response);
+      }
+    }).catch(() => {});
+
+    return () => {
+      appStateSub.remove();
+      notifResponseSub.remove();
+    };
   }, [loaded]);
 
   const MyTheme = {

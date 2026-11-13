@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS public.device_push_tokens (
   device_id TEXT NOT NULL UNIQUE,
   push_token TEXT NOT NULL,
   platform TEXT DEFAULT 'android',
+  app_version TEXT,
+  last_active_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 

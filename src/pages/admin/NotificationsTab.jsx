@@ -11,23 +11,59 @@ import {
   RotateCcw,
   Copy,
   Smartphone,
+  Music,
+  Users,
+  Filter,
 } from 'lucide-react';
 
 export default function NotificationsTab() {
   const [notifications, setNotifications] = useState([]);
+  const [songs, setSongs] = useState([]);
+  const [latestAppVersion, setLatestAppVersion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [cleaningTokens, setCleaningTokens] = useState(false);
   const [resendingId, setResendingId] = useState(null);
   const [deviceCount, setDeviceCount] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const [form, setForm] = useState({ title: '', message: '', link_url: '' });
+  const [form, setForm] = useState({
+    title: '',
+    message: '',
+    link_url: '',
+    target_audience: 'all',
+    song_id: '',
+  });
 
   useEffect(() => {
     fetchNotifications();
     fetchDeviceCount();
+    fetchSongs();
+    fetchLatestVersion();
   }, []);
+
+  const fetchSongs = async () => {
+    try {
+      const { data } = await supabase
+        .from('songs')
+        .select('id, title, song_number')
+        .order('song_number', { ascending: true });
+      if (data) setSongs(data);
+    } catch (_) {}
+  };
+
+  const fetchLatestVersion = async () => {
+    try {
+      const { data } = await supabase
+        .from('app_version_config')
+        .select('latest_version')
+        .eq('platform', 'android')
+        .limit(1)
+        .maybeSingle();
+      if (data?.latest_version) setLatestAppVersion(data.latest_version);
+    } catch (_) {}
+  };
 
   const fetchDeviceCount = async () => {
     try {
@@ -58,11 +94,46 @@ export default function NotificationsTab() {
     }
   };
 
-  const dispatchExpoPush = async (title, message, linkUrl) => {
+  const handleCleanInactive = async () => {
+    if (!confirm('Remove device tokens that have been inactive for over 90 days?')) return;
+    setCleaningTokens(true);
     try {
-      const { data: tokens, error } = await supabase
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      const { error } = await supabase
         .from('device_push_tokens')
-        .select('push_token');
+        .delete()
+        .lt('last_active_at', ninetyDaysAgo);
+
+      if (error && error.code === '42703') {
+        await supabase
+          .from('device_push_tokens')
+          .delete()
+          .lt('updated_at', ninetyDaysAgo);
+      }
+      setSuccessMsg('Inactive tokens cleaned successfully.');
+      fetchDeviceCount();
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Failed to clean inactive tokens');
+    } finally {
+      setCleaningTokens(false);
+    }
+  };
+
+  const dispatchExpoPush = async (title, message, linkUrl, songId, audience = 'all') => {
+    try {
+      let query = supabase
+        .from('device_push_tokens')
+        .select('push_token, app_version, last_active_at');
+
+      if (audience === 'active_30d') {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        query = query.gte('last_active_at', thirtyDaysAgo);
+      } else if (audience === 'outdated' && latestAppVersion) {
+        query = query.neq('app_version', latestAppVersion);
+      }
+
+      const { data: tokens, error } = await query;
 
       if (error || !tokens || tokens.length === 0) return 0;
 
@@ -75,21 +146,53 @@ export default function NotificationsTab() {
           body: message,
           channelId: 'announcements',
           priority: 'high',
-          data: { link_url: linkUrl },
+          data: {
+            link_url: linkUrl || null,
+            song_id: songId || null,
+          },
         }));
 
       if (pushMessages.length === 0) return 0;
 
+      const invalidTokens = [];
+
       for (let i = 0; i < pushMessages.length; i += 100) {
         const chunk = pushMessages.slice(i, i + 100);
-        await fetch('https://exp.host/--/api/v2/push/send', {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(chunk),
-        });
+        try {
+          const res = await fetch('https://exp.host/--/api/v2/push/send', {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(chunk),
+          });
+          const result = await res.json();
+          if (result?.data && Array.isArray(result.data)) {
+            result.data.forEach((ticket, idx) => {
+              if (
+                ticket.status === 'error' &&
+                (ticket.details?.error === 'DeviceNotRegistered' ||
+                  ticket.message?.includes('DeviceNotRegistered'))
+              ) {
+                invalidTokens.push(chunk[idx].to);
+              }
+            });
+          }
+        } catch (postErr) {
+          console.warn('[ExpoPush] Chunk send error:', postErr);
+        }
+      }
+
+      // Automatically purge unregistered/uninstalled tokens
+      if (invalidTokens.length > 0) {
+        try {
+          await supabase
+            .from('device_push_tokens')
+            .delete()
+            .in('push_token', invalidTokens);
+          fetchDeviceCount();
+        } catch (_) {}
       }
 
       return pushMessages.length;
@@ -111,22 +214,50 @@ export default function NotificationsTab() {
     setSuccessMsg('');
 
     try {
+      const record = {
+        title: form.title.trim(),
+        message: form.message.trim(),
+        link_url: form.link_url ? form.link_url.trim() : null,
+        target_audience: form.target_audience || 'all',
+        song_id: form.song_id || null,
+      };
+
       const { error } = await supabase
         .from('app_notifications')
-        .insert([{
-          title: form.title.trim(),
-          message: form.message.trim(),
-          link_url: form.link_url ? form.link_url.trim() : null,
-        }]);
+        .insert([record]);
 
-      if (error) throw error;
+      // Fallback if target_audience or song_id columns do not exist yet
+      if (error && error.code === '42703') {
+        const { error: fallbackErr } = await supabase
+          .from('app_notifications')
+          .insert([{
+            title: form.title.trim(),
+            message: form.message.trim(),
+            link_url: form.link_url ? form.link_url.trim() : null,
+          }]);
+        if (fallbackErr) throw fallbackErr;
+      } else if (error) {
+        throw error;
+      }
 
       // Broadcast directly to registered Google FCM / Expo Push devices
-      const pushedCount = await dispatchExpoPush(form.title.trim(), form.message.trim(), form.link_url?.trim());
+      const pushedCount = await dispatchExpoPush(
+        form.title.trim(),
+        form.message.trim(),
+        form.link_url?.trim(),
+        form.song_id || null,
+        form.target_audience || 'all'
+      );
       const pushNote = pushedCount > 0 ? ` (Delivered to ${pushedCount} mobile device(s))` : '';
 
       setSuccessMsg(`Notification sent successfully!${pushNote}`);
-      setForm({ title: '', message: '', link_url: '' });
+      setForm({
+        title: '',
+        message: '',
+        link_url: '',
+        target_audience: 'all',
+        song_id: '',
+      });
       fetchNotifications();
     } catch (err) {
       console.error(err);
@@ -154,25 +285,45 @@ export default function NotificationsTab() {
   };
 
   const handleResend = async (notif) => {
-    if (!confirm(`Resend notification "${notif.title}" now to all users?`)) return;
+    if (!confirm(`Resend notification "${notif.title}" now?`)) return;
 
     setResendingId(notif.id);
     setErrorMsg('');
     setSuccessMsg('');
 
     try {
+      const record = {
+        title: notif.title.trim(),
+        message: notif.message.trim(),
+        link_url: notif.link_url ? notif.link_url.trim() : null,
+        target_audience: notif.target_audience || 'all',
+        song_id: notif.song_id || null,
+      };
+
       const { error } = await supabase
         .from('app_notifications')
-        .insert([{
-          title: notif.title.trim(),
-          message: notif.message.trim(),
-          link_url: notif.link_url ? notif.link_url.trim() : null,
-        }]);
+        .insert([record]);
 
-      if (error) throw error;
+      if (error && error.code === '42703') {
+        await supabase
+          .from('app_notifications')
+          .insert([{
+            title: notif.title.trim(),
+            message: notif.message.trim(),
+            link_url: notif.link_url ? notif.link_url.trim() : null,
+          }]);
+      } else if (error) {
+        throw error;
+      }
 
       // Broadcast directly to registered Google FCM / Expo Push devices
-      const pushedCount = await dispatchExpoPush(notif.title.trim(), notif.message.trim(), notif.link_url?.trim());
+      const pushedCount = await dispatchExpoPush(
+        notif.title.trim(),
+        notif.message.trim(),
+        notif.link_url?.trim(),
+        notif.song_id || null,
+        notif.target_audience || 'all'
+      );
       const pushNote = pushedCount > 0 ? ` (Delivered to ${pushedCount} mobile device(s))` : '';
 
       setSuccessMsg(`Notification "${notif.title}" resent successfully!${pushNote}`);
@@ -190,6 +341,8 @@ export default function NotificationsTab() {
       title: notif.title || '',
       message: notif.message || '',
       link_url: notif.link_url || '',
+      target_audience: notif.target_audience || 'all',
+      song_id: notif.song_id || '',
     });
     setSuccessMsg(`Loaded "${notif.title}" into composer. You can edit and send.`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -202,24 +355,38 @@ export default function NotificationsTab() {
           <h1>Push Notifications</h1>
           <p className="page-subtitle">Send in-app announcements and updates to all users</p>
         </div>
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '7px',
-          padding: '6px 14px',
-          background: 'rgba(139, 92, 246, 0.12)',
-          border: '1px solid rgba(139, 92, 246, 0.3)',
-          borderRadius: '20px',
-          fontSize: '12px',
-          color: '#a78bfa',
-          fontWeight: '600',
-        }}>
-          <Smartphone size={14} color="#8b5cf6" />
-          <span>
-            {deviceCount !== null
-              ? `${deviceCount} Registered Device${deviceCount === 1 ? '' : 's'}`
-              : 'Checking devices...'}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '7px',
+            padding: '6px 14px',
+            background: 'rgba(139, 92, 246, 0.12)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+            borderRadius: '20px',
+            fontSize: '12px',
+            color: '#a78bfa',
+            fontWeight: '600',
+          }}>
+            <Smartphone size={14} color="#8b5cf6" />
+            <span>
+              {deviceCount !== null
+                ? `${deviceCount} Registered Device${deviceCount === 1 ? '' : 's'}`
+                : 'Checking devices...'}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleCleanInactive}
+            disabled={cleaningTokens}
+            className="btn-admin-secondary"
+            style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '20px', gap: '5px' }}
+            title="Clean up tokens inactive for >90 days to keep your device count accurate"
+          >
+            <Trash2 size={12} />
+            <span>{cleaningTokens ? 'Cleaning...' : 'Clean Inactive'}</span>
+          </button>
         </div>
       </div>
 
@@ -314,7 +481,7 @@ export default function NotificationsTab() {
               />
             </div>
 
-            <div style={{ marginBottom: '16px' }}>
+            <div style={{ marginBottom: '14px' }}>
               <label className="admin-label">Link URL (Optional)</label>
               <input
                 type="url"
@@ -324,7 +491,52 @@ export default function NotificationsTab() {
                 className="admin-input"
               />
               <p style={{ fontSize: '11px', color: '#71717a', margin: '4px 0 0 0' }}>
-                Makes the notification clickable to open a web link.
+                Makes the notification clickable to open an external website.
+              </p>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label className="admin-label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Users size={12} color="#8b5cf6" />
+                <span>Target Audience</span>
+              </label>
+              <select
+                value={form.target_audience}
+                onChange={(e) => setForm({ ...form, target_audience: e.target.value })}
+                className="admin-input"
+                style={{ cursor: 'pointer' }}
+              >
+                <option value="all">All Registered Devices</option>
+                <option value="active_30d">Active Devices (Last 30 Days)</option>
+                <option value="outdated">
+                  Outdated App Versions {latestAppVersion ? `(< v${latestAppVersion})` : ''}
+                </option>
+              </select>
+              <p style={{ fontSize: '11px', color: '#71717a', margin: '4px 0 0 0' }}>
+                Filter push recipients by activity or installed version.
+              </p>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label className="admin-label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Music size={12} color="#8b5cf6" />
+                <span>Attach Song (Deep-Link)</span>
+              </label>
+              <select
+                value={form.song_id}
+                onChange={(e) => setForm({ ...form, song_id: e.target.value })}
+                className="admin-input"
+                style={{ cursor: 'pointer' }}
+              >
+                <option value="">None (General Notification)</option>
+                {songs.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    #{s.song_number || '?'} - {s.title}
+                  </option>
+                ))}
+              </select>
+              <p style={{ fontSize: '11px', color: '#71717a', margin: '4px 0 0 0' }}>
+                When tapped on mobile, the app opens directly to this song and plays it.
               </p>
             </div>
 
@@ -343,7 +555,7 @@ export default function NotificationsTab() {
               <Smartphone size={15} color="#8b5cf6" style={{ flexShrink: 0 }} />
               <span>
                 {deviceCount !== null && deviceCount > 0
-                  ? `Reaches ${deviceCount} registered Android device${deviceCount === 1 ? '' : 's'} via Google FCM push.`
+                  ? `Reaches registered devices (${form.target_audience === 'all' ? 'All' : form.target_audience === 'active_30d' ? 'Active in last 30d' : 'Outdated versions'}) via Google FCM push.`
                   : 'Delivers to all active devices via in-app broadcast and Google FCM once devices register.'}
               </span>
             </div>
@@ -407,6 +619,41 @@ export default function NotificationsTab() {
                         </span>
                       </div>
                     )}
+
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                      {n.target_audience && n.target_audience !== 'all' && (
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: '600',
+                          color: '#a78bfa',
+                          background: 'rgba(139, 92, 246, 0.12)',
+                          padding: '2px 7px',
+                          borderRadius: '4px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                        }}>
+                          <Users size={10} />
+                          Audience: {n.target_audience === 'active_30d' ? 'Active (30d)' : 'Outdated Version'}
+                        </span>
+                      )}
+                      {n.song_id && (
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: '600',
+                          color: '#34d399',
+                          background: 'rgba(52, 211, 153, 0.12)',
+                          padding: '2px 7px',
+                          borderRadius: '4px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}>
+                          <Music size={10} />
+                          Attached Song: {songs.find((s) => s.id === n.song_id)?.title || 'Song'}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>

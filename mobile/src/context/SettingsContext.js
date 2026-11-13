@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { supabase } from '../lib/supabase';
 import { scheduleSundayMeetingReminder, scheduleDailySongReminder, scheduleInactivityReminders, triggerSystemNotification } from '../lib/notificationScheduler';
+import { CURRENT_APP_VERSION } from '../lib/versionCheck';
 
 const SettingsContext = createContext(null);
 
@@ -192,17 +193,33 @@ export function SettingsProvider({ children }) {
         const pushToken = tokenData?.data;
 
         if (pushToken && isMounted) {
-          await supabase
+          const payload = {
+            device_id: deviceId,
+            push_token: pushToken,
+            platform: Platform.OS,
+            app_version: CURRENT_APP_VERSION,
+            last_active_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
+          const { error } = await supabase
             .from('device_push_tokens')
-            .upsert(
-              {
-                device_id: deviceId,
-                push_token: pushToken,
-                platform: Platform.OS,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: 'device_id' }
-            );
+            .upsert(payload, { onConflict: 'device_id' });
+
+          // Graceful fallback if database migration hasn't been applied yet
+          if (error && error.code === '42703') {
+            await supabase
+              .from('device_push_tokens')
+              .upsert(
+                {
+                  device_id: deviceId,
+                  push_token: pushToken,
+                  platform: Platform.OS,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: 'device_id' }
+              );
+          }
         }
       } catch (err) {
         console.warn('[PushToken] Registration skipped:', err?.message || err);
@@ -242,6 +259,7 @@ export function SettingsProvider({ children }) {
               title: latest.title,
               message: latest.message,
               linkUrl: latest.link_url,
+              songId: latest.song_id,
               id: latest.id,
             });
 
@@ -277,6 +295,7 @@ export function SettingsProvider({ children }) {
               title: notif.title,
               message: notif.message,
               linkUrl: notif.link_url,
+              songId: notif.song_id,
               id: notif.id,
             });
 
@@ -292,6 +311,14 @@ export function SettingsProvider({ children }) {
     const appStateSub = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
         syncMissedBroadcasts();
+        if (deviceId) {
+          supabase
+            .from('device_push_tokens')
+            .update({ last_active_at: new Date().toISOString() })
+            .eq('device_id', deviceId)
+            .then(() => {})
+            .catch(() => {});
+        }
       }
     });
 
