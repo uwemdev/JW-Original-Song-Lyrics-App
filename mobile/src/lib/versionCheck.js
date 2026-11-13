@@ -90,12 +90,12 @@ export async function openStorePage(customUrl) {
 
   if (Platform.OS === 'android') {
     try {
-      const canOpen = await Linking.canOpenURL(marketUrl);
-      if (canOpen) {
-        await Linking.openURL(marketUrl);
-        return;
-      }
-    } catch (_) {}
+      // Direct intent to native Google Play app
+      await Linking.openURL(marketUrl);
+      return;
+    } catch (_) {
+      // If native market intent fails or Play Store app is unavailable, fallback to web
+    }
   }
 
   try {

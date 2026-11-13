@@ -12,8 +12,10 @@ import {
   Animated,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Network from 'expo-network';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -28,6 +30,10 @@ import {
   Shuffle,
   X,
   Megaphone,
+  WifiOff,
+  RefreshCw,
+  AlertCircle,
+  Sparkles,
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 import NativeAdCard from '../components/NativeAdCard';
@@ -39,6 +45,7 @@ import FamilyQuizBanner from '../components/FamilyQuizBanner';
 import WhatsAppStatusCardModal from '../components/WhatsAppStatusCardModal';
 import RatingModal, { shouldShowRatingPrompt } from '../components/RatingModal';
 import { filterSongsByMood, getMoodById } from '../lib/moodCategories';
+import { triggerFirstLaunchOfflineNotification } from '../lib/notificationScheduler';
 
 const { width } = Dimensions.get('window');
 
@@ -196,6 +203,41 @@ export default function HomeScreen({ navigation }) {
     };
   }, [installDate]);
 
+  // ── Cache keys ──
+  const CACHE_KEY_SONGS = '@cached_catalog_songs';
+  const CACHE_KEY_CATEGORIES = '@cached_catalog_categories';
+
+  const [isFirstLaunchOffline, setIsFirstLaunchOffline] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState(null);
+
+  // ── Load cached catalog instantly for offline startup ──
+  const loadCachedCatalog = useCallback(async () => {
+    try {
+      const [cachedSongsRaw, cachedCatsRaw] = await Promise.all([
+        AsyncStorage.getItem(CACHE_KEY_SONGS),
+        AsyncStorage.getItem(CACHE_KEY_CATEGORIES),
+      ]);
+      let hasCached = false;
+      if (cachedSongsRaw) {
+        const parsedSongs = JSON.parse(cachedSongsRaw);
+        if (Array.isArray(parsedSongs) && parsedSongs.length > 0) {
+          setSongs(parsedSongs);
+          hasCached = true;
+        }
+      }
+      if (cachedCatsRaw) {
+        const parsedCats = JSON.parse(cachedCatsRaw);
+        if (Array.isArray(parsedCats) && parsedCats.length > 0) {
+          setCategories(parsedCats);
+        }
+      }
+      return hasCached;
+    } catch (_) {
+      return false;
+    }
+  }, []);
+
   // ── Data fetch ──
   const fetchData = useCallback(async () => {
     try {
@@ -207,12 +249,59 @@ export default function HomeScreen({ navigation }) {
           .eq('is_published', true)
           .order('created_at', { ascending: false }),
       ]);
-      if (catRes.data) setCategories(catRes.data);
-      if (songRes.data) setSongs(songRes.data);
+      if (catRes.data && catRes.data.length > 0) {
+        setCategories(catRes.data);
+        AsyncStorage.setItem(CACHE_KEY_CATEGORIES, JSON.stringify(catRes.data)).catch(() => {});
+      }
+      if (songRes.data && songRes.data.length > 0) {
+        setSongs(songRes.data);
+        setIsFirstLaunchOffline(false);
+        setRetryError(null);
+        AsyncStorage.setItem(CACHE_KEY_SONGS, JSON.stringify(songRes.data)).catch(() => {});
+        return true;
+      }
+
+      // If remote returned nothing, check if we have cached catalog
+      const cached = await AsyncStorage.getItem(CACHE_KEY_SONGS).catch(() => null);
+      if (!cached || JSON.parse(cached).length === 0) {
+        setIsFirstLaunchOffline(true);
+        triggerFirstLaunchOfflineNotification().catch(() => {});
+      }
+      return false;
     } catch (err) {
-      console.error('Fetch error:', err);
+      console.warn('Fetch error:', err?.message || err);
+      const cached = await AsyncStorage.getItem(CACHE_KEY_SONGS).catch(() => null);
+      if (!cached || JSON.parse(cached).length === 0) {
+        setIsFirstLaunchOffline(true);
+        triggerFirstLaunchOfflineNotification().catch(() => {});
+      }
+      return false;
     }
   }, []);
+
+  const handleRetryConnection = async () => {
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      const net = await Network.getNetworkStateAsync().catch(() => ({ isConnected: false }));
+      if (!net.isConnected || net.isInternetReachable === false) {
+        setRetryError('No active internet connection found. Please turn on Wi-Fi or Mobile Data and try again.');
+        setRetrying(false);
+        return;
+      }
+      const success = await fetchData();
+      if (!success) {
+        setRetryError('Connection reached, but could not load songs. Please check your signal and tap Retry again.');
+      } else {
+        setIsFirstLaunchOffline(false);
+        setRetryError(null);
+      }
+    } catch (err) {
+      setRetryError('Unable to connect right now. Please verify your connection.');
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const checkUnreadNotifs = useCallback(async () => {
     try {
@@ -272,10 +361,14 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     (async () => {
+      const hadCache = await loadCachedCatalog();
+      if (hadCache) {
+        setLoading(false);
+      }
       await Promise.all([fetchData(), loadLastPlayed(), checkUnreadNotifs()]);
       setLoading(false);
     })();
-  }, []);
+  }, [loadCachedCatalog, fetchData, loadLastPlayed, checkUnreadNotifs]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -385,20 +478,105 @@ export default function HomeScreen({ navigation }) {
     );
   }
 
-  // ── Empty state (zero songs) ──
+  // ── First-Time Setup / Offline State (Zero songs loaded) ──
   if (songs.length === 0 && !loading) {
     return (
-      <View style={[styles.container, styles.emptyCenter]}>
+      <View style={[styles.container, { justifyContent: 'space-between' }]}>
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.bg} />
-        <Image
-          source={require('../../assets/icon.png')}
-          style={{ width: 100, height: 100, opacity: 0.5, marginBottom: 20 }}
-          resizeMode="contain"
-        />
-        <Text style={styles.emptyTitle}>Songs are on the way</Text>
-        <Text style={styles.emptySub}>
-          New songs will appear here as they{'\n'}are published. Check back soon!
-        </Text>
+        
+        {/* Top Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <View style={styles.headerLogo}>
+              <Image
+                source={require('../../assets/logo-circle.png')}
+                style={styles.headerLogoImg}
+                resizeMode="cover"
+              />
+            </View>
+            <Text style={styles.headerTitle}>Original Song Lyrics</Text>
+          </View>
+        </View>
+
+        {/* Central Setup Card */}
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 20 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.offlineCard}>
+            {/* Header Badge */}
+            <View style={styles.offlineBadge}>
+              <Sparkles size={13} color={colors.purpleAccent} strokeWidth={2.5} />
+              <Text style={styles.offlineBadgeText}>FIRST-TIME SETUP</Text>
+            </View>
+
+            {/* Icon */}
+            <View style={styles.offlineIconWrap}>
+              <WifiOff size={32} color={colors.purpleAccent} strokeWidth={2.2} />
+            </View>
+
+            {/* Title & Description */}
+            <Text style={styles.offlineTitle}>Internet Required for First Setup</Text>
+            <Text style={styles.offlineDesc}>
+              Welcome! To prepare all song lyrics for offline reading and playback, please connect to Wi-Fi or mobile data once.
+            </Text>
+
+            {/* Step-by-step guidance */}
+            <View style={styles.offlineStepsBox}>
+              <View style={styles.offlineStepRow}>
+                <View style={styles.offlineStepNum}>
+                  <Text style={styles.offlineStepNumText}>1</Text>
+                </View>
+                <Text style={styles.offlineStepText}>Turn on your Wi-Fi or Mobile Data</Text>
+              </View>
+
+              <View style={styles.offlineStepRow}>
+                <View style={styles.offlineStepNum}>
+                  <Text style={styles.offlineStepNumText}>2</Text>
+                </View>
+                <Text style={styles.offlineStepText}>Tap the "Connect & Download" button below</Text>
+              </View>
+
+              <View style={styles.offlineStepRow}>
+                <View style={styles.offlineStepNum}>
+                  <Text style={styles.offlineStepNumText}>3</Text>
+                </View>
+                <Text style={styles.offlineStepText}>Enjoy full offline access to all songs anytime</Text>
+              </View>
+            </View>
+
+            {/* Retry Button */}
+            <TouchableOpacity
+              style={[styles.offlineRetryBtn, retrying && { opacity: 0.75 }]}
+              onPress={handleRetryConnection}
+              disabled={retrying}
+              activeOpacity={0.85}
+            >
+              {retrying ? (
+                <>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <Text style={styles.offlineRetryBtnText}>Downloading Songs...</Text>
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={17} color="#FFFFFF" strokeWidth={2.4} />
+                  <Text style={styles.offlineRetryBtnText}>Connect & Download Songs</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Error Feedback */}
+            {retryError && (
+              <View style={styles.offlineErrorBox}>
+                <AlertCircle size={16} color="#EF4444" strokeWidth={2.2} />
+                <Text style={styles.offlineErrorText}>{retryError}</Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+
+        {/* Footer spacing */}
+        <View style={{ height: 20 }} />
       </View>
     );
   }
@@ -923,6 +1101,133 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     color: colors.textMuted,
     fontSize: 14,
     textAlign: 'center',
+  },
+
+  // ── First-Time Setup / Offline Card ──
+  offlineCard: {
+    marginHorizontal: 20,
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(167, 139, 250, 0.2)' : 'rgba(109, 40, 217, 0.12)',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  offlineIconWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: isDark ? 'rgba(109, 40, 217, 0.18)' : 'rgba(109, 40, 217, 0.1)',
+    borderWidth: 1.5,
+    borderColor: isDark ? 'rgba(167, 139, 250, 0.35)' : 'rgba(109, 40, 217, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  offlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: isDark ? 'rgba(167, 139, 250, 0.12)' : 'rgba(109, 40, 217, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(167, 139, 250, 0.25)' : 'rgba(109, 40, 217, 0.2)',
+    marginBottom: 14,
+  },
+  offlineBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.purpleAccent,
+    letterSpacing: 0.5,
+  },
+  offlineTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.textWhite,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  offlineDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  offlineStepsBox: {
+    width: '100%',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)',
+    marginBottom: 20,
+    gap: 10,
+  },
+  offlineStepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  offlineStepNum: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.purple,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  offlineStepNumText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  offlineStepText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.textWhite,
+  },
+  offlineRetryBtn: {
+    width: '100%',
+    backgroundColor: colors.purple,
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  offlineRetryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  offlineErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+  },
+  offlineErrorText: {
+    flex: 1,
+    color: '#EF4444',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
   },
 
   // ── Empty ──

@@ -162,15 +162,22 @@ export default function SearchScreen({ navigation, route }) {
     Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
     loadRecentSearches();
     loadFavorites();
-    // Fetch all songs for instant mood filtering
+    // Fetch all songs for instant search & mood filtering (with offline cache fallback)
     (async () => {
       try {
+        const cachedRaw = await AsyncStorage.getItem('@cached_catalog_songs');
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setAllSongs(parsed);
+          }
+        }
         const { data } = await supabase
           .from('songs')
           .select('*, categories(name)')
           .eq('is_published', true)
           .order('title', { ascending: true });
-        if (data) setAllSongs(data);
+        if (data && data.length > 0) setAllSongs(data);
       } catch (_) {}
     })();
     // Auto-focus

@@ -285,3 +285,36 @@ export async function triggerSystemNotification({ title, message, linkUrl, songI
     return false;
   }
 }
+
+/**
+ * Trigger a reminder notification when the user opens the app offline on first install
+ */
+export async function triggerFirstLaunchOfflineNotification() {
+  try {
+    const hasPermission = await requestNotificationPermissions();
+    if (!hasPermission) return false;
+    await setupAndroidChannel();
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: 'first-launch-offline',
+      content: {
+        title: 'Complete Song Setup',
+        body: 'Connect to internet once to download song lyrics for offline reading and playback.',
+        sound: 'default',
+        channelId: 'announcements',
+        priority: Notifications.AndroidNotificationPriority?.MAX || 'max',
+        data: { type: 'first_launch_offline' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: 5,
+        repeats: false,
+        channelId: 'announcements',
+      },
+    });
+    return true;
+  } catch (err) {
+    console.warn('[NotificationScheduler] Failed to trigger first launch offline notification:', err?.message || err);
+    return false;
+  }
+}
