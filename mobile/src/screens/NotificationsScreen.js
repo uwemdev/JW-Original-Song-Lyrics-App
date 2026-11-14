@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,21 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft,
-  Sun, Bell, Music, Edit3, FolderPlus, ChevronRight, CheckCheck, Megaphone, ExternalLink, Heart } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  Sun,
+  Bell,
+  Music,
+  Edit3,
+  FolderPlus,
+  ChevronRight,
+  CheckCheck,
+  Megaphone,
+  ExternalLink,
+  Heart,
+  Clock,
+  Sparkles,
+} from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDailySong, getDailyNotification } from '../lib/dailySong';
@@ -33,67 +46,121 @@ const timeAgo = (date) => {
   return Math.floor(seconds) + ' seconds ago';
 };
 
-
-
-
-
-
-
-
 export default function NotificationsScreen({ navigation }) {
-  const { colors, isDark, installDate } = useSettings();
+  const { colors, isDark, installDate, dismissedNotifs, dismissNotification } = useSettings();
   const styles = makeStyles(colors, isDark);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
-      const [autoRes, pushRes, songsRes] = await Promise.all([
+      // 1. Collect all dismissed notification IDs from AsyncStorage and Context
+      const dismissedSet = new Set(dismissedNotifs || []);
+      try {
+        const rawDismissed = await AsyncStorage.getItem('@settings_dismissed_notifs');
+        if (rawDismissed) {
+          const parsed = JSON.parse(rawDismissed);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((id) => dismissedSet.add(id));
+          }
+        }
+      } catch (_) {}
+
+      // 2. Fetch notifications from database tables safely
+      const [autoRes, pushRes, annRes, songsRes] = await Promise.all([
         supabase
           .from('notifications')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(50),
+          .limit(50)
+          .catch(() => ({ data: [] })),
         supabase
           .from('app_notifications')
           .select('*')
           .gte('created_at', installDate || new Date(0).toISOString())
           .order('created_at', { ascending: false })
-          .limit(50),
+          .limit(50)
+          .catch(() => ({ data: [] })),
+        supabase
+          .from('app_announcements')
+          .select('*')
+          .eq('is_active', true)
+          .lte('starts_at', new Date().toISOString())
+          .order('created_at', { ascending: false })
+          .limit(20)
+          .catch(() => ({ data: [] })),
         supabase
           .from('songs')
           .select('*, categories(name)')
           .eq('is_published', true)
           .limit(100)
+          .catch(() => ({ data: [] })),
       ]);
-        
+
       let fetched = [];
-      if (autoRes.data) fetched = [...fetched, ...autoRes.data];
-      if (pushRes.data) {
-        const mappedPush = pushRes.data.map(p => ({
+      const now = Date.now();
+
+      // Time-based and active admin announcements
+      if (annRes?.data && Array.isArray(annRes.data)) {
+        annRes.data.forEach((a) => {
+          const hasExpiry = Boolean(a.expires_at);
+          const isExpired = hasExpiry && new Date(a.expires_at).getTime() <= now;
+          if (isExpired) return; // Expired time-based notices should no longer appear
+
+          const isTimeBased = hasExpiry && new Date(a.expires_at).getTime() > now;
+          fetched.push({
+            id: a.id,
+            type: 'admin_announcement',
+            title: a.title,
+            message: a.message,
+            banner_type: a.banner_type || 'info',
+            action_type: a.action_type || 'none',
+            action_id: a.action_id || null,
+            action_label: a.action_label || '',
+            is_time_based: isTimeBased,
+            expires_at: a.expires_at || null,
+            created_at: a.created_at || a.starts_at || new Date().toISOString(),
+          });
+        });
+      }
+
+      // Automated system notifications (new songs, updates, categories)
+      if (autoRes?.data && Array.isArray(autoRes.data)) {
+        fetched = [...fetched, ...autoRes.data];
+      }
+
+      // Admin push broadcast messages
+      if (pushRes?.data && Array.isArray(pushRes.data)) {
+        const mappedPush = pushRes.data.map((p) => ({
           id: p.id,
           type: 'admin_push',
           title: p.title,
           message: p.message,
           link_url: p.link_url,
+          song_id: p.song_id,
+          expires_at: null,
+          is_time_based: false,
           created_at: p.created_at,
         }));
         fetched = [...fetched, ...mappedPush];
       }
-      
+
+      // Daily Song and Sunday Reflection
       if (songsRes?.data && songsRes.data.length > 0) {
         const dailySong = getDailySong(songsRes.data);
         const dailyNotif = getDailyNotification(dailySong);
         if (dailyNotif) {
-          fetched = [dailyNotif, ...fetched];
+          fetched = [
+            {
+              ...dailyNotif,
+              expires_at: null,
+              is_time_based: false,
+            },
+            ...fetched,
+          ];
         }
 
-        // Sunday meeting reflection notification
         if (isSunday()) {
           const sundaySong = songsRes.data[Math.floor(Math.random() * songsRes.data.length)];
           const sundayNotif = {
@@ -102,29 +169,50 @@ export default function NotificationsScreen({ navigation }) {
             title: 'How was the meeting today?',
             message: getSundayGreeting(sundaySong.title),
             song_id: sundaySong.id,
+            expires_at: null,
+            is_time_based: false,
             created_at: new Date().toISOString(),
           };
           fetched = [sundayNotif, ...fetched];
         }
       }
 
-      fetched.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      fetched = fetched.slice(0, 50);
-      
-      setNotifications(fetched);
-      
-      if (fetched.length > 0) {
-        await AsyncStorage.setItem('@last_read_notification_time', fetched[0].created_at);
-      } else {
-        await AsyncStorage.setItem('@last_read_notification_time', new Date().toISOString());
-      }
+      // 3. Filter: Keep only active time-based admin notifications OR undismissed notices
+      const visible = fetched.filter((item) => {
+        const isTimeBasedAdminNotice = Boolean(
+          item.expires_at && new Date(item.expires_at).getTime() > now
+        );
+        // Time-based notifications set via admin always remain visible until their expiration time
+        if (isTimeBasedAdminNotice) {
+          return true;
+        }
+        // All other notifications that have been tapped or cleared are dismissed permanently
+        if (dismissedSet.has(item.id)) {
+          return false;
+        }
+        return true;
+      });
+
+      visible.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setNotifications(visible.slice(0, 50));
+
+      // Mark current time as last read time for the bell indicator
+      await AsyncStorage.setItem('@last_read_notification_time', new Date().toISOString());
     } catch (err) {
-      console.error(err);
+      console.error('fetchNotifications error:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [installDate, dismissedNotifs]);
+
+  useEffect(() => {
+    fetchNotifications();
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchNotifications();
+    });
+    return unsubscribe;
+  }, [navigation, fetchNotifications]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -133,21 +221,100 @@ export default function NotificationsScreen({ navigation }) {
 
   const clearAll = async () => {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Deletes all
-      if (error) console.error(error);
-      setNotifications([]);
+      const now = Date.now();
+      // Keep only active time-based notifications set via admin
+      const timeBased = notifications.filter((n) => {
+        return Boolean(n.expires_at && new Date(n.expires_at).getTime() > now);
+      });
+      const toDismiss = notifications
+        .filter((n) => !(n.expires_at && new Date(n.expires_at).getTime() > now))
+        .map((n) => n.id);
+
+      // Immediately update local UI
+      setNotifications(timeBased);
+
+      // Persist dismissed IDs into AsyncStorage and Context
+      if (toDismiss.length > 0) {
+        let existing = [];
+        try {
+          const raw = await AsyncStorage.getItem('@settings_dismissed_notifs');
+          if (raw) existing = JSON.parse(raw);
+        } catch (_) {}
+        const merged = Array.from(new Set([...existing, ...toDismiss]));
+        await AsyncStorage.setItem('@settings_dismissed_notifs', JSON.stringify(merged));
+        dismissNotification(toDismiss);
+      }
+
+      await AsyncStorage.setItem('@last_read_notification_time', new Date().toISOString());
     } catch (e) {
-      console.error(e);
+      console.error('Failed to clear notifications:', e);
     }
   };
 
   const handlePress = async (notif) => {
+    const now = Date.now();
+    const isTimeBased = Boolean(
+      notif.expires_at && new Date(notif.expires_at).getTime() > now
+    );
+
+    // If NOT a time-based admin notification, dismiss it immediately so it disappears from the screen
+    if (!isTimeBased) {
+      setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
+      try {
+        let existing = [];
+        const raw = await AsyncStorage.getItem('@settings_dismissed_notifs');
+        if (raw) existing = JSON.parse(raw);
+        if (!existing.includes(notif.id)) {
+          const merged = [...existing, notif.id];
+          await AsyncStorage.setItem('@settings_dismissed_notifs', JSON.stringify(merged));
+        }
+      } catch (_) {}
+      dismissNotification(notif.id);
+    }
+
+    // Execute navigation / deep link
     if (notif.type === 'admin_push') {
       if (notif.link_url) {
-        Linking.openURL(notif.link_url).catch(err => console.error("Couldn't open URL", err));
+        Linking.openURL(notif.link_url).catch((err) => console.error("Couldn't open URL", err));
+        return;
+      }
+      if (notif.song_id) {
+        try {
+          const { data } = await supabase
+            .from('songs')
+            .select('*, categories(name)')
+            .eq('id', notif.song_id)
+            .single();
+          if (data) navigation.navigate('Song', { song: data });
+        } catch (_) {}
+        return;
+      }
+      return;
+    }
+
+    if (notif.type === 'admin_announcement') {
+      if (notif.action_type === 'song' && notif.action_id) {
+        try {
+          const { data } = await supabase
+            .from('songs')
+            .select('*, categories(name)')
+            .eq('id', notif.action_id)
+            .single();
+          if (data) navigation.navigate('Song', { song: data });
+        } catch (_) {}
+        return;
+      }
+      if (notif.action_type === 'category' && notif.action_id) {
+        navigation.navigate('Category', {
+          categoryId: notif.action_id,
+          categoryName: notif.title || 'Category',
+        });
+        return;
+      }
+      if ((notif.action_type === 'url' || notif.link_url) && (notif.action_id || notif.link_url)) {
+        const urlToOpen = notif.action_id || notif.link_url;
+        Linking.openURL(urlToOpen).catch((err) => console.error("Couldn't open URL", err));
+        return;
       }
       return;
     }
@@ -171,14 +338,11 @@ export default function NotificationsScreen({ navigation }) {
     if (!notif.reference_id) return;
 
     if (notif.type === 'new_category') {
-      // Fetch category name first (optional, but good for UX)
       navigation.navigate('Category', {
         categoryId: notif.reference_id,
-        categoryName: 'Category', // Will be loaded by CategoryScreen
+        categoryName: notif.title || 'Category',
       });
     } else {
-      // For songs (new_song, song_edited), we need to fetch the song data first
-      // since SongScreen expects the full song object
       try {
         const { data, error } = await supabase
           .from('songs')
@@ -195,19 +359,24 @@ export default function NotificationsScreen({ navigation }) {
     }
   };
 
-  const getIcon = (type) => {
-    switch (type) {
+  const getIcon = (item) => {
+    switch (item.type) {
       case 'new_song':
         return <Music size={20} color={colors.purpleAccent} />;
       case 'song_edited':
-        return <Edit3 size={20} color="#38BDF8" />; // Blue for edits
+        return <Edit3 size={20} color="#38BDF8" />;
       case 'new_category':
-        return <FolderPlus size={20} color="#10B981" />; // Green for new categories
+        return <FolderPlus size={20} color="#10B981" />;
       case 'sunday_reflection':
         return <Heart size={20} color="#EC4899" fill="#EC4899" />;
       case 'daily_song':
         return <Sun size={20} color="#F59E0B" />;
       case 'admin_push':
+        return <Megaphone size={20} color={colors.purpleAccent} />;
+      case 'admin_announcement':
+        if (item.banner_type === 'alert') return <Bell size={20} color="#EF4444" />;
+        if (item.banner_type === 'warning') return <Bell size={20} color="#F59E0B" />;
+        if (item.banner_type === 'success') return <Sparkles size={20} color="#10B981" />;
         return <Megaphone size={20} color={colors.purpleAccent} />;
       default:
         return <Bell size={20} color={colors.textMuted} />;
@@ -220,25 +389,53 @@ export default function NotificationsScreen({ navigation }) {
       dateStr = timeAgo(item.created_at);
     } catch (e) {}
 
+    const now = Date.now();
+    const isTimeBased = Boolean(
+      item.expires_at && new Date(item.expires_at).getTime() > now
+    );
+
     return (
       <TouchableOpacity
-        style={styles.card}
+        style={[
+          styles.card,
+          isTimeBased && styles.cardTimeBased,
+        ]}
         activeOpacity={0.7}
         onPress={() => handlePress(item)}
       >
-        <View style={styles.iconContainer}>
-          {getIcon(item.type)}
+        <View style={[styles.iconContainer, isTimeBased && styles.iconContainerTimeBased]}>
+          {getIcon(item)}
         </View>
         <View style={styles.contentContainer}>
-          <Text style={styles.title}>{item.title}</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title} numberOfLines={1}>
+              {item.title}
+            </Text>
+            {isTimeBased && (
+              <View style={styles.timeBadge}>
+                <Clock size={10} color="#A78BFA" />
+                <Text style={styles.timeBadgeText}>Admin Notice</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.message}>{item.message}</Text>
-          {item.type === 'admin_push' && item.link_url && (
+          {((item.type === 'admin_push' && item.link_url) ||
+            (item.type === 'admin_announcement' && (item.action_id || item.link_url))) && (
             <View style={styles.linkWrap}>
-              <Text style={[styles.time, { color: colors.purpleAccent }]}>View Link</Text>
+              <Text style={[styles.time, { color: colors.purpleAccent }]}>
+                {item.action_label || 'View Link'}
+              </Text>
               <ExternalLink size={12} color={colors.purpleAccent} style={{ marginLeft: 4 }} />
             </View>
           )}
-          <Text style={[styles.time, (item.type === 'admin_push' && item.link_url) && { marginTop: 4 }]}>{dateStr}</Text>
+          <View style={styles.footerRow}>
+            <Text style={styles.time}>{dateStr}</Text>
+            {isTimeBased && item.expires_at && (
+              <Text style={styles.timeExpiryText}>
+                Active until {new Date(item.expires_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+              </Text>
+            )}
+          </View>
         </View>
         <ChevronRight size={16} color="rgba(255,255,255,0.2)" />
       </TouchableOpacity>
@@ -275,7 +472,7 @@ export default function NotificationsScreen({ navigation }) {
       {/* ── List ── */}
       <FlatList
         data={notifications}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         onRefresh={onRefresh}
@@ -288,7 +485,7 @@ export default function NotificationsScreen({ navigation }) {
               </View>
               <Text style={styles.emptyTitle}>You're all caught up!</Text>
               <Text style={styles.emptySub}>
-                When new songs or categories are added, they'll appear here.
+                When new songs, updates, or announcements are added, they'll appear here.
               </Text>
             </View>
           )
@@ -346,6 +543,9 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.03)',
   },
+  cardTimeBased: {
+    borderColor: 'rgba(167, 139, 250, 0.25)',
+  },
   iconContainer: {
     width: 48,
     height: 48,
@@ -355,14 +555,41 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     justifyContent: 'center',
     marginRight: 16,
   },
+  iconContainerTimeBased: {
+    backgroundColor: 'rgba(167, 139, 250, 0.2)',
+  },
   contentContainer: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+    gap: 8,
+  },
   title: {
+    flex: 1,
     color: colors.textWhite,
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
+  },
+  timeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(167, 139, 250, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.3)',
+    gap: 4,
+  },
+  timeBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#A78BFA',
+    letterSpacing: 0.3,
   },
   message: {
     color: colors.textMuted,
@@ -370,9 +597,25 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     lineHeight: 20,
     marginBottom: 6,
   },
+  linkWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
   time: {
     color: 'rgba(255,255,255,0.3)',
     fontSize: 12,
+  },
+  timeExpiryText: {
+    fontSize: 11,
+    color: colors.purpleAccent,
+    fontWeight: '500',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -400,10 +643,5 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
-  },
-  linkWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
   },
 });

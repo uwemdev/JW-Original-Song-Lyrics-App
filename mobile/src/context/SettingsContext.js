@@ -377,10 +377,10 @@ export function SettingsProvider({ children }) {
     scheduleInactivityReminders(val);
   }, []);
 
-  const dismissNotification = useCallback(async (id) => {
+  const dismissNotification = useCallback(async (idOrIds) => {
     setDismissedNotifs(prev => {
-      if (prev.includes(id)) return prev;
-      const next = [...prev, id];
+      const incoming = Array.isArray(idOrIds) ? idOrIds : [idOrIds];
+      const next = Array.from(new Set([...prev, ...incoming]));
       AsyncStorage.setItem(KEYS.dismissedNotifs, JSON.stringify(next)).catch(() => {});
       return next;
     });
