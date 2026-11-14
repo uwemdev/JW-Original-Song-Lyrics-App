@@ -29,12 +29,14 @@ import {
   RefreshCw,
   AlertCircle,
   AlertTriangle,
+  FileSpreadsheet,
 } from 'lucide-react';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import FeedbackTab from './FeedbackTab';
 import NotificationsTab from './NotificationsTab';
 import AppUpdatesTab from './AppUpdatesTab';
+import SongImportExportModal from './SongImportExportModal';
 
 const quillModules = {
   toolbar: [
@@ -71,6 +73,7 @@ export default function AdminDashboard() {
 
   // Song Health Checker state
   const [healthModalOpen, setHealthModalOpen] = useState(false);
+  const [importExportModalOpen, setImportExportModalOpen] = useState(false);
   const [healthScanning, setHealthScanning] = useState(false);
   const [healthFilter, setHealthFilter] = useState('all');
   const [healthReport, setHealthReport] = useState({
@@ -1107,6 +1110,15 @@ export default function AdminDashboard() {
             </button>
 
             <button
+              onClick={() => setImportExportModalOpen(true)}
+              className="btn-admin-secondary"
+              style={{ justifyContent: 'center', padding: '12px 14px' }}
+            >
+              <FileSpreadsheet size={15} color="#a78bfa" />
+              <span>Bulk Import / Export</span>
+            </button>
+
+            <button
               onClick={() => navigate('/admin?tab=updates')}
               className="btn-admin-secondary"
               style={{ justifyContent: 'center', padding: '12px 14px' }}
@@ -1118,6 +1130,19 @@ export default function AdminDashboard() {
         </div>
 
         {renderHealthModal()}
+
+        <SongImportExportModal
+          isOpen={importExportModalOpen}
+          onClose={() => setImportExportModalOpen(false)}
+          categories={categories}
+          existingSongs={songs}
+          onImportComplete={() => {
+            fetchData();
+            fetchDashboardStats();
+            setSuccessMsg('Bulk song import completed.');
+            setTimeout(() => setSuccessMsg(''), 3000);
+          }}
+        />
       </div>
     );
   }
@@ -1136,6 +1161,15 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={() => setImportExportModalOpen(true)}
+              className="btn-admin-secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              title="Bulk import songs from CSV/JSON or export catalog backup"
+            >
+              <FileSpreadsheet size={14} color="#a78bfa" />
+              <span>Import / Export</span>
+            </button>
             <button
               onClick={() => {
                 setHealthModalOpen(true);
@@ -1458,6 +1492,19 @@ export default function AdminDashboard() {
         </div>
 
         {renderHealthModal()}
+
+        <SongImportExportModal
+          isOpen={importExportModalOpen}
+          onClose={() => setImportExportModalOpen(false)}
+          categories={categories}
+          existingSongs={songs}
+          onImportComplete={() => {
+            fetchData();
+            fetchDashboardStats();
+            setSuccessMsg('Bulk song import completed.');
+            setTimeout(() => setSuccessMsg(''), 3000);
+          }}
+        />
       </div>
     );
   }
