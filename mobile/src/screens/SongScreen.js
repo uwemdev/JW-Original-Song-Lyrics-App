@@ -740,26 +740,6 @@ export default function SongScreen({ route, navigation }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.floatingBtn,
-              isDownloaded && styles.floatingBtnDownloaded,
-            ]}
-            onPress={handleToggleDownload}
-            accessibilityRole="button"
-            accessibilityLabel={isDownloaded ? "Saved offline. Tap to remove" : "Download for offline listening"}
-            activeOpacity={0.75}
-            disabled={isDownloading}
-          >
-            {isDownloading ? (
-              <ActivityIndicator size="small" color="#FFF" />
-            ) : isDownloaded ? (
-              <CheckCircle color="#86EFAC" size={20} />
-            ) : (
-              <Download color="#FFF" size={20} />
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
             onPress={toggleFavorite}
             accessibilityRole="button"
             accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
@@ -911,33 +891,47 @@ export default function SongScreen({ route, navigation }) {
             </TouchableOpacity>
           </View>
 
-          {/* Sing-Along Mode Toggle */}
-          <TouchableOpacity
-            onPress={toggleKaraoke}
-            style={[
-              styles.singAlongBtn,
-              isKaraoke && styles.singAlongBtnActive,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Toggle Sing-Along mode"
-            activeOpacity={0.8}
-          >
-            <Mic
-              color={isKaraoke ? '#FFFFFF' : colors.textMuted}
-              size={15}
-            />
-            <Text
-              style={[
-                styles.singAlongBtnText,
-                isKaraoke ? styles.singAlongBtnTextActive : { color: colors.textMuted },
-              ]}
-            >
-              {isKaraoke ? 'Sing-Along ON' : 'Sing-Along'}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Action Buttons: Playlist, WhatsApp Status & Report Issue */}
+          {/* Action Buttons: Sing-Along, Download, Playlist, WhatsApp Status & Report */}
           <View style={styles.toolbarActions}>
+            {/* Sing-Along Mode Toggle (Icon Button) */}
+            <TouchableOpacity
+              onPress={toggleKaraoke}
+              style={[
+                styles.singAlongBtn,
+                isKaraoke && styles.singAlongBtnActive,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={isKaraoke ? 'Disable Sing-Along mode' : 'Enable Sing-Along mode'}
+              activeOpacity={0.8}
+            >
+              <Mic
+                color={isKaraoke ? '#FFFFFF' : colors.purpleAccent}
+                size={18}
+              />
+            </TouchableOpacity>
+
+            {/* Offline Download Button (Moved from top-right) */}
+            <TouchableOpacity
+              style={[
+                styles.downloadIconBtn,
+                isDownloaded && styles.downloadIconBtnActive,
+              ]}
+              onPress={handleToggleDownload}
+              accessibilityRole="button"
+              accessibilityLabel={isDownloaded ? "Saved offline. Tap to remove" : "Download for offline listening"}
+              activeOpacity={0.75}
+              disabled={isDownloading}
+            >
+              {isDownloading ? (
+                <ActivityIndicator size="small" color={colors.purpleAccent} />
+              ) : isDownloaded ? (
+                <CheckCircle color="#10B981" size={18} />
+              ) : (
+                <Download color={colors.textMuted} size={18} />
+              )}
+            </TouchableOpacity>
+
+            {/* Add to Playlist */}
             <TouchableOpacity
               onPress={() => setShowPlaylistModal(true)}
               style={styles.playlistIconBtn}
@@ -948,6 +942,7 @@ export default function SongScreen({ route, navigation }) {
               <ListPlus color={colors.purpleAccent} size={19} />
             </TouchableOpacity>
 
+            {/* Share Quote to WhatsApp Status */}
             <TouchableOpacity
               onPress={() => setShowStatusModal(true)}
               style={styles.whatsappIconBtn}
@@ -958,6 +953,7 @@ export default function SongScreen({ route, navigation }) {
               <WhatsAppIcon color="#25D366" size={20} />
             </TouchableOpacity>
 
+            {/* Report Issue */}
             <TouchableOpacity
               onPress={() => { setShowReport(true); setReportIssue(null); setReportNote(''); setReportDone(false); }}
               style={styles.reportIconBtn}
@@ -1595,15 +1591,14 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     marginBottom: 14,
   },
   singAlongBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: colors.cardBg,
-    gap: 6,
+    width: 38,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: isDark ? 'rgba(139, 92, 246, 0.12)' : 'rgba(139, 92, 246, 0.08)',
     borderWidth: 1,
-    borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+    borderColor: isDark ? 'rgba(139, 92, 246, 0.25)' : 'rgba(139, 92, 246, 0.20)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   singAlongBtnActive: {
     backgroundColor: '#8B5CF6',
@@ -1728,7 +1723,7 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
   toolbarActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   downloadIconBtn: {
     width: 38,
@@ -1741,8 +1736,8 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     alignItems: 'center',
   },
   downloadIconBtnActive: {
-    backgroundColor: isDark ? 'rgba(37, 211, 102, 0.15)' : 'rgba(37, 211, 102, 0.10)',
-    borderColor: isDark ? 'rgba(37, 211, 102, 0.3)' : 'rgba(37, 211, 102, 0.25)',
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.10)',
+    borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : 'rgba(16, 185, 129, 0.25)',
   },
   playlistIconBtn: {
     width: 38,
