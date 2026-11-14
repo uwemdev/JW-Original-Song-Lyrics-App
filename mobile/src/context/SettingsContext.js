@@ -232,85 +232,81 @@ export function SettingsProvider({ children }) {
     };
   }, [deviceId]);
 
-  // Sync broadcast notifications & listen for real-time admin push notifications
+  // Listen for real-time admin push notifications while online
   useEffect(() => {
-    // 1. Sync missed broadcast notifications when app comes online / opens
-    const syncMissedBroadcasts = async () => {
+    // 1. Acknowledge existing broadcast IDs so older notifications never pop up on app open
+    const acknowledgeExistingBroadcasts = async () => {
       try {
         const raw = await AsyncStorage.getItem(KEYS.deliveredPushIds);
         const delivered = raw ? JSON.parse(raw) : [];
 
-        // Check recent broadcast notifications from the last 14 days
-        const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-
         const { data } = await supabase
           .from('app_notifications')
-          .select('*')
-          .gte('created_at', fourteenDaysAgo)
+          .select('id')
           .order('created_at', { ascending: false })
-          .limit(10);
+          .limit(50);
 
         if (data && data.length > 0) {
-          const undelivered = data.filter((n) => !delivered.includes(n.id));
-          if (undelivered.length > 0) {
-            // Trigger system push notification for the newest undelivered message
-            const latest = undelivered[0];
-            await triggerSystemNotification({
-              title: latest.title,
-              message: latest.message,
-              linkUrl: latest.link_url,
-              songId: latest.song_id,
-              id: latest.id,
-            });
-
-            // Mark delivered so we don't duplicate on next app open
-            const updated = [...new Set([...delivered, latest.id])];
-            await AsyncStorage.setItem(KEYS.deliveredPushIds, JSON.stringify(updated.slice(-100)));
-          }
+          const allIds = data.map((n) => n.id);
+          const merged = Array.from(new Set([...delivered, ...allIds]));
+          await AsyncStorage.setItem(KEYS.deliveredPushIds, JSON.stringify(merged.slice(-100)));
         }
       } catch (err) {
-        console.warn('[BroadcastSync] Error:', err);
+        console.warn('[BroadcastAck] Error:', err);
       }
     };
 
-    syncMissedBroadcasts();
+    acknowledgeExistingBroadcasts();
 
-    // 2. Real-time listener for incoming push notifications while online
+    // 2. Real-time listener: ONLY trigger system alerts for brand-new live broadcasts sent right now
     const broadcastChannel = supabase
       .channel('realtime_admin_broadcasts')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'app_notifications',
-      }, async (payload) => {
-        const notif = payload.new;
-        if (!notif) return;
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'app_notifications',
+        },
+        async (payload) => {
+          const notif = payload.new;
+          if (!notif) return;
 
-        try {
-          const raw = await AsyncStorage.getItem(KEYS.deliveredPushIds);
-          const delivered = raw ? JSON.parse(raw) : [];
+          try {
+            const now = Date.now();
+            const notifTime = new Date(notif.created_at).getTime();
 
-          if (!delivered.includes(notif.id)) {
-            await triggerSystemNotification({
-              title: notif.title,
-              message: notif.message,
-              linkUrl: notif.link_url,
-              songId: notif.song_id,
-              id: notif.id,
-            });
+            // Ignore stale historical notifications (only alert if sent within the last 90 seconds)
+            if (now - notifTime > 90000) return;
 
-            delivered.push(notif.id);
-            await AsyncStorage.setItem(KEYS.deliveredPushIds, JSON.stringify(delivered.slice(-100)));
+            // Ignore notifications published before this app was installed
+            if (installDate && notifTime < new Date(installDate).getTime()) return;
+
+            const raw = await AsyncStorage.getItem(KEYS.deliveredPushIds);
+            const delivered = raw ? JSON.parse(raw) : [];
+
+            if (!delivered.includes(notif.id)) {
+              await triggerSystemNotification({
+                title: notif.title,
+                message: notif.message,
+                linkUrl: notif.link_url,
+                songId: notif.song_id,
+                id: notif.id,
+              });
+
+              const updated = [...delivered, notif.id];
+              await AsyncStorage.setItem(KEYS.deliveredPushIds, JSON.stringify(updated.slice(-100)));
+            }
+          } catch (err) {
+            console.warn('[BroadcastRealtime] Error:', err);
           }
-        } catch (err) {
-          console.warn('[BroadcastRealtime] Error:', err);
         }
-      })
+      )
       .subscribe();
 
     const appStateSub = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        syncMissedBroadcasts();
+        acknowledgeExistingBroadcasts();
         if (deviceId) {
           supabase
             .from('device_push_tokens')
@@ -326,7 +322,7 @@ export function SettingsProvider({ children }) {
       appStateSub.remove();
       supabase.removeChannel(broadcastChannel);
     };
-  }, [installDate]);
+  }, [installDate, deviceId]);
 
   // Setter helpers — update state immediately + persist
   const setTheme = useCallback(async (val) => {
