@@ -3,11 +3,12 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useSettings } from './SettingsContext';
 import { getLocalAudioUri } from '../lib/offlineManager';
 import { logSongEvent } from '../lib/analytics';
+import { updateCommunityNowPlaying } from '../lib/community';
 
 const AudioContext = createContext(null);
 
 export function AudioProvider({ children, navigationRef }) {
-  const { settings } = useSettings();
+  const { settings, deviceId } = useSettings();
   const [currentSong, setCurrentSong] = useState(null);
   const [queue, setQueue] = useState([]);
   const [queueIndex, setQueueIndex] = useState(-1);
@@ -237,6 +238,13 @@ export function AudioProvider({ children, navigationRef }) {
       prevDidFinishRef.current = false;
     }
   }, [status.didJustFinish, sleepTimerOption, settings?.autoPlay, playNext, player, clearSleepTimer]);
+
+  // Sync currently playing song with Community profile and presence in real time
+  useEffect(() => {
+    if (!deviceId) return;
+    const isActuallyPlaying = Boolean(player.playing && currentSong?.title);
+    updateCommunityNowPlaying(deviceId, isActuallyPlaying ? currentSong : null, isActuallyPlaying).catch(() => {});
+  }, [deviceId, currentSong?.id, currentSong?.title, player.playing]);
 
   // Progress fraction (0 to 1)
   const progress = status.duration > 0 ? Math.min(1, Math.max(0, status.currentTime / status.duration)) : 0;

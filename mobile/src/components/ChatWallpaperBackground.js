@@ -215,7 +215,21 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
           </Svg>
         );
 
-      case 'geometric':
+      case 'geometric': {
+        const diamonds = [];
+        [0, 100, 200, 300, 400].forEach((x) => {
+          [0, 100, 200, 300, 400, 500, 600, 700].forEach((y) => {
+            diamonds.push(
+              <Path
+                key={`dia-${x}-${y}`}
+                d={`M${x},${y - 40} L${x + 40},${y} L${x},${y + 40} L${x - 40},${y} Z`}
+                fill="none"
+                stroke={strokeColor}
+                strokeWidth="1.2"
+              />
+            );
+          });
+        });
         return (
           <Svg
             width="100%"
@@ -224,22 +238,20 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
             preserveAspectRatio="xMidYMid slice"
             style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.10 : 0.06 }]}
           >
-            {/* Repeating diamond grid */}
-            {[0, 100, 200, 300, 400].map((x) =>
-              [0, 100, 200, 300, 400, 500, 600, 700].map((y) => (
-                <Path
-                  key={`dia-${x}-${y}`}
-                  d={`M${x},${y - 40} L${x + 40},${y} L${x},${y + 40} L${x - 40},${y} Z`}
-                  fill="none"
-                  stroke={strokeColor}
-                  strokeWidth="1.2"
-                />
-              ))
-            )}
+            {diamonds}
           </Svg>
         );
+      }
 
-      case 'grid':
+      case 'grid': {
+        const dots = [];
+        [40, 100, 160, 220, 280, 340].forEach((x) => {
+          [60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 660, 720].forEach((y) => {
+            dots.push(
+              <Circle key={`pt-${x}-${y}`} cx={x} cy={y} r="1.8" fill={strokeColor} />
+            );
+          });
+        });
         return (
           <Svg
             width="100%"
@@ -248,13 +260,10 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
             preserveAspectRatio="xMidYMid slice"
             style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.14 : 0.08 }]}
           >
-            {[40, 100, 160, 220, 280, 340].map((x) =>
-              [60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 660, 720].map((y) => (
-                <Circle key={`pt-${x}-${y}`} cx={x} cy={y} r="1.8" fill={strokeColor} />
-              ))
-            )}
+            {dots}
           </Svg>
         );
+      }
 
       case 'spheres':
         return (
@@ -348,6 +357,14 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
     }
   };
 
+  const renderPatternSafe = () => {
+    try {
+      return renderPattern();
+    } catch (_) {
+      return null;
+    }
+  };
+
   return (
     <View pointerEvents="none" style={styles.container}>
       <LinearGradient
@@ -356,7 +373,7 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
         end={{ x: 0.3, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
-      {renderPattern()}
+      {renderPatternSafe()}
     </View>
   );
 }
@@ -364,6 +381,5 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 0,
   },
 });

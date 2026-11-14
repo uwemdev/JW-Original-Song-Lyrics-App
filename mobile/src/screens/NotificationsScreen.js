@@ -69,33 +69,37 @@ export default function NotificationsScreen({ navigation }) {
 
       // 2. Fetch notifications from database tables safely
       const [autoRes, pushRes, annRes, songsRes] = await Promise.all([
-        supabase
-          .from('notifications')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(50)
-          .catch(() => ({ data: [] })),
-        supabase
-          .from('app_notifications')
-          .select('*')
-          .gte('created_at', installDate || new Date(0).toISOString())
-          .order('created_at', { ascending: false })
-          .limit(50)
-          .catch(() => ({ data: [] })),
-        supabase
-          .from('app_announcements')
-          .select('*')
-          .eq('is_active', true)
-          .lte('starts_at', new Date().toISOString())
-          .order('created_at', { ascending: false })
-          .limit(20)
-          .catch(() => ({ data: [] })),
-        supabase
-          .from('songs')
-          .select('*, categories(name)')
-          .eq('is_published', true)
-          .limit(100)
-          .catch(() => ({ data: [] })),
+        Promise.resolve(
+          supabase
+            .from('notifications')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(50)
+        ).catch(() => ({ data: [] })),
+        Promise.resolve(
+          supabase
+            .from('app_notifications')
+            .select('*')
+            .gte('created_at', installDate || new Date(0).toISOString())
+            .order('created_at', { ascending: false })
+            .limit(50)
+        ).catch(() => ({ data: [] })),
+        Promise.resolve(
+          supabase
+            .from('app_announcements')
+            .select('*')
+            .eq('is_active', true)
+            .lte('starts_at', new Date().toISOString())
+            .order('created_at', { ascending: false })
+            .limit(20)
+        ).catch(() => ({ data: [] })),
+        Promise.resolve(
+          supabase
+            .from('songs')
+            .select('*, categories(name)')
+            .eq('is_published', true)
+            .limit(100)
+        ).catch(() => ({ data: [] })),
       ]);
 
       let fetched = [];
