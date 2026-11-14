@@ -36,18 +36,18 @@ export function getCountryFlag(countryCode) {
  * Curated list of 12 dignified avatar colors and initials/icons
  */
 export const AVATAR_OPTIONS = [
-  { id: 1, name: 'Purple Harp', bg: '#8B5CF6', initial: 'H' },
-  { id: 2, name: 'Royal Sapphire', bg: '#2563EB', initial: 'S' },
-  { id: 3, name: 'Emerald Palm', bg: '#059669', initial: 'E' },
-  { id: 4, name: 'Golden Lyre', bg: '#D97706', initial: 'L' },
-  { id: 5, name: 'Ruby Melody', bg: '#E11D48', initial: 'M' },
-  { id: 6, name: 'Deep Teal', bg: '#0D9488', initial: 'T' },
-  { id: 7, name: 'Indigo Chime', bg: '#4F46E5', initial: 'C' },
-  { id: 8, name: 'Rose Praise', bg: '#DB2777', initial: 'P' },
-  { id: 9, name: 'Bronze Psalm', bg: '#B45309', initial: 'B' },
-  { id: 10, name: 'Slate Song', bg: '#475569', initial: 'Z' },
-  { id: 11, name: 'Cyan Chorus', bg: '#0891B2', initial: 'K' },
-  { id: 12, name: 'Violet Verse', bg: '#7C3AED', initial: 'V' },
+  { id: 1, name: 'Purple Harp', bg: '#8B5CF6', text: '#A78BFA', initial: 'H' },
+  { id: 2, name: 'Royal Sapphire', bg: '#2563EB', text: '#60A5FA', initial: 'S' },
+  { id: 3, name: 'Emerald Palm', bg: '#059669', text: '#34D399', initial: 'E' },
+  { id: 4, name: 'Golden Lyre', bg: '#D97706', text: '#FBBF24', initial: 'L' },
+  { id: 5, name: 'Ruby Melody', bg: '#E11D48', text: '#FB7185', initial: 'M' },
+  { id: 6, name: 'Deep Teal', bg: '#0D9488', text: '#2DD4BF', initial: 'T' },
+  { id: 7, name: 'Indigo Chime', bg: '#4F46E5', text: '#818CF8', initial: 'C' },
+  { id: 8, name: 'Rose Praise', bg: '#DB2777', text: '#F472B6', initial: 'P' },
+  { id: 9, name: 'Bronze Psalm', bg: '#B45309', text: '#F97316', initial: 'B' },
+  { id: 10, name: 'Slate Song', bg: '#475569', text: '#94A3B8', initial: 'Z' },
+  { id: 11, name: 'Cyan Chorus', bg: '#0891B2', text: '#22D3EE', initial: 'K' },
+  { id: 12, name: 'Violet Verse', bg: '#7C3AED', text: '#C084FC', initial: 'V' },
 ];
 
 /**

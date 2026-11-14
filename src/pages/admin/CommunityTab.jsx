@@ -256,6 +256,108 @@ export default function CommunityTab() {
     }
   };
 
+  // Clear all group messages (Admin storage management)
+  const handleClearAllGroupMessages = async () => {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete ALL messages in the Community Group Lounge? This will permanently wipe group chat history to free database storage. This action cannot be undone.'
+    );
+    if (!confirmed) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('community_group_messages')
+        .delete()
+        .neq('id', 0);
+
+      if (error) throw error;
+      setGroupMessages([]);
+      showToast('All community group messages have been cleared successfully.');
+    } catch (err) {
+      showToast('Failed to clear group messages: ' + err.message, true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Clear all direct chats and threads (Admin storage management)
+  const handleClearAllDirectChats = async () => {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete ALL Direct Message threads and conversations? This will wipe all 1-on-1 chats and reset private message history to manage storage. This action cannot be undone.'
+    );
+    if (!confirmed) return;
+
+    setLoading(true);
+    try {
+      // 1. Delete all direct messages
+      const { error: msgErr } = await supabase
+        .from('community_direct_messages')
+        .delete()
+        .neq('id', 0);
+      if (msgErr) throw msgErr;
+
+      // 2. Delete all threads
+      const { error: thErr } = await supabase
+        .from('community_direct_threads')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      if (thErr) throw thErr;
+
+      setDirectThreads([]);
+      setSelectedThread(null);
+      setThreadMessages([]);
+      showToast('All direct conversations and threads cleared successfully.');
+    } catch (err) {
+      showToast('Failed to clear direct chats: ' + err.message, true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Clear messages inside a specific direct thread
+  const handleClearThreadMessages = async (threadId) => {
+    const confirmed = window.confirm(
+      'Delete all messages in this conversation thread? This frees storage while keeping the thread connection intact.'
+    );
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from('community_direct_messages')
+        .delete()
+        .eq('thread_id', threadId);
+
+      if (error) throw error;
+      setThreadMessages([]);
+      showToast('Thread messages cleared.');
+    } catch (err) {
+      showToast('Failed to clear thread messages: ' + err.message, true);
+    }
+  };
+
+  // Delete an entire direct thread and its messages
+  const handleDeleteThread = async (threadId) => {
+    const confirmed = window.confirm(
+      'Delete this entire direct conversation thread and all its messages?'
+    );
+    if (!confirmed) return;
+
+    try {
+      await supabase.from('community_direct_messages').delete().eq('thread_id', threadId);
+      const { error } = await supabase.from('community_direct_threads').delete().eq('id', threadId);
+      if (error) throw error;
+
+      setDirectThreads((prev) => prev.filter((t) => t.id !== threadId));
+      if (selectedThread?.id === threadId) {
+        setSelectedThread(null);
+        setThreadMessages([]);
+      }
+      showToast('Conversation thread removed.');
+    } catch (err) {
+      showToast('Failed to delete thread: ' + err.message, true);
+    }
+  };
+
   // Open Ban modal for a user
   const openBanModalForUser = async (deviceId, handle = '') => {
     try {
@@ -623,31 +725,45 @@ export default function CommunityTab() {
               Live Community Lounge Stream
             </h2>
 
-            <div style={{ position: 'relative', width: '240px' }}>
-              <Search
-                size={14}
-                style={{
-                  position: 'absolute',
-                  left: '10px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--admin-text-muted)',
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Filter by handle or text..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="admin-input"
-                style={{
-                  paddingLeft: '32px',
-                  fontSize: '12px',
-                  paddingTop: '6px',
-                  paddingBottom: '6px',
-                  width: '100%',
-                }}
-              />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', width: '220px' }}>
+                <Search
+                  size={14}
+                  style={{
+                    position: 'absolute',
+                    left: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--admin-text-muted)',
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Filter by handle or text..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="admin-input"
+                  style={{
+                    paddingLeft: '32px',
+                    fontSize: '12px',
+                    paddingTop: '6px',
+                    paddingBottom: '6px',
+                    width: '100%',
+                  }}
+                />
+              </div>
+
+              {groupMessages.length > 0 && (
+                <button
+                  onClick={handleClearAllGroupMessages}
+                  className="btn-admin-danger"
+                  style={{ padding: '6px 12px', fontSize: '12px', gap: '5px' }}
+                  title="Wipe group chat history to free database storage"
+                >
+                  <Trash2 size={13} />
+                  <span>Clear All Group Messages</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -832,10 +948,21 @@ export default function CommunityTab() {
         <div style={{ display: 'grid', gridTemplateColumns: selectedThread ? '1fr 1fr' : '1fr', gap: '16px' }}>
           {/* Thread List */}
           <div className="admin-card" style={{ padding: '0', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--admin-border)' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--admin-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: '700', margin: 0 }}>
                 Direct 1-on-1 Message Threads ({directThreads.length})
               </h3>
+              {directThreads.length > 0 && (
+                <button
+                  onClick={handleClearAllDirectChats}
+                  className="btn-admin-danger"
+                  style={{ padding: '5px 10px', fontSize: '11px', gap: '4px' }}
+                  title="Wipe all direct messages and threads to manage database storage"
+                >
+                  <Trash2 size={12} />
+                  <span>Clear All Direct Chats</span>
+                </button>
+              )}
             </div>
 
             {loading ? (
@@ -900,13 +1027,23 @@ export default function CommunityTab() {
                           </span>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <button
-                            onClick={() => loadThreadMessages(th)}
-                            className="btn-admin-secondary"
-                            style={{ padding: '4px 8px', fontSize: '11px' }}
-                          >
-                            Inspect
-                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                            <button
+                              onClick={() => loadThreadMessages(th)}
+                              className="btn-admin-secondary"
+                              style={{ padding: '4px 8px', fontSize: '11px' }}
+                            >
+                              Inspect
+                            </button>
+                            <button
+                              onClick={() => handleDeleteThread(th.id)}
+                              className="btn-icon-admin"
+                              style={{ padding: '4px' }}
+                              title="Delete conversation thread"
+                            >
+                              <Trash2 size={13} color="#ef4444" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -937,9 +1074,22 @@ export default function CommunityTab() {
                   </div>
                 </div>
 
-                <button onClick={() => setSelectedThread(null)} className="btn-icon-admin">
-                  <X size={16} />
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {threadMessages.length > 0 && (
+                    <button
+                      onClick={() => handleClearThreadMessages(selectedThread.id)}
+                      className="btn-admin-danger"
+                      style={{ padding: '4px 8px', fontSize: '11px', gap: '4px' }}
+                      title="Clear messages in this conversation to free storage"
+                    >
+                      <Trash2 size={12} />
+                      <span>Clear Messages</span>
+                    </button>
+                  )}
+                  <button onClick={() => setSelectedThread(null)} className="btn-icon-admin" title="Close inspector">
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
 
               <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>

@@ -15,6 +15,7 @@ import {
   ScrollView,
   Image,
   Keyboard,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
@@ -35,6 +36,7 @@ import {
   RefreshCw,
   Search,
   CheckCircle2,
+  CheckCheck,
   Lock,
   Bell,
 } from 'lucide-react-native';
@@ -53,30 +55,52 @@ import {
 
 const ONBOARDED_KEY = '@community_terms_accepted_v1';
 
+const formatMessageTime = (dateStr) => {
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  } catch (_) {
+    return '';
+  }
+};
+
 export default function CommunityScreen({ navigation }) {
   const { colors, isDark, deviceId } = useSettings();
   const { currentSong, isMiniPlayerVisible } = useAudio();
   const insets = useSafeAreaInsets();
   const styles = makeStyles(colors, isDark);
 
+  // Keyboard height and container resize detection for flawless Android & iOS handling
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [contentLayoutHeight, setContentLayoutHeight] = useState(0);
+  const maxContentHeightRef = useRef(0);
+
+  const handleContainerLayout = (e) => {
+    const h = e.nativeEvent.layout.height;
+    setContentLayoutHeight(h);
+    if (!isKeyboardVisible) {
+      maxContentHeightRef.current = Math.max(maxContentHeightRef.current, h);
+    }
+  };
 
   useEffect(() => {
-    const showSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        setIsKeyboardVisible(true);
-        setKeyboardHeight(e?.endCoordinates?.height || 0);
-      }
-    );
-    const hideSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        setIsKeyboardVisible(false);
-        setKeyboardHeight(0);
-      }
-    );
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = (e) => {
+      setIsKeyboardVisible(true);
+      const kh = e?.endCoordinates?.height || 0;
+      setKeyboardHeight(kh);
+    };
+
+    const onHide = () => {
+      setIsKeyboardVisible(false);
+      setKeyboardHeight(0);
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
     return () => {
       showSub.remove();
       hideSub.remove();
@@ -86,18 +110,39 @@ export default function CommunityScreen({ navigation }) {
   const tabHeight = (Platform.OS === 'ios' ? 88 : 72) + insets.bottom;
   const isPlayerUp = isMiniPlayerVisible && Boolean(currentSong);
   const restingBottom = isPlayerUp ? tabHeight + 64 : tabHeight + 8;
-  const currentBottomPadding = isKeyboardVisible
-    ? Platform.OS === 'ios'
-      ? Math.max(8, insets.bottom)
-      : 8
-    : restingBottom;
+
+  // Accurate detection: if layout height shrank by > 150px, Android OS already resized the window
+  const didWindowResize =
+    isKeyboardVisible &&
+    maxContentHeightRef.current > 0 &&
+    maxContentHeightRef.current - contentLayoutHeight > 150;
+
+  // Adaptive bottom padding:
+  // On Android: if window did not resize, lift the input bar by keyboardHeight
+  // On iOS: KeyboardAvoidingView handles the lift smoothly
+  const keyboardOffset =
+    Platform.OS === 'android'
+      ? didWindowResize
+        ? 8
+        : keyboardHeight > 0
+        ? keyboardHeight
+        : 8
+      : Math.max(8, insets.bottom);
+
+  const currentBottomPadding = isKeyboardVisible ? keyboardOffset : restingBottom;
 
   // Profile & Ban state
   const [profile, setProfile] = useState(null);
   const [userJoinedAt, setUserJoinedAt] = useState(null);
+  const userJoinedAtRef = useRef(null);
   const [isBanned, setIsBanned] = useState(false);
   const [banInfo, setBanInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Keep ref updated without causing effects to re-fire
+  useEffect(() => {
+    userJoinedAtRef.current = userJoinedAt;
+  }, [userJoinedAt]);
 
   // Onboarding Gatekeeper Modal
   const [showGatekeeper, setShowGatekeeper] = useState(false);
@@ -120,6 +165,10 @@ export default function CommunityScreen({ navigation }) {
   // Direct Messaging State
   const [directThreads, setDirectThreads] = useState([]);
   const [activeDirectThread, setActiveDirectThread] = useState(null);
+  const activeThreadRef = useRef(null);
+  useEffect(() => {
+    activeThreadRef.current = activeDirectThread;
+  }, [activeDirectThread]);
   const [directMessages, setDirectMessages] = useState([]);
   const [directInputText, setDirectInputText] = useState('');
   const directListRef = useRef(null);
@@ -177,6 +226,7 @@ export default function CommunityScreen({ navigation }) {
         if (isMounted) {
           setProfile(prof);
           setUserJoinedAt(joinedAt);
+          userJoinedAtRef.current = joinedAt;
           loadGroupMessages(joinedAt);
           loadDirectThreads();
         }
@@ -194,7 +244,7 @@ export default function CommunityScreen({ navigation }) {
 
   // 2. Realtime Subscriptions & Online Presence Heartbeat
   useEffect(() => {
-    if (!profile?.device_id || !userJoinedAt) return;
+    if (!profile?.device_id) return;
 
     let heartbeatTimer = null;
 
@@ -241,10 +291,11 @@ export default function CommunityScreen({ navigation }) {
           if (!newMsg) return;
 
           // Newer members rule: only show messages created at or after the user joined
-          if (new Date(newMsg.created_at) < new Date(userJoinedAt)) return;
+          const joinedAt = userJoinedAtRef.current;
+          if (joinedAt && new Date(newMsg.created_at) < new Date(joinedAt)) return;
 
           setGroupMessages((prev) => {
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            if (prev.some((m) => String(m.id) === String(newMsg.id))) return prev;
             return [newMsg, ...prev];
           });
         }
@@ -255,7 +306,7 @@ export default function CommunityScreen({ navigation }) {
         (payload) => {
           const deletedId = payload.old?.id;
           if (deletedId) {
-            setGroupMessages((prev) => prev.filter((m) => m.id !== deletedId));
+            setGroupMessages((prev) => prev.filter((m) => String(m.id) !== String(deletedId)));
           }
         }
       )
@@ -270,7 +321,7 @@ export default function CommunityScreen({ navigation }) {
           setActiveDirectThread((currentActive) => {
             if (currentActive && currentActive.id === newDm.thread_id) {
               setDirectMessages((prev) => {
-                if (prev.some((m) => m.id === newDm.id)) return prev;
+                if (prev.some((m) => String(m.id) === String(newDm.id))) return prev;
                 return [...prev, newDm];
               });
               // Mark as read if received from other person
@@ -295,6 +346,20 @@ export default function CommunityScreen({ navigation }) {
       )
       .on(
         'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'community_direct_messages' },
+        (payload) => {
+          const deletedId = payload.old?.id;
+          if (deletedId) {
+            setDirectMessages((prev) => prev.filter((m) => String(m.id) !== String(deletedId)));
+          } else {
+            if (activeThreadRef.current) {
+              loadDirectMessages(activeThreadRef.current.id);
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'community_direct_threads' },
         () => {
           loadDirectThreads();
@@ -307,12 +372,12 @@ export default function CommunityScreen({ navigation }) {
       supabase.removeChannel(presenceChannel);
       supabase.removeChannel(liveChannel);
     };
-  }, [profile?.device_id, userJoinedAt]);
+  }, [profile?.device_id]);
 
   // Load Group Messages (filtered so newer members only see from their join timestamp onwards)
   const loadGroupMessages = async (joinedAt) => {
     try {
-      const filterTime = joinedAt || userJoinedAt || new Date().toISOString();
+      const filterTime = joinedAt || userJoinedAtRef.current || new Date().toISOString();
       const { data, error } = await supabase
         .from('community_group_messages')
         .select('*')
@@ -407,7 +472,7 @@ export default function CommunityScreen({ navigation }) {
 
       if (data) {
         setGroupMessages((prev) => {
-          if (prev.some((m) => m.id === data.id)) return prev;
+          if (prev.some((m) => String(m.id) === String(data.id))) return prev;
           return [data, ...prev];
         });
       }
@@ -579,6 +644,7 @@ export default function CommunityScreen({ navigation }) {
       prof.avatar_id = selectedAvatarId;
       setProfile(prof);
       setUserJoinedAt(prof.created_at || nowIso);
+      userJoinedAtRef.current = prof.created_at || nowIso;
       loadGroupMessages(prof.created_at || nowIso);
       loadDirectThreads();
     } catch (err) {
@@ -668,6 +734,315 @@ export default function CommunityScreen({ navigation }) {
       </View>
     );
   }
+
+  // Inner Chat Content
+  const renderChatContent = () => (
+    <>
+      {/* ── VIEW 1: GROUP LOUNGE ── */}
+      {!activeDirectThread && activeTab === 'lounge' && (
+        <View style={{ flex: 1 }}>
+          <FlatList
+            ref={groupListRef}
+            data={groupMessages}
+            keyExtractor={(item) => String(item.id)}
+            inverted
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ padding: 14 }}
+            ListEmptyComponent={
+              <View style={styles.emptyLoungeContainer}>
+                <Users size={36} color={colors.purpleAccent} style={{ marginBottom: 10 }} />
+                <Text style={styles.emptyLoungeTitle}>Welcome to Community Lounge</Text>
+                <Text style={styles.emptyLoungeSub}>
+                  You joined successfully. New messages from members worldwide will appear here in real time.
+                </Text>
+              </View>
+            }
+            renderItem={({ item }) => {
+              const isMe = item.sender_device_id === deviceId;
+              const avatar = getAvatarInfo(item.sender_avatar_id);
+              return (
+                <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
+                  {!isMe && (
+                    <TouchableOpacity
+                      onPress={() =>
+                        setSelectedUserModal({
+                          device_id: item.sender_device_id,
+                          handle: item.sender_handle,
+                          star_level: item.sender_star_level,
+                          avatar_id: item.sender_avatar_id,
+                          country_code: item.sender_country_code,
+                          message_id: item.id,
+                          message_text: item.message,
+                        })
+                      }
+                      style={[styles.avatarCircleSmall, { backgroundColor: avatar.bg }]}
+                    >
+                      <Text style={styles.avatarInitialSmall}>{avatar.initial}</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
+                    {!isMe && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                        <Text style={[styles.senderHandle, { color: avatar.text || avatar.bg }]}>
+                          {item.sender_handle}
+                        </Text>
+                        {renderStarBadges(item.sender_star_level)}
+                        {item.sender_country_code ? (
+                          <Text style={styles.countryFlagText}>
+                            {getCountryFlag(item.sender_country_code)}
+                          </Text>
+                        ) : null}
+                      </View>
+                    )}
+
+                    <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
+                      {item.message}
+                    </Text>
+
+                    <View style={styles.bubbleFooter}>
+                      <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>
+                        {formatMessageTime(item.created_at)}
+                      </Text>
+                      {isMe && (
+                        <View style={{ marginLeft: 3, marginBottom: 1 }}>
+                          <CheckCheck size={13} color="rgba(255,255,255,0.7)" />
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              );
+            }}
+          />
+
+          {/* Validation Warning */}
+          {validationWarning ? (
+            <View style={styles.warningBox}>
+              <AlertCircle size={14} color="#EF4444" />
+              <Text style={styles.warningText}>{validationWarning}</Text>
+            </View>
+          ) : null}
+
+          {/* Input Bar */}
+          <View style={[styles.inputBar, { paddingBottom: currentBottomPadding }]}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Send an encouraging thought..."
+              placeholderTextColor={colors.textMuted}
+              value={inputText}
+              onChangeText={(text) => {
+                setInputText(text);
+                if (validationWarning) setValidationWarning('');
+              }}
+              onFocus={() => {
+                setTimeout(() => {
+                  groupListRef.current?.scrollToOffset({ offset: 0, animated: true });
+                }, 100);
+              }}
+              multiline
+              maxLength={280}
+            />
+            <TouchableOpacity
+              onPress={handleSendGroupMessage}
+              disabled={!inputText.trim() || sending}
+              style={[styles.sendBtn, (!inputText.trim() || sending) && { opacity: 0.5 }]}
+            >
+              {sending ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Send size={18} color="#FFF" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* ── VIEW 2: DIRECT MESSAGE THREADS LIST ── */}
+      {!activeDirectThread && activeTab === 'direct' && (
+        <View style={{ flex: 1, paddingBottom: restingBottom }}>
+          {directThreads.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <MessageSquare size={48} color={colors.purpleAccent} style={{ marginBottom: 12 }} />
+              <Text style={styles.emptyTitle}>No Private Conversations Yet</Text>
+              <Text style={styles.emptySub}>
+                Tap any member avatar in the Group Lounge to send them a private message request.
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={directThreads}
+              keyExtractor={(item) => String(item.id)}
+              contentContainerStyle={{ padding: 16 }}
+              renderItem={({ item }) => {
+                const isRequester = item.requester_device_id === deviceId;
+                const otherUser = isRequester ? item.recipient : item.requester;
+                const otherHandle = otherUser?.handle || 'User';
+                const avatar = getAvatarInfo(otherUser?.avatar_id);
+                const isPendingForMe = item.status === 'pending' && item.recipient_device_id === deviceId;
+
+                return (
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (item.status === 'accepted') {
+                        openDirectThread(item);
+                      }
+                    }}
+                    style={styles.threadCard}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.avatarCircle, { backgroundColor: avatar.bg }]}>
+                      <Text style={styles.avatarInitial}>{avatar.initial}</Text>
+                    </View>
+
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textWhite }}>
+                            {otherHandle}
+                          </Text>
+                          {renderStarBadges(otherUser?.star_level || 1)}
+                          {otherUser?.country_code ? (
+                            <Text style={styles.countryFlagText}>
+                              {getCountryFlag(otherUser.country_code)}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                          {formatMessageTime(item.last_message_at)}
+                        </Text>
+                      </View>
+
+                      {isPendingForMe ? (
+                        <View style={{ marginTop: 6 }}>
+                          <Text style={{ fontSize: 12, color: '#F59E0B', fontWeight: '600' }}>
+                            Wants to connect with you
+                          </Text>
+                          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                            <TouchableOpacity
+                              onPress={() => handleRespondToRequest(item.id, 'accepted')}
+                              style={[styles.reqBtn, { backgroundColor: '#22C55E' }]}
+                            >
+                              <Text style={styles.reqBtnText}>Accept</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => handleRespondToRequest(item.id, 'declined')}
+                              style={[styles.reqBtn, { backgroundColor: 'rgba(239,68,68,0.2)' }]}
+                            >
+                              <Text style={[styles.reqBtnText, { color: '#EF4444' }]}>Decline</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ) : item.status === 'pending' ? (
+                        <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
+                          Request pending approval...
+                        </Text>
+                      ) : item.status === 'declined' ? (
+                        <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 4 }}>
+                          Request declined
+                        </Text>
+                      ) : (
+                        <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
+                          Tap to open conversation
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          )}
+        </View>
+      )}
+
+      {/* ── VIEW 3: ACTIVE DIRECT CHAT ── */}
+      {activeDirectThread && (
+        <View style={{ flex: 1 }}>
+          {/* WhatsApp-style Private & Encrypted Lock Notice */}
+          <View style={styles.privateNoticeCard}>
+            <Lock size={13} color="#F59E0B" style={{ marginTop: 1 }} />
+            <Text style={styles.privateNoticeText}>
+              Direct 1-on-1 private conversation. Text messages are private between both members and moderated under community safety guidelines.
+            </Text>
+          </View>
+
+          {activeDirectThread.status === 'pending' ? (
+            <View style={{ backgroundColor: 'rgba(245,158,11,0.12)', padding: 12, marginHorizontal: 16, marginBottom: 8, borderRadius: 10 }}>
+              <Text style={{ color: '#F59E0B', fontSize: 12, textAlign: 'center', fontWeight: '600' }}>
+                {activeDirectThread.requester_device_id === deviceId
+                  ? 'Waiting for recipient to accept your message request.'
+                  : 'Accept this request to enable two-way messaging.'}
+              </Text>
+            </View>
+          ) : null}
+
+          <FlatList
+            ref={directListRef}
+            data={directMessages}
+            keyExtractor={(item) => String(item.id)}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ padding: 14 }}
+            onContentSizeChange={() => directListRef.current?.scrollToEnd({ animated: true })}
+            onLayout={() => directListRef.current?.scrollToEnd({ animated: false })}
+            renderItem={({ item }) => {
+              const isMe = item.sender_device_id === deviceId;
+              return (
+                <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
+                  <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
+                    <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
+                      {item.message}
+                    </Text>
+                    <View style={styles.bubbleFooter}>
+                      <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>
+                        {formatMessageTime(item.created_at)}
+                      </Text>
+                      {isMe && (
+                        <View style={{ marginLeft: 3, marginBottom: 1 }}>
+                          {item.is_read ? (
+                            <CheckCheck size={13} color="#38BDF8" />
+                          ) : (
+                            <CheckCheck size={13} color="rgba(255,255,255,0.7)" />
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              );
+            }}
+          />
+
+          {activeDirectThread.status === 'accepted' ? (
+            <View style={[styles.inputBar, { paddingBottom: currentBottomPadding }]}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Type a private message..."
+                placeholderTextColor={colors.textMuted}
+                value={directInputText}
+                onChangeText={setDirectInputText}
+                onFocus={() => {
+                  setTimeout(() => {
+                    directListRef.current?.scrollToEnd({ animated: true });
+                  }, 100);
+                }}
+                multiline
+                maxLength={280}
+              />
+              <TouchableOpacity
+                onPress={handleSendDirectMessage}
+                disabled={!directInputText.trim()}
+                style={[styles.sendBtn, !directInputText.trim() && { opacity: 0.5 }]}
+              >
+                <Send size={18} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </View>
+      )}
+    </>
+  );
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -811,307 +1186,21 @@ export default function CommunityScreen({ navigation }) {
         </View>
       )}
 
-      {/* ── KEYBOARD AVOIDING CONTENT WRAPPER ── */}
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-      >
-        {/* ── VIEW 1: GROUP LOUNGE ── */}
-        {!activeDirectThread && activeTab === 'lounge' && (
-          <View style={{ flex: 1 }}>
-            <FlatList
-              ref={groupListRef}
-              data={groupMessages}
-              keyExtractor={(item) => String(item.id)}
-              inverted
-              keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ padding: 16 }}
-              ListEmptyComponent={
-                <View style={styles.emptyLoungeContainer}>
-                  <Users size={36} color={colors.purpleAccent} style={{ marginBottom: 10 }} />
-                  <Text style={styles.emptyLoungeTitle}>Welcome to Community Lounge</Text>
-                  <Text style={styles.emptyLoungeSub}>
-                    You joined successfully. New messages from members worldwide will appear here in real time.
-                  </Text>
-                </View>
-              }
-              renderItem={({ item }) => {
-                const isMe = item.sender_device_id === deviceId;
-                const avatar = getAvatarInfo(item.sender_avatar_id);
-                return (
-                  <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
-                    {!isMe && (
-                      <TouchableOpacity
-                        onPress={() =>
-                          setSelectedUserModal({
-                            device_id: item.sender_device_id,
-                            handle: item.sender_handle,
-                            star_level: item.sender_star_level,
-                            avatar_id: item.sender_avatar_id,
-                            country_code: item.sender_country_code,
-                            message_id: item.id,
-                            message_text: item.message,
-                          })
-                        }
-                        style={[styles.avatarCircleSmall, { backgroundColor: avatar.bg }]}
-                      >
-                        <Text style={styles.avatarInitialSmall}>{avatar.initial}</Text>
-                      </TouchableOpacity>
-                    )}
-
-                    <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-                      {!isMe && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-                          <Text style={styles.senderHandle}>{item.sender_handle}</Text>
-                          {renderStarBadges(item.sender_star_level)}
-                          {item.sender_country_code ? (
-                            <Text style={styles.countryFlagText}>
-                              {getCountryFlag(item.sender_country_code)}
-                            </Text>
-                          ) : null}
-                        </View>
-                      )}
-
-                      <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
-                        {item.message}
-                      </Text>
-
-                      <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>
-                        {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              }}
-            />
-
-            {/* Validation Warning */}
-            {validationWarning ? (
-              <View style={styles.warningBox}>
-                <AlertCircle size={14} color="#EF4444" />
-                <Text style={styles.warningText}>{validationWarning}</Text>
-              </View>
-            ) : null}
-
-            {/* Input Bar */}
-            <View style={[styles.inputBar, { paddingBottom: currentBottomPadding }]}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Send an encouraging thought..."
-                placeholderTextColor={colors.textMuted}
-                value={inputText}
-                onChangeText={(text) => {
-                  setInputText(text);
-                  if (validationWarning) setValidationWarning('');
-                }}
-                onFocus={() => {
-                  if (groupListRef.current) {
-                    groupListRef.current.scrollToOffset({ offset: 0, animated: true });
-                  }
-                }}
-                multiline
-                maxLength={280}
-              />
-              <TouchableOpacity
-                onPress={handleSendGroupMessage}
-                disabled={!inputText.trim() || sending}
-                style={[styles.sendBtn, (!inputText.trim() || sending) && { opacity: 0.5 }]}
-              >
-                {sending ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <Send size={18} color="#FFF" />
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* ── VIEW 2: DIRECT MESSAGE THREADS LIST ── */}
-        {!activeDirectThread && activeTab === 'direct' && (
-          <View style={{ flex: 1, paddingBottom: restingBottom }}>
-            {directThreads.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <MessageSquare size={48} color={colors.purpleAccent} style={{ marginBottom: 12 }} />
-                <Text style={styles.emptyTitle}>No Private Conversations Yet</Text>
-                <Text style={styles.emptySub}>
-                  Tap any member avatar in the Group Lounge to send them a private message request.
-                </Text>
-              </View>
-            ) : (
-              <FlatList
-                data={directThreads}
-                keyExtractor={(item) => String(item.id)}
-                contentContainerStyle={{ padding: 16 }}
-                renderItem={({ item }) => {
-                  const isRequester = item.requester_device_id === deviceId;
-                  const otherUser = isRequester ? item.recipient : item.requester;
-                  const otherHandle = otherUser?.handle || 'User';
-                  const avatar = getAvatarInfo(otherUser?.avatar_id);
-                  const isPendingForMe = item.status === 'pending' && item.recipient_device_id === deviceId;
-
-                  return (
-                    <TouchableOpacity
-                      onPress={() => {
-                        if (item.status === 'accepted') {
-                          openDirectThread(item);
-                        }
-                      }}
-                      style={styles.threadCard}
-                      activeOpacity={0.8}
-                    >
-                      <View style={[styles.avatarCircle, { backgroundColor: avatar.bg }]}>
-                        <Text style={styles.avatarInitial}>{avatar.initial}</Text>
-                      </View>
-
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textWhite }}>
-                              {otherHandle}
-                            </Text>
-                            {renderStarBadges(otherUser?.star_level || 1)}
-                            {otherUser?.country_code ? (
-                              <Text style={styles.countryFlagText}>
-                                {getCountryFlag(otherUser.country_code)}
-                              </Text>
-                            ) : null}
-                          </View>
-                          <Text style={{ fontSize: 11, color: colors.textMuted }}>
-                            {new Date(item.last_message_at).toLocaleDateString()}
-                          </Text>
-                        </View>
-
-                        {isPendingForMe ? (
-                          <View style={{ marginTop: 6 }}>
-                            <Text style={{ fontSize: 12, color: '#F59E0B', fontWeight: '600' }}>
-                              Wants to connect with you
-                            </Text>
-                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                              <TouchableOpacity
-                                onPress={() => handleRespondToRequest(item.id, 'accepted')}
-                                style={[styles.reqBtn, { backgroundColor: '#22C55E' }]}
-                              >
-                                <Text style={styles.reqBtnText}>Accept</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                onPress={() => handleRespondToRequest(item.id, 'declined')}
-                                style={[styles.reqBtn, { backgroundColor: 'rgba(239,68,68,0.2)' }]}
-                              >
-                                <Text style={[styles.reqBtnText, { color: '#EF4444' }]}>Decline</Text>
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                        ) : item.status === 'pending' ? (
-                          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
-                            Request pending approval...
-                          </Text>
-                        ) : item.status === 'declined' ? (
-                          <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 4 }}>
-                            Request declined
-                          </Text>
-                        ) : (
-                          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
-                            Tap to open conversation
-                          </Text>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                }}
-              />
-            )}
-          </View>
-        )}
-
-        {/* ── VIEW 3: ACTIVE DIRECT CHAT ── */}
-        {activeDirectThread && (
-          <View style={{ flex: 1 }}>
-            {activeDirectThread.status === 'pending' ? (
-              <View style={{ backgroundColor: 'rgba(245,158,11,0.1)', padding: 12, margin: 16, borderRadius: 8 }}>
-                <Text style={{ color: '#F59E0B', fontSize: 12, textAlign: 'center' }}>
-                  {activeDirectThread.requester_device_id === deviceId
-                    ? 'Waiting for recipient to accept your message request.'
-                    : 'Accept this request to enable two-way messaging.'}
-                </Text>
-              </View>
-            ) : null}
-
-            <FlatList
-              ref={directListRef}
-              data={directMessages}
-              keyExtractor={(item) => String(item.id)}
-              keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ padding: 16 }}
-              onContentSizeChange={() => directListRef.current?.scrollToEnd({ animated: true })}
-              onLayout={() => directListRef.current?.scrollToEnd({ animated: false })}
-              renderItem={({ item }) => {
-                const isMe = item.sender_device_id === deviceId;
-                return (
-                  <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
-                    <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-                      <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
-                        {item.message}
-                      </Text>
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'flex-end',
-                          gap: 4,
-                          marginTop: 2,
-                        }}
-                      >
-                        <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>
-                          {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </Text>
-                        {isMe && (
-                          <Text
-                            style={{
-                              fontSize: 10,
-                              color: item.is_read ? '#60A5FA' : 'rgba(255,255,255,0.7)',
-                              fontWeight: '700',
-                            }}
-                          >
-                            {item.is_read ? 'R' : 'D'}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-                );
-              }}
-            />
-
-            {activeDirectThread.status === 'accepted' ? (
-              <View style={[styles.inputBar, { paddingBottom: currentBottomPadding }]}>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Type a private message..."
-                  placeholderTextColor={colors.textMuted}
-                  value={directInputText}
-                  onChangeText={setDirectInputText}
-                  onFocus={() => {
-                    directListRef.current?.scrollToEnd({ animated: true });
-                  }}
-                  multiline
-                  maxLength={280}
-                />
-                <TouchableOpacity
-                  onPress={handleSendDirectMessage}
-                  disabled={!directInputText.trim()}
-                  style={[styles.sendBtn, !directInputText.trim() && { opacity: 0.5 }]}
-                >
-                  <Send size={18} color="#FFF" />
-                </TouchableOpacity>
-              </View>
-            ) : null}
-          </View>
-        )}
-      </KeyboardAvoidingView>
+      {/* ── CONTENT CONTAINER WITH DUAL KEYBOARD AVOIDANCE ── */}
+      {Platform.OS === 'ios' ? (
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior="padding"
+          keyboardVerticalOffset={insets.top}
+          onLayout={handleContainerLayout}
+        >
+          {renderChatContent()}
+        </KeyboardAvoidingView>
+      ) : (
+        <View style={{ flex: 1 }} onLayout={handleContainerLayout}>
+          {renderChatContent()}
+        </View>
+      )}
 
       {/* ── MODAL: User Action Sheet ── */}
       {selectedUserModal && (
@@ -1434,7 +1523,7 @@ const makeStyles = (colors, isDark) =>
     messageRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
-      marginBottom: 12,
+      marginBottom: 8,
       gap: 8,
     },
     messageRowMe: {
@@ -1453,25 +1542,30 @@ const makeStyles = (colors, isDark) =>
       fontSize: 11,
     },
     bubble: {
-      maxWidth: '78%',
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      borderRadius: 18,
+      maxWidth: '80%',
+      paddingHorizontal: 12,
+      paddingTop: 8,
+      paddingBottom: 6,
+      borderRadius: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.15,
+      shadowRadius: 1.5,
+      elevation: 1,
     },
     bubbleThem: {
-      backgroundColor: colors.cardBg,
-      borderBottomLeftRadius: 4,
+      backgroundColor: isDark ? '#1F1B2E' : '#FFFFFF',
+      borderBottomLeftRadius: 3,
       borderWidth: 1,
-      borderColor: colors.divider,
+      borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
     },
     bubbleMe: {
-      backgroundColor: colors.purple,
-      borderBottomRightRadius: 4,
+      backgroundColor: isDark ? '#6D28D9' : '#7C3AED',
+      borderBottomRightRadius: 3,
     },
     senderHandle: {
       fontSize: 12,
       fontWeight: '700',
-      color: colors.purpleAccent,
     },
     countryFlagText: {
       fontSize: 13,
@@ -1485,14 +1579,40 @@ const makeStyles = (colors, isDark) =>
     messageTextMe: {
       color: '#FFFFFF',
     },
+    bubbleFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      alignSelf: 'flex-end',
+      marginTop: 2,
+    },
     messageTime: {
       fontSize: 10,
       color: colors.textMuted,
-      marginTop: 4,
-      alignSelf: 'flex-end',
     },
     messageTimeMe: {
-      color: 'rgba(255,255,255,0.7)',
+      color: 'rgba(255,255,255,0.75)',
+    },
+    privateNoticeCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      backgroundColor: 'rgba(245, 158, 11, 0.08)',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      marginHorizontal: 16,
+      marginTop: 10,
+      marginBottom: 6,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: 'rgba(245, 158, 11, 0.2)',
+      gap: 8,
+    },
+    privateNoticeText: {
+      flex: 1,
+      fontSize: 11,
+      color: isDark ? '#FDE68A' : '#B45309',
+      lineHeight: 16,
+      fontWeight: '500',
     },
     warningBox: {
       flexDirection: 'row',
@@ -1546,7 +1666,7 @@ const makeStyles = (colors, isDark) =>
       justifyContent: 'center',
       paddingHorizontal: 32,
       paddingVertical: 48,
-      transform: [{ scaleY: -1 }], // Inverts back inside inverted FlatList
+      transform: [{ scaleY: -1 }],
     },
     emptyLoungeTitle: {
       fontSize: 16,
