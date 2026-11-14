@@ -25,6 +25,7 @@ import AboutScreen from './src/screens/settings/AboutScreen';
 import FeedbackScreen from './src/screens/settings/FeedbackScreen';
 import PrivacyScreen from './src/screens/settings/PrivacyScreen';
 import LyricQuizScreen from './src/screens/LyricQuizScreen';
+import CommunityScreen from './src/screens/CommunityScreen';
 import AppUpdateChecker from './src/components/AppUpdateChecker';
 import { initMobileAds } from './src/lib/adMob';
 import { requestNotificationPermissions, scheduleDailySongReminder, scheduleSundayMeetingReminder, scheduleInactivityReminders } from './src/lib/notificationScheduler';
@@ -94,6 +95,11 @@ function HomeStackScreen() {
       <HomeStackNav.Screen
         name="Song"
         component={SongScreen}
+        options={{ headerShown: false }}
+      />
+      <HomeStackNav.Screen
+        name="Community"
+        component={CommunityScreen}
         options={{ headerShown: false }}
       />
     </HomeStackNav.Navigator>
@@ -211,6 +217,11 @@ function SettingsStackScreen() {
       <SettingsStackNav.Screen
         name="Notifications"
         component={NotificationsScreen}
+        options={{ headerShown: false }}
+      />
+      <SettingsStackNav.Screen
+        name="Community"
+        component={CommunityScreen}
         options={{ headerShown: false }}
       />
     </SettingsStackNav.Navigator>
@@ -340,6 +351,12 @@ function MainNavigation() {
         return;
       }
 
+      // Direct navigation to Community Hub
+      if (data?.screen === 'Community' || data?.type === 'community_message') {
+        navigationRef.navigate('Community', { initialTab: data?.initialTab || 'lounge' });
+        return;
+      }
+
       if (data?.song_id) {
         try {
           const { data: songData } = await supabase
@@ -411,6 +428,7 @@ function MainNavigation() {
         <RootStack.Screen name="FeedbackScreen" component={FeedbackScreen} />
         <RootStack.Screen name="LyricQuiz" component={LyricQuizScreen} />
         <RootStack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
+        <RootStack.Screen name="Community" component={CommunityScreen} options={{ headerShown: false }} />
       </RootStack.Navigator>
       <AppUpdateChecker />
     </NavigationContainer>

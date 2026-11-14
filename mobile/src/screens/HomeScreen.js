@@ -35,6 +35,7 @@ import {
   RefreshCw,
   AlertCircle,
   Sparkles,
+  MessageSquare,
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 import NativeAdCard from '../components/NativeAdCard';
@@ -43,6 +44,7 @@ import { getDailySong } from '../lib/dailySong';
 import MoodPills from '../components/MoodPills';
 import ActiveMoodBanner from '../components/ActiveMoodBanner';
 import FamilyQuizBanner from '../components/FamilyQuizBanner';
+import CommunityBanner from '../components/CommunityBanner';
 import WhatsAppStatusCardModal from '../components/WhatsAppStatusCardModal';
 import RatingModal, { shouldShowRatingPrompt } from '../components/RatingModal';
 import { filterSongsByMood, getMoodById } from '../lib/moodCategories';
@@ -721,6 +723,9 @@ export default function HomeScreen({ navigation }) {
       sections.push({ key: 'curated-featured', items: curatedFeaturedSongs });
     }
 
+    // 3.8️⃣ Live Fellowship Community Lounge
+    sections.push({ key: 'community-banner' });
+
     // Recently Added
     if (recentSongs.length > 0) {
       sections.push({ key: 'recent' });
@@ -748,6 +753,25 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.headerTitle}>Original Song Lyrics</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity
+                style={[styles.headerSearchBtn, { marginRight: 12 }]}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                onPress={() => navigation.navigate('Community')}
+                accessibilityLabel="Fellowship Community"
+              >
+                <MessageSquare color={colors.textWhite} size={22} />
+                <View style={{
+                  position: 'absolute',
+                  top: -1,
+                  right: -1,
+                  width: 9,
+                  height: 9,
+                  borderRadius: 4.5,
+                  backgroundColor: '#10B981',
+                  borderWidth: 2,
+                  borderColor: colors.bg,
+                }} />
+              </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.headerSearchBtn, { marginRight: 12 }]}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -920,6 +944,13 @@ export default function HomeScreen({ navigation }) {
         return (
           <FamilyQuizBanner
             onPress={() => navigation.navigate('LyricQuiz', { mode: 'all' })}
+          />
+        );
+
+      case 'community-banner':
+        return (
+          <CommunityBanner
+            onPress={() => navigation.navigate('Community')}
           />
         );
 

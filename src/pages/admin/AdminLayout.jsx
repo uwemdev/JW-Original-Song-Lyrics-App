@@ -29,6 +29,7 @@ import {
   BarChart3,
   Activity,
   Sparkles,
+  Users,
   Sun,
   Moon,
 } from 'lucide-react';
@@ -266,6 +267,7 @@ export default function AdminLayout() {
     { key: 'categories', label: 'Categories', icon: FolderTree },
     { key: 'curation', label: 'Home Curation', icon: Sparkles },
     { key: 'announcements', label: 'Announcements', icon: Megaphone },
+    { key: 'community', label: 'Community & Chat', icon: Users },
     { key: 'health', label: 'Catalog Health', icon: Activity },
     { key: 'analytics', label: 'Analytics & Insights', icon: BarChart3 },
     { key: 'feedback', label: 'Feedback & Chat', icon: MessageSquare, badge: unreadFeedbackCount },

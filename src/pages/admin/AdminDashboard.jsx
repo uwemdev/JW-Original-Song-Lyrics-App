@@ -40,6 +40,7 @@ import AnalyticsTab from './AnalyticsTab';
 import CatalogHealthTab from './CatalogHealthTab';
 import CurationTab from './CurationTab';
 import AnnouncementsTab from './AnnouncementsTab';
+import CommunityTab from './CommunityTab';
 import SongImportExportModal from './SongImportExportModal';
 
 const quillModules = {
@@ -769,6 +770,10 @@ export default function AdminDashboard() {
 
   if (currentTab === 'announcements') {
     return <AnnouncementsTab />;
+  }
+
+  if (currentTab === 'community') {
+    return <CommunityTab />;
   }
 
   if (currentTab === 'health') {

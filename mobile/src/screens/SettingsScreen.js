@@ -30,6 +30,7 @@ import {
   Info,
   Share2,
   MessageSquare,
+  Users,
   Shield,
   Trash2,
   ChevronRight,
@@ -143,7 +144,7 @@ export default function SettingsScreen({ navigation }) {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: 'Check out JW Original Song Lyrics — a beautiful app for browsing and reading JW Original Song lyrics! 🎵',
+        message: 'Check out JW Original Song Lyrics — a beautiful app for browsing and reading JW Original Song lyrics!',
       });
     } catch (_) {}
   };
@@ -294,6 +295,24 @@ export default function SettingsScreen({ navigation }) {
             label="Notification History"
             subtitle="View past announcements and alerts"
             onPress={() => navigation.navigate('Notifications')}
+          />
+        </View>
+
+        {/* ── Community & Fellowship ── */}
+        <SectionHeader title="Community & Fellowship" />
+        <View style={styles.card}>
+          <SettingsRow
+            icon={<Users color={colors.purpleAccent} size={20} />}
+            label="Fellowship Lounge"
+            subtitle="Connect with users worldwide in real-time"
+            onPress={() => navigation.navigate('Community', { initialTab: 'lounge' })}
+          />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon={<MessageSquare color={colors.purpleAccent} size={20} />}
+            label="Direct Messages"
+            subtitle="Private 1-on-1 chats and requests"
+            onPress={() => navigation.navigate('Community', { initialTab: 'direct' })}
           />
         </View>
 
