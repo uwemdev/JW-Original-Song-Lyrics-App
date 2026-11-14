@@ -6,21 +6,30 @@ import { getWallpaperById } from '../lib/wallpapers';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export default function ChatWallpaperBackground({ wallpaperId, isDark, colors }) {
+export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, preview = false }) {
   const wallpaper = useMemo(() => getWallpaperById(wallpaperId), [wallpaperId]);
 
   if (!wallpaper || wallpaper.id === 'default') {
     return (
       <View
         pointerEvents="none"
-        style={[styles.container, { backgroundColor: colors.bg }]}
+        style={[
+          styles.container,
+          { backgroundColor: preview ? (isDark ? '#161324' : '#F8FAFC') : colors.bg },
+        ]}
       />
     );
   }
 
   const gradientColors = isDark ? wallpaper.darkGradient : wallpaper.lightGradient;
   const strokeColor = isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(15, 23, 42, 0.8)';
-  const patternOpacity = isDark ? 0.08 : 0.05;
+  const patternOpacity = preview
+    ? isDark
+      ? 0.25
+      : 0.18
+    : isDark
+    ? 0.12
+    : 0.08;
 
   const renderPattern = () => {
     switch (wallpaper.patternType) {
@@ -30,6 +39,7 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors })
             width="100%"
             height="100%"
             viewBox="0 0 400 800"
+            preserveAspectRatio="xMidYMid slice"
             style={[StyleSheet.absoluteFillObject, { opacity: patternOpacity }]}
           >
             {/* Staff lines */}
@@ -90,7 +100,8 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors })
             width="100%"
             height="100%"
             viewBox="0 0 400 800"
-            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.14 : 0.07 }]}
+            preserveAspectRatio="xMidYMid slice"
+            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.16 : 0.09 }]}
           >
             {/* 4-point twinkling stars */}
             <Path d="M80,90 Q90,90 90,80 Q90,90 100,90 Q90,90 90,100 Q90,90 80,90 Z" fill={strokeColor} />
@@ -132,7 +143,8 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors })
             width="100%"
             height="100%"
             viewBox="0 0 400 800"
-            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.10 : 0.05 }]}
+            preserveAspectRatio="xMidYMid slice"
+            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.12 : 0.07 }]}
           >
             <Path
               d="M-50,150 C80,80 180,220 320,150 C380,120 420,180 480,150"
@@ -175,7 +187,8 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors })
             width="100%"
             height="100%"
             viewBox="0 0 400 800"
-            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.09 : 0.05 }]}
+            preserveAspectRatio="xMidYMid slice"
+            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.11 : 0.07 }]}
           >
             {/* Olive branch motif left */}
             <G transform="translate(20, 120)">
@@ -208,7 +221,8 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors })
             width="100%"
             height="100%"
             viewBox="0 0 400 800"
-            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.08 : 0.04 }]}
+            preserveAspectRatio="xMidYMid slice"
+            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.10 : 0.06 }]}
           >
             {/* Repeating diamond grid */}
             {[0, 100, 200, 300, 400].map((x) =>
@@ -231,7 +245,8 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors })
             width="100%"
             height="100%"
             viewBox="0 0 400 800"
-            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.12 : 0.06 }]}
+            preserveAspectRatio="xMidYMid slice"
+            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.14 : 0.08 }]}
           >
             {[40, 100, 160, 220, 280, 340].map((x) =>
               [60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 660, 720].map((y) => (
@@ -247,7 +262,8 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors })
             width="100%"
             height="100%"
             viewBox="0 0 400 800"
-            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.10 : 0.05 }]}
+            preserveAspectRatio="xMidYMid slice"
+            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.12 : 0.07 }]}
           >
             {/* Top right concentric spheres */}
             <Circle cx="350" cy="140" r="50" fill="none" stroke={strokeColor} strokeWidth="1.5" />
@@ -267,7 +283,8 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors })
             width="100%"
             height="100%"
             viewBox="0 0 400 800"
-            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.12 : 0.06 }]}
+            preserveAspectRatio="xMidYMid slice"
+            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.14 : 0.08 }]}
           >
             {/* Subtle distant mountain silhouettes */}
             <Path
@@ -289,7 +306,8 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors })
             width="100%"
             height="100%"
             viewBox="0 0 400 800"
-            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.09 : 0.05 }]}
+            preserveAspectRatio="xMidYMid slice"
+            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.11 : 0.07 }]}
           >
             {/* Vinyl record groove circles */}
             {[40, 80, 120, 160, 200, 240, 280].map((r) => (
@@ -313,7 +331,8 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors })
             width="100%"
             height="100%"
             viewBox="0 0 400 800"
-            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.09 : 0.05 }]}
+            preserveAspectRatio="xMidYMid slice"
+            style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.11 : 0.07 }]}
           >
             {/* Greek key / parchment border motifs */}
             <Rect x="20" y="40" width="360" height="720" rx="16" fill="none" stroke={strokeColor} strokeWidth="1.5" strokeDasharray="8,6" />
@@ -345,6 +364,6 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors })
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: -1,
   },
+});
 });

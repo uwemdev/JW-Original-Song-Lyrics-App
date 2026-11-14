@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,20 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function WallpaperPickerModal({ visible, onClose }) {
   const { colors, isDark, chatWallpaper, setChatWallpaper } = useSettings();
-  const currentWallpaper = getWallpaperById(chatWallpaper);
+  const [selectedWallpaperId, setSelectedWallpaperId] = useState(chatWallpaper || 'default');
+
+  useEffect(() => {
+    if (visible) {
+      setSelectedWallpaperId(chatWallpaper || 'default');
+    }
+  }, [visible, chatWallpaper]);
+
+  const currentWallpaper = getWallpaperById(selectedWallpaperId);
+
+  const handleSelectWallpaper = (id) => {
+    setSelectedWallpaperId(id);
+    setChatWallpaper(id);
+  };
 
   return (
     <Modal
@@ -54,9 +67,10 @@ export default function WallpaperPickerModal({ visible, onClose }) {
             <View style={[styles.previewFrame, { borderColor: colors.divider }]}>
               {/* Wallpaper behind preview */}
               <ChatWallpaperBackground
-                wallpaperId={chatWallpaper}
+                wallpaperId={selectedWallpaperId}
                 isDark={isDark}
                 colors={colors}
+                preview
               />
 
               {/* Simulated chat bubbles */}
@@ -117,13 +131,12 @@ export default function WallpaperPickerModal({ visible, onClose }) {
 
             <View style={styles.grid}>
               {WALLPAPERS.map((wp) => {
-                const isSelected = wp.id === (chatWallpaper || 'default');
-                const gradientColors = isDark ? wp.darkGradient : wp.lightGradient;
+                const isSelected = wp.id === selectedWallpaperId;
 
                 return (
                   <TouchableOpacity
                     key={wp.id}
-                    onPress={() => setChatWallpaper(wp.id)}
+                    onPress={() => handleSelectWallpaper(wp.id)}
                     style={[
                       styles.wallpaperCard,
                       {
@@ -136,11 +149,11 @@ export default function WallpaperPickerModal({ visible, onClose }) {
                   >
                     {/* Swatch */}
                     <View style={styles.swatchWrap}>
-                      <LinearGradient
-                        colors={gradientColors}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.swatchGradient}
+                      <ChatWallpaperBackground
+                        wallpaperId={wp.id}
+                        isDark={isDark}
+                        colors={colors}
+                        preview
                       />
                       {isSelected && (
                         <View style={[styles.checkCircle, { backgroundColor: colors.purple }]}>
@@ -223,7 +236,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   previewFrame: {
-    height: 145,
+    height: 168,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,

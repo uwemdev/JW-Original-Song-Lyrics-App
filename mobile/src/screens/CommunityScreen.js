@@ -86,24 +86,35 @@ export default function CommunityScreen({ navigation, route }) {
 
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
 
-  // Keyboard state for smooth input bar positioning above bottom tabs / keyboard
+  // Keyboard and Window state for bulletproof input bar positioning above bottom tabs / keyboard
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [initialWindowHeight] = useState(() => Dimensions.get('window').height);
+  const [currentWindowHeight, setCurrentWindowHeight] = useState(() => Dimensions.get('window').height);
 
   useEffect(() => {
+    const dimSub = Dimensions.addEventListener('change', ({ window }) => {
+      setCurrentWindowHeight(window.height);
+    });
+
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const onShow = () => {
+    const onShow = (e) => {
       setIsKeyboardVisible(true);
+      const kh = e?.endCoordinates?.height || 0;
+      setKeyboardHeight(kh);
     };
 
     const onHide = () => {
       setIsKeyboardVisible(false);
+      setKeyboardHeight(0);
     };
 
     const showSub = Keyboard.addListener(showEvent, onShow);
     const hideSub = Keyboard.addListener(hideEvent, onHide);
     return () => {
+      dimSub?.remove();
       showSub.remove();
       hideSub.remove();
     };
@@ -112,10 +123,16 @@ export default function CommunityScreen({ navigation, route }) {
   const tabHeight = (Platform.OS === 'ios' ? 88 : 72) + insets.bottom;
   const isPlayerUp = isMiniPlayerVisible && Boolean(currentSong);
   const restingBottom = isPlayerUp ? tabHeight + 64 : tabHeight + 8;
+
+  // On Android, check whether the window shrunk (OS auto-resized) or stayed constant (overlay keyboard)
+  const isAndroidResized = Platform.OS === 'android' && currentWindowHeight < initialWindowHeight - 100;
+
   const currentBottomPadding = isKeyboardVisible
     ? Platform.OS === 'ios'
       ? Math.max(8, insets.bottom)
-      : 8
+      : isAndroidResized
+      ? 8
+      : Math.max(8, keyboardHeight)
     : restingBottom;
 
   // Profile & Ban state
@@ -178,6 +195,8 @@ export default function CommunityScreen({ navigation, route }) {
   // Live Now-Playing states
   const [selectedUserNowPlaying, setSelectedUserNowPlaying] = useState(null);
   const [chatPartnerNowPlaying, setChatPartnerNowPlaying] = useState(null);
+  const [nowPlayingUsers, setNowPlayingUsers] = useState({});
+  const presenceChannelRef = useRef(null);
 
   // Open settings helper
   const openSettingsModal = () => {
@@ -220,15 +239,40 @@ export default function CommunityScreen({ navigation, route }) {
     }
   };
 
-  // Broadcast currently playing song for community presence
+  // Broadcast currently playing song for community presence and realtime subscribers
   useEffect(() => {
     if (!profile?.device_id) return;
-    if (profile.share_now_playing === false) {
-      updateCommunityNowPlaying(profile.device_id, null, false);
-      return;
+    const canShare = profile.share_now_playing !== false;
+    const isActuallyPlaying = Boolean(isPlaying && currentSong?.title && canShare);
+    const songTitle = isActuallyPlaying ? currentSong.title : null;
+
+    if (presenceChannelRef.current) {
+      presenceChannelRef.current
+        .track({
+          device_id: profile.device_id,
+          handle: profile.handle,
+          country_code: profile.country_code || 'US',
+          online_at: new Date().toISOString(),
+          current_song_title: songTitle,
+          is_playing: isActuallyPlaying,
+        })
+        .catch(() => {});
+
+      presenceChannelRef.current
+        .send({
+          type: 'broadcast',
+          event: 'now_playing',
+          payload: {
+            device_id: profile.device_id,
+            current_song_title: songTitle,
+            is_playing: isActuallyPlaying,
+          },
+        })
+        .catch(() => {});
     }
-    updateCommunityNowPlaying(profile.device_id, currentSong, isPlaying);
-  }, [profile?.device_id, profile?.share_now_playing, currentSong?.id, isPlaying]);
+
+    updateCommunityNowPlaying(profile.device_id, currentSong, isPlaying).catch(() => {});
+  }, [profile?.device_id, profile?.share_now_playing, currentSong?.id, currentSong?.title, isPlaying]);
 
   // Fetch now-playing song when a user is tapped on in Group Lounge
   useEffect(() => {
@@ -237,31 +281,51 @@ export default function CommunityScreen({ navigation, route }) {
       return;
     }
 
+    const targetDeviceId = selectedUserModal.device_id;
+
+    // If viewing own avatar in the community
+    if (targetDeviceId === deviceId) {
+      if (isPlaying && currentSong?.title && profile?.share_now_playing !== false) {
+        setSelectedUserNowPlaying(currentSong.title);
+      } else {
+        setSelectedUserNowPlaying(null);
+      }
+      return;
+    }
+
+    // Check in-memory realtime presence first (instant, 0 latency, 0 DB errors)
+    const realtimeRecord = nowPlayingUsers[targetDeviceId];
+    if (realtimeRecord && realtimeRecord.isPlaying && realtimeRecord.title) {
+      setSelectedUserNowPlaying(realtimeRecord.title);
+      return;
+    }
+
+    // DB fallback
     let isMounted = true;
     (async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('community_profiles')
           .select('current_song_title, is_playing, share_now_playing')
-          .eq('device_id', selectedUserModal.device_id)
+          .eq('device_id', targetDeviceId)
           .maybeSingle();
 
         if (isMounted) {
-          if (data?.is_playing && data?.current_song_title && data?.share_now_playing !== false) {
+          if (!error && data?.is_playing && data?.current_song_title && data?.share_now_playing !== false) {
             setSelectedUserNowPlaying(data.current_song_title);
-          } else {
+          } else if (!realtimeRecord?.isPlaying) {
             setSelectedUserNowPlaying(null);
           }
         }
       } catch (_) {
-        if (isMounted) setSelectedUserNowPlaying(null);
+        if (isMounted && !realtimeRecord?.isPlaying) setSelectedUserNowPlaying(null);
       }
     })();
 
     return () => {
       isMounted = false;
     };
-  }, [selectedUserModal?.device_id]);
+  }, [selectedUserModal?.device_id, nowPlayingUsers, isPlaying, currentSong?.id, currentSong?.title, profile?.share_now_playing]);
 
   // Fetch and monitor now-playing song for 1-on-1 direct chat partner
   useEffect(() => {
@@ -277,58 +341,35 @@ export default function CommunityScreen({ navigation, route }) {
 
     if (!otherDeviceId) return;
 
+    // Check in-memory realtime presence first
+    const realtimeRecord = nowPlayingUsers[otherDeviceId];
+    if (realtimeRecord && realtimeRecord.isPlaying && realtimeRecord.title) {
+      setChatPartnerNowPlaying(realtimeRecord.title);
+    } else {
+      setChatPartnerNowPlaying(null);
+    }
+
     let isMounted = true;
     const fetchPartnerSong = async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('community_profiles')
           .select('current_song_title, is_playing, share_now_playing')
           .eq('device_id', otherDeviceId)
           .maybeSingle();
 
-        if (isMounted) {
-          if (data?.is_playing && data?.current_song_title && data?.share_now_playing !== false) {
-            setChatPartnerNowPlaying(data.current_song_title);
-          } else {
-            setChatPartnerNowPlaying(null);
-          }
+        if (isMounted && !error && data?.is_playing && data?.current_song_title && data?.share_now_playing !== false) {
+          setChatPartnerNowPlaying(data.current_song_title);
         }
-      } catch (_) {
-        if (isMounted) setChatPartnerNowPlaying(null);
-      }
+      } catch (_) {}
     };
 
     fetchPartnerSong();
 
-    // Live subscription for partner song change
-    const partnerChannel = supabase
-      .channel(`partner_presence_${otherDeviceId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'community_profiles',
-          filter: `device_id=eq.${otherDeviceId}`,
-        },
-        (payload) => {
-          const updated = payload.new;
-          if (updated && isMounted) {
-            if (updated.is_playing && updated.current_song_title && updated.share_now_playing !== false) {
-              setChatPartnerNowPlaying(updated.current_song_title);
-            } else {
-              setChatPartnerNowPlaying(null);
-            }
-          }
-        }
-      )
-      .subscribe();
-
     return () => {
       isMounted = false;
-      supabase.removeChannel(partnerChannel);
     };
-  }, [activeDirectThread?.id, deviceId]);
+  }, [activeDirectThread?.id, deviceId, nowPlayingUsers]);
 
   // Generate random math problem
   const generateMathProblem = () => {
@@ -413,20 +454,52 @@ export default function CommunityScreen({ navigation, route }) {
     const presenceChannel = supabase.channel('community_presence', {
       config: { presence: { key: profile.device_id } },
     });
+    presenceChannelRef.current = presenceChannel;
 
     presenceChannel
       .on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState();
         const pCount = Object.keys(state).length;
         setOnlineCount((prev) => Math.max(1, pCount, prev));
+
+        // Extract live now-playing states across the entire online community
+        const updated = {};
+        Object.values(state).forEach((presences) => {
+          if (Array.isArray(presences) && presences[0]) {
+            const p = presences[0];
+            if (p.device_id) {
+              updated[p.device_id] = {
+                title: p.current_song_title || null,
+                isPlaying: Boolean(p.is_playing),
+              };
+            }
+          }
+        });
+        setNowPlayingUsers((prev) => ({ ...prev, ...updated }));
+      })
+      .on('broadcast', { event: 'now_playing' }, ({ payload }) => {
+        if (payload?.device_id) {
+          setNowPlayingUsers((prev) => ({
+            ...prev,
+            [payload.device_id]: {
+              title: payload.current_song_title || null,
+              isPlaying: Boolean(payload.is_playing),
+            },
+          }));
+        }
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
+          const isActuallyPlaying = Boolean(
+            isPlaying && currentSong?.title && profile.share_now_playing !== false
+          );
           await presenceChannel.track({
             device_id: profile.device_id,
             handle: profile.handle,
             country_code: profile.country_code || 'US',
             online_at: new Date().toISOString(),
+            current_song_title: isActuallyPlaying ? currentSong.title : null,
+            is_playing: isActuallyPlaying,
           });
         }
       });
@@ -481,7 +554,7 @@ export default function CommunityScreen({ navigation, route }) {
                   .from('community_direct_messages')
                   .update({ is_read: true })
                   .eq('id', newDm.id)
-                  .then(() => {});
+                  .then(() => { });
               }
             }
             return currentActive;
@@ -520,6 +593,7 @@ export default function CommunityScreen({ navigation, route }) {
 
     return () => {
       if (heartbeatTimer) clearInterval(heartbeatTimer);
+      presenceChannelRef.current = null;
       supabase.removeChannel(presenceChannel);
       supabase.removeChannel(liveChannel);
     };
@@ -899,7 +973,7 @@ export default function CommunityScreen({ navigation, route }) {
             inverted
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
-            style={{ flex: 1 }}
+            style={{ flex: 1, backgroundColor: 'transparent' }}
             contentContainerStyle={{ padding: 14 }}
             ListEmptyComponent={
               <View style={styles.emptyLoungeContainer}>
@@ -1144,7 +1218,7 @@ export default function CommunityScreen({ navigation, route }) {
             keyExtractor={(item) => String(item.id)}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
-            style={{ flex: 1 }}
+            style={{ flex: 1, backgroundColor: 'transparent' }}
             contentContainerStyle={{ padding: 14 }}
             onContentSizeChange={() => directListRef.current?.scrollToEnd({ animated: true })}
             onLayout={() => directListRef.current?.scrollToEnd({ animated: false })}
@@ -1213,8 +1287,9 @@ export default function CommunityScreen({ navigation, route }) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior="padding"
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : (StatusBar.currentHeight || 24)}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      enabled={Platform.OS === 'ios'}
+      keyboardVerticalOffset={0}
     >
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
@@ -1648,6 +1723,14 @@ export default function CommunityScreen({ navigation, route }) {
                     thumbColor={settingsShareMusic ? '#FFFFFF' : '#94A3B8'}
                   />
                 </View>
+                {isPlaying && currentSong?.title ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingHorizontal: 4 }}>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' }} />
+                    <Text style={{ fontSize: 11, color: '#10B981', fontWeight: '700' }} numberOfLines={1}>
+                      Live: {currentSong.title}
+                    </Text>
+                  </View>
+                ) : null}
 
                 {/* 5. Chat Wallpaper Section */}
                 <View style={{ marginTop: 18 }}>
@@ -1675,7 +1758,6 @@ export default function CommunityScreen({ navigation, route }) {
                   >
                     {WALLPAPERS.map((wp) => {
                       const isSelected = wp.id === (chatWallpaper || 'default');
-                      const gradientColors = isDark ? wp.darkGradient : wp.lightGradient;
                       return (
                         <TouchableOpacity
                           key={wp.id}
@@ -1691,11 +1773,11 @@ export default function CommunityScreen({ navigation, route }) {
                           activeOpacity={0.75}
                         >
                           <View style={styles.wallpaperPickerSwatch}>
-                            <LinearGradient
-                              colors={gradientColors}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 1, y: 1 }}
-                              style={StyleSheet.absoluteFillObject}
+                            <ChatWallpaperBackground
+                              wallpaperId={wp.id}
+                              isDark={isDark}
+                              colors={colors}
+                              preview
                             />
                             {isSelected && (
                               <View style={[styles.wallpaperCheckBadge, { backgroundColor: colors.purple }]}>

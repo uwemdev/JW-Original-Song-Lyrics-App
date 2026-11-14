@@ -353,14 +353,27 @@ export async function updateCommunityProfile(deviceId, updates) {
     const payload = { ...updates, last_active_at: nowIso };
 
     // Update remote database
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('community_profiles')
       .update(payload)
       .eq('device_id', deviceId)
       .select()
       .maybeSingle();
 
-    if (error && error.code !== '42703') {
+    if (error && (error.code === 'PGRST204' || error.code === '42703')) {
+      // Fallback: strip columns that may not exist in older table versions
+      const { share_now_playing, current_song_title, current_song_id, is_playing, ...basePayload } = payload;
+      const retry = await supabase
+        .from('community_profiles')
+        .update(basePayload)
+        .eq('device_id', deviceId)
+        .select()
+        .maybeSingle();
+      data = retry.data || data;
+      error = retry.error;
+    }
+
+    if (error && error.code !== '42703' && error.code !== 'PGRST204') {
       console.warn('Update community profile remote error:', error);
     }
 
