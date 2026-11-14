@@ -37,6 +37,7 @@ import FeedbackTab from './FeedbackTab';
 import NotificationsTab from './NotificationsTab';
 import AppUpdatesTab from './AppUpdatesTab';
 import AnalyticsTab from './AnalyticsTab';
+import CatalogHealthTab from './CatalogHealthTab';
 import SongImportExportModal from './SongImportExportModal';
 
 const quillModules = {
@@ -760,6 +761,10 @@ export default function AdminDashboard() {
   // ═══════════════════════════════════════
   //  TAB DISPATCH
   // ═══════════════════════════════════════
+  if (currentTab === 'health') {
+    return <CatalogHealthTab />;
+  }
+
   if (currentTab === 'analytics') {
     return <AnalyticsTab />;
   }

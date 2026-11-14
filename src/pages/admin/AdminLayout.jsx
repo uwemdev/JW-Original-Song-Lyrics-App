@@ -27,6 +27,7 @@ import {
   Filter,
   LayoutDashboard,
   BarChart3,
+  Activity,
   Sun,
   Moon,
 } from 'lucide-react';
@@ -262,6 +263,7 @@ export default function AdminLayout() {
     { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { key: 'songs', label: 'Songs', icon: Music },
     { key: 'categories', label: 'Categories', icon: FolderTree },
+    { key: 'health', label: 'Catalog Health', icon: Activity },
     { key: 'analytics', label: 'Analytics & Insights', icon: BarChart3 },
     { key: 'feedback', label: 'Feedback & Chat', icon: MessageSquare, badge: unreadFeedbackCount },
     { key: 'notifications', label: 'Push Notifications', icon: Megaphone },
