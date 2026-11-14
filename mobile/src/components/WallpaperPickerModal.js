@@ -64,7 +64,7 @@ export default function WallpaperPickerModal({ visible, onClose }) {
 
           {/* Live Preview Card */}
           <View style={styles.previewContainer}>
-            <View style={[styles.previewFrame, { borderColor: colors.divider }]}>
+            <View style={[styles.previewFrame, { borderColor: colors.divider, position: 'relative' }]}>
               {/* Wallpaper behind preview */}
               <ChatWallpaperBackground
                 wallpaperId={selectedWallpaperId}
@@ -74,7 +74,7 @@ export default function WallpaperPickerModal({ visible, onClose }) {
               />
 
               {/* Simulated chat bubbles */}
-              <View style={styles.previewChatContent}>
+              <View style={[styles.previewChatContent, { zIndex: 10 }]}>
                 {/* Incoming bubble */}
                 <View
                   style={[
@@ -112,7 +112,7 @@ export default function WallpaperPickerModal({ visible, onClose }) {
                 </View>
               </View>
 
-              <View style={styles.previewBadge}>
+              <View style={[styles.previewBadge, { zIndex: 11 }]}>
                 <Sparkles size={11} color="#A78BFA" />
                 <Text style={styles.previewBadgeText}>{currentWallpaper.name}</Text>
               </View>
@@ -156,7 +156,7 @@ export default function WallpaperPickerModal({ visible, onClose }) {
                         preview
                       />
                       {isSelected && (
-                        <View style={[styles.checkCircle, { backgroundColor: colors.purple }]}>
+                        <View style={[styles.checkCircle, { backgroundColor: colors.purple, zIndex: 10 }]}>
                           <Check size={14} color="#FFFFFF" strokeWidth={3} />
                         </View>
                       )}

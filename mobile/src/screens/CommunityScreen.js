@@ -86,24 +86,18 @@ export default function CommunityScreen({ navigation, route }) {
 
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
 
-  // Keyboard and Window state for bulletproof input bar positioning above bottom tabs / keyboard
+  // Keyboard state for input bar positioning above bottom tabs / keyboard
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [initialWindowHeight] = useState(() => Dimensions.get('window').height);
-  const [currentWindowHeight, setCurrentWindowHeight] = useState(() => Dimensions.get('window').height);
 
   useEffect(() => {
-    const dimSub = Dimensions.addEventListener('change', ({ window }) => {
-      setCurrentWindowHeight(window.height);
-    });
-
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
     const onShow = (e) => {
       setIsKeyboardVisible(true);
       const kh = e?.endCoordinates?.height || 0;
-      setKeyboardHeight(kh);
+      if (kh > 0) setKeyboardHeight(kh);
     };
 
     const onHide = () => {
@@ -114,7 +108,6 @@ export default function CommunityScreen({ navigation, route }) {
     const showSub = Keyboard.addListener(showEvent, onShow);
     const hideSub = Keyboard.addListener(hideEvent, onHide);
     return () => {
-      dimSub?.remove();
       showSub.remove();
       hideSub.remove();
     };
@@ -124,15 +117,12 @@ export default function CommunityScreen({ navigation, route }) {
   const isPlayerUp = isMiniPlayerVisible && Boolean(currentSong);
   const restingBottom = isPlayerUp ? tabHeight + 64 : tabHeight + 8;
 
-  // On Android, check whether the window shrunk (OS auto-resized) or stayed constant (overlay keyboard)
-  const isAndroidResized = Platform.OS === 'android' && currentWindowHeight < initialWindowHeight - 100;
-
-  const currentBottomPadding = isKeyboardVisible
+  const inputBottomMargin = isKeyboardVisible
     ? Platform.OS === 'ios'
-      ? Math.max(8, insets.bottom)
-      : isAndroidResized
-      ? 8
-      : Math.max(8, keyboardHeight)
+      ? Math.max(6, insets.bottom)
+      : keyboardHeight > 0
+      ? keyboardHeight
+      : 280
     : restingBottom;
 
   // Profile & Ban state
@@ -419,7 +409,7 @@ export default function CommunityScreen({ navigation, route }) {
           setProfile(prof);
           setUserJoinedAt(joinedAt);
           userJoinedAtRef.current = joinedAt;
-          loadGroupMessages(joinedAt);
+          loadGroupMessages();
           loadDirectThreads();
         }
       } catch (err) {
@@ -514,10 +504,6 @@ export default function CommunityScreen({ navigation, route }) {
           const newMsg = payload.new;
           if (!newMsg) return;
 
-          // Newer members rule: only show messages created at or after the user joined
-          const joinedAt = userJoinedAtRef.current;
-          if (joinedAt && new Date(newMsg.created_at) < new Date(joinedAt)) return;
-
           setGroupMessages((prev) => {
             if (prev.some((m) => String(m.id) === String(newMsg.id))) return prev;
             return [newMsg, ...prev];
@@ -599,14 +585,12 @@ export default function CommunityScreen({ navigation, route }) {
     };
   }, [profile?.device_id]);
 
-  // Load Group Messages (filtered so newer members only see from their join timestamp onwards)
-  const loadGroupMessages = async (joinedAt) => {
+  // Load Group Messages
+  const loadGroupMessages = async () => {
     try {
-      const filterTime = joinedAt || userJoinedAtRef.current || new Date().toISOString();
       const { data, error } = await supabase
         .from('community_group_messages')
         .select('*')
-        .gte('created_at', filterTime)
         .order('created_at', { ascending: false })
         .limit(80);
 
@@ -870,7 +854,7 @@ export default function CommunityScreen({ navigation, route }) {
       setProfile(finalProf);
       setUserJoinedAt(finalProf.created_at || nowIso);
       userJoinedAtRef.current = finalProf.created_at || nowIso;
-      loadGroupMessages(finalProf.created_at || nowIso);
+      loadGroupMessages();
       loadDirectThreads();
     } catch (err) {
       console.warn('Gatekeeper error:', err);
@@ -960,131 +944,130 @@ export default function CommunityScreen({ navigation, route }) {
     <>
       {/* ── VIEW 1: GROUP LOUNGE ── */}
       {!activeDirectThread && activeTab === 'lounge' && (
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, position: 'relative' }}>
           <ChatWallpaperBackground
             wallpaperId={chatWallpaper}
             isDark={isDark}
             colors={colors}
           />
-          <FlatList
-            ref={groupListRef}
-            data={groupMessages}
-            keyExtractor={(item) => String(item.id)}
-            inverted
-            keyboardDismissMode="on-drag"
-            keyboardShouldPersistTaps="handled"
-            style={{ flex: 1, backgroundColor: 'transparent' }}
-            contentContainerStyle={{ padding: 14 }}
-            ListEmptyComponent={
-              <View style={styles.emptyLoungeContainer}>
-                <Users size={36} color={colors.purpleAccent} style={{ marginBottom: 10 }} />
-                <Text style={styles.emptyLoungeTitle}>Welcome to Community Lounge</Text>
-                <Text style={styles.emptyLoungeSub}>
-                  You joined successfully. New messages from members worldwide will appear here in real time.
-                </Text>
-              </View>
-            }
-            renderItem={({ item }) => {
-              const isMe = item.sender_device_id === deviceId;
-              const avatar = getAvatarInfo(item.sender_avatar_id, item.sender_handle || item.sender_device_id);
-              return (
-                <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
-                  {!isMe && (
-                    <TouchableOpacity
-                      onPress={() =>
-                        setSelectedUserModal({
-                          device_id: item.sender_device_id,
-                          handle: item.sender_handle,
-                          star_level: item.sender_star_level,
-                          avatar_id: item.sender_avatar_id,
-                          country_code: item.sender_country_code,
-                          message_id: item.id,
-                          message_text: item.message,
-                        })
-                      }
-                      style={[styles.avatarCircleSmall, { backgroundColor: avatar.bg }]}
-                    >
-                      <Text style={styles.avatarInitialSmall}>{avatar.initial}</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
+          <View style={{ flex: 1, zIndex: 10 }}>
+            <FlatList
+              ref={groupListRef}
+              data={groupMessages}
+              keyExtractor={(item) => String(item.id)}
+              inverted
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              style={{ flex: 1, backgroundColor: 'transparent' }}
+              contentContainerStyle={{ padding: 14 }}
+              ListEmptyComponent={
+                <View style={styles.emptyLoungeContainer}>
+                  <Users size={36} color={colors.purpleAccent} style={{ marginBottom: 10 }} />
+                  <Text style={styles.emptyLoungeTitle}>Welcome to Community Lounge</Text>
+                  <Text style={styles.emptyLoungeSub}>
+                    You joined successfully. New messages from members worldwide will appear here in real time.
+                  </Text>
+                </View>
+              }
+              renderItem={({ item }) => {
+                const isMe = item.sender_device_id === deviceId;
+                const avatar = getAvatarInfo(item.sender_avatar_id, item.sender_handle || item.sender_device_id);
+                return (
+                  <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
                     {!isMe && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                        <Text style={[styles.senderHandle, { color: avatar.text || avatar.bg }]}>
-                          {item.sender_handle}
-                        </Text>
-                        {renderStarBadges(item.sender_star_level)}
-                        {item.sender_country_code ? (
-                          <Text style={styles.countryFlagText}>
-                            {getCountryFlag(item.sender_country_code)}
-                          </Text>
-                        ) : null}
-                      </View>
+                      <TouchableOpacity
+                        onPress={() =>
+                          setSelectedUserModal({
+                            device_id: item.sender_device_id,
+                            handle: item.sender_handle,
+                            star_level: item.sender_star_level,
+                            avatar_id: item.sender_avatar_id,
+                            country_code: item.sender_country_code,
+                            message_id: item.id,
+                            message_text: item.message,
+                          })
+                        }
+                        style={[styles.avatarCircleSmall, { backgroundColor: avatar.bg }]}
+                      >
+                        <Text style={styles.avatarInitialSmall}>{avatar.initial}</Text>
+                      </TouchableOpacity>
                     )}
 
-                    <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
-                      {item.message}
-                    </Text>
-
-                    <View style={styles.bubbleFooter}>
-                      <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>
-                        {formatMessageTime(item.created_at)}
-                      </Text>
-                      {isMe && (
-                        <View style={{ marginLeft: 3, marginBottom: 1 }}>
-                          <CheckCheck size={13} color="rgba(255,255,255,0.7)" />
+                    <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
+                      {!isMe && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                          <Text style={[styles.senderHandle, { color: avatar.text || avatar.bg }]}>
+                            {item.sender_handle}
+                          </Text>
+                          {renderStarBadges(item.sender_star_level)}
+                          {item.sender_country_code ? (
+                            <Text style={styles.countryFlagText}>
+                              {getCountryFlag(item.sender_country_code)}
+                            </Text>
+                          ) : null}
                         </View>
                       )}
+
+                      <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
+                        {item.message}
+                      </Text>
+
+                      <View style={styles.bubbleFooter}>
+                        <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>
+                          {formatMessageTime(item.created_at)}
+                        </Text>
+                        {isMe && (
+                          <View style={{ marginLeft: 3, marginBottom: 1 }}>
+                            <CheckCheck size={13} color="rgba(255,255,255,0.7)" />
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </View>
-                </View>
-              );
-            }}
-          />
-
-          {/* Validation Warning */}
-          {validationWarning ? (
-            <View style={styles.warningBox}>
-              <AlertCircle size={14} color="#EF4444" />
-              <Text style={styles.warningText}>{validationWarning}</Text>
-            </View>
-          ) : null}
-
-          {/* Input Bar */}
-          <View style={[styles.inputBar, { paddingBottom: currentBottomPadding }]}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Send an encouraging thought..."
-              placeholderTextColor={colors.textMuted}
-              value={inputText}
-              onChangeText={(text) => {
-                setInputText(text);
-                if (validationWarning) setValidationWarning('');
+                );
               }}
-              onFocus={() => {
-                setIsKeyboardVisible(true);
-                setTimeout(() => {
-                  groupListRef.current?.scrollToOffset({ offset: 0, animated: true });
-                }, 150);
-              }}
-              onBlur={() => {
-                setIsKeyboardVisible(false);
-              }}
-              multiline
-              maxLength={280}
             />
-            <TouchableOpacity
-              onPress={handleSendGroupMessage}
-              disabled={!inputText.trim() || sending}
-              style={[styles.sendBtn, (!inputText.trim() || sending) && { opacity: 0.5 }]}
-            >
-              {sending ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Send size={18} color="#FFF" />
-              )}
-            </TouchableOpacity>
+
+            {/* Validation Warning */}
+            {validationWarning ? (
+              <View style={styles.warningBox}>
+                <AlertCircle size={14} color="#EF4444" />
+                <Text style={styles.warningText}>{validationWarning}</Text>
+              </View>
+            ) : null}
+
+            {/* Input Bar */}
+            <View style={[styles.inputBar, { marginBottom: inputBottomMargin }]}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Send an encouraging thought..."
+                placeholderTextColor={colors.textMuted}
+                value={inputText}
+                onChangeText={(text) => {
+                  setInputText(text);
+                  if (validationWarning) setValidationWarning('');
+                }}
+                onFocus={() => {
+                  setIsKeyboardVisible(true);
+                  setTimeout(() => {
+                    groupListRef.current?.scrollToOffset({ offset: 0, animated: true });
+                  }, 150);
+                }}
+                multiline
+                maxLength={280}
+              />
+              <TouchableOpacity
+                onPress={handleSendGroupMessage}
+                disabled={!inputText.trim() || sending}
+                style={[styles.sendBtn, (!inputText.trim() || sending) && { opacity: 0.5 }]}
+              >
+                {sending ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Send size={18} color="#FFF" />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -1188,97 +1171,96 @@ export default function CommunityScreen({ navigation, route }) {
 
       {/* ── VIEW 3: ACTIVE DIRECT CHAT ── */}
       {activeDirectThread && (
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, position: 'relative' }}>
           <ChatWallpaperBackground
             wallpaperId={chatWallpaper}
             isDark={isDark}
             colors={colors}
           />
-          {/* WhatsApp-style Private & Encrypted Lock Notice */}
-          <View style={styles.privateNoticeCard}>
-            <Lock size={13} color="#F59E0B" style={{ marginTop: 1 }} />
-            <Text style={styles.privateNoticeText}>
-              Direct 1-on-1 private conversation. Text messages are private between both members and moderated under community safety guidelines.
-            </Text>
-          </View>
-
-          {activeDirectThread.status === 'pending' ? (
-            <View style={{ backgroundColor: 'rgba(245,158,11,0.12)', padding: 12, marginHorizontal: 16, marginBottom: 8, borderRadius: 10 }}>
-              <Text style={{ color: '#F59E0B', fontSize: 12, textAlign: 'center', fontWeight: '600' }}>
-                {activeDirectThread.requester_device_id === deviceId
-                  ? 'Waiting for recipient to accept your message request.'
-                  : 'Accept this request to enable two-way messaging.'}
+          <View style={{ flex: 1, zIndex: 10 }}>
+            {/* WhatsApp-style Private & Encrypted Lock Notice */}
+            <View style={styles.privateNoticeCard}>
+              <Lock size={13} color="#F59E0B" style={{ marginTop: 1 }} />
+              <Text style={styles.privateNoticeText}>
+                Direct 1-on-1 private conversation. Text messages are private between both members and moderated under community safety guidelines.
               </Text>
             </View>
-          ) : null}
 
-          <FlatList
-            ref={directListRef}
-            data={directMessages}
-            keyExtractor={(item) => String(item.id)}
-            keyboardDismissMode="on-drag"
-            keyboardShouldPersistTaps="handled"
-            style={{ flex: 1, backgroundColor: 'transparent' }}
-            contentContainerStyle={{ padding: 14 }}
-            onContentSizeChange={() => directListRef.current?.scrollToEnd({ animated: true })}
-            onLayout={() => directListRef.current?.scrollToEnd({ animated: false })}
-            renderItem={({ item }) => {
-              const isMe = item.sender_device_id === deviceId;
-              return (
-                <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
-                  <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-                    <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
-                      {item.message}
-                    </Text>
-                    <View style={styles.bubbleFooter}>
-                      <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>
-                        {formatMessageTime(item.created_at)}
+            {activeDirectThread.status === 'pending' ? (
+              <View style={{ backgroundColor: 'rgba(245,158,11,0.12)', padding: 12, marginHorizontal: 16, marginBottom: 8, borderRadius: 10 }}>
+                <Text style={{ color: '#F59E0B', fontSize: 12, textAlign: 'center', fontWeight: '600' }}>
+                  {activeDirectThread.requester_device_id === deviceId
+                    ? 'Waiting for recipient to accept your message request.'
+                    : 'Accept this request to enable two-way messaging.'}
+                </Text>
+              </View>
+            ) : null}
+
+            <FlatList
+              ref={directListRef}
+              data={directMessages}
+              keyExtractor={(item) => String(item.id)}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              style={{ flex: 1, backgroundColor: 'transparent' }}
+              contentContainerStyle={{ padding: 14 }}
+              onContentSizeChange={() => directListRef.current?.scrollToEnd({ animated: true })}
+              onLayout={() => directListRef.current?.scrollToEnd({ animated: false })}
+              renderItem={({ item }) => {
+                const isMe = item.sender_device_id === deviceId;
+                return (
+                  <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
+                    <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
+                      <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
+                        {item.message}
                       </Text>
-                      {isMe && (
-                        <View style={{ marginLeft: 3, marginBottom: 1 }}>
-                          {item.is_read ? (
-                            <CheckCheck size={13} color="#38BDF8" />
-                          ) : (
-                            <CheckCheck size={13} color="rgba(255,255,255,0.7)" />
-                          )}
-                        </View>
-                      )}
+                      <View style={styles.bubbleFooter}>
+                        <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>
+                          {formatMessageTime(item.created_at)}
+                        </Text>
+                        {isMe && (
+                          <View style={{ marginLeft: 3, marginBottom: 1 }}>
+                            {item.is_read ? (
+                              <CheckCheck size={13} color="#38BDF8" />
+                            ) : (
+                              <CheckCheck size={13} color="rgba(255,255,255,0.7)" />
+                            )}
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </View>
-                </View>
-              );
-            }}
-          />
+                );
+              }}
+            />
 
-          {activeDirectThread.status === 'accepted' ? (
-            <View style={[styles.inputBar, { paddingBottom: currentBottomPadding }]}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Type a private message..."
-                placeholderTextColor={colors.textMuted}
-                value={directInputText}
-                onChangeText={setDirectInputText}
-                onFocus={() => {
-                  setIsKeyboardVisible(true);
-                  setTimeout(() => {
-                    directListRef.current?.scrollToEnd({ animated: true });
-                  }, 150);
-                }}
-                onBlur={() => {
-                  setIsKeyboardVisible(false);
-                }}
-                multiline
-                maxLength={280}
-              />
-              <TouchableOpacity
-                onPress={handleSendDirectMessage}
-                disabled={!directInputText.trim()}
-                style={[styles.sendBtn, !directInputText.trim() && { opacity: 0.5 }]}
-              >
-                <Send size={18} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-          ) : null}
+            {activeDirectThread.status === 'accepted' ? (
+              <View style={[styles.inputBar, { marginBottom: inputBottomMargin }]}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Type a private message..."
+                  placeholderTextColor={colors.textMuted}
+                  value={directInputText}
+                  onChangeText={setDirectInputText}
+                  onFocus={() => {
+                    setIsKeyboardVisible(true);
+                    setTimeout(() => {
+                      directListRef.current?.scrollToEnd({ animated: true });
+                    }, 150);
+                  }}
+                  multiline
+                  maxLength={280}
+                />
+                <TouchableOpacity
+                  onPress={handleSendDirectMessage}
+                  disabled={!directInputText.trim()}
+                  style={[styles.sendBtn, !directInputText.trim() && { opacity: 0.5 }]}
+                >
+                  <Send size={18} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
         </View>
       )}
     </>
@@ -1737,7 +1719,12 @@ export default function CommunityScreen({ navigation, route }) {
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
                     <Text style={styles.settingsSectionTitle}>Chat Wallpaper</Text>
                     <TouchableOpacity
-                      onPress={() => setShowWallpaperModal(true)}
+                      onPress={() => {
+                        setShowSettingsModal(false);
+                        setTimeout(() => {
+                          setShowWallpaperModal(true);
+                        }, 350);
+                      }}
                       style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
@@ -1780,7 +1767,7 @@ export default function CommunityScreen({ navigation, route }) {
                               preview
                             />
                             {isSelected && (
-                              <View style={[styles.wallpaperCheckBadge, { backgroundColor: colors.purple }]}>
+                              <View style={[styles.wallpaperCheckBadge, { backgroundColor: colors.purple, zIndex: 10 }]}>
                                 <Check size={11} color="#FFFFFF" strokeWidth={3} />
                               </View>
                             )}
@@ -2147,6 +2134,7 @@ const makeStyles = (colors, isDark) =>
       alignItems: 'center',
       paddingHorizontal: 16,
       paddingTop: 8,
+      paddingBottom: 8,
       backgroundColor: colors.bg,
       borderTopWidth: 1,
       borderTopColor: colors.divider,

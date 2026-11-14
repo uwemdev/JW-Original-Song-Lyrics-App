@@ -43,12 +43,12 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
             style={[StyleSheet.absoluteFillObject, { opacity: patternOpacity }]}
           >
             {/* Staff lines */}
-            <Line x1="20" y1="120" x2="380" y2="120" stroke={strokeColor} strokeWidth="1" strokeDasharray="4,4" />
-            <Line x1="20" y1="135" x2="380" y2="135" stroke={strokeColor} strokeWidth="1" strokeDasharray="4,4" />
-            <Line x1="20" y1="150" x2="380" y2="150" stroke={strokeColor} strokeWidth="1" strokeDasharray="4,4" />
-            <Line x1="20" y1="460" x2="380" y2="460" stroke={strokeColor} strokeWidth="1" strokeDasharray="4,4" />
-            <Line x1="20" y1="475" x2="380" y2="475" stroke={strokeColor} strokeWidth="1" strokeDasharray="4,4" />
-            <Line x1="20" y1="490" x2="380" y2="490" stroke={strokeColor} strokeWidth="1" strokeDasharray="4,4" />
+            <Line x1="20" y1="120" x2="380" y2="120" stroke={strokeColor} strokeWidth="1" strokeDasharray={[4, 4]} />
+            <Line x1="20" y1="135" x2="380" y2="135" stroke={strokeColor} strokeWidth="1" strokeDasharray={[4, 4]} />
+            <Line x1="20" y1="150" x2="380" y2="150" stroke={strokeColor} strokeWidth="1" strokeDasharray={[4, 4]} />
+            <Line x1="20" y1="460" x2="380" y2="460" stroke={strokeColor} strokeWidth="1" strokeDasharray={[4, 4]} />
+            <Line x1="20" y1="475" x2="380" y2="475" stroke={strokeColor} strokeWidth="1" strokeDasharray={[4, 4]} />
+            <Line x1="20" y1="490" x2="380" y2="490" stroke={strokeColor} strokeWidth="1" strokeDasharray={[4, 4]} />
 
             {/* Treble clef abstract motif */}
             <Path
@@ -115,14 +115,14 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
             <Circle cx="50" cy="180" r="2.5" fill={strokeColor} />
             <Circle cx="120" cy="210" r="2" fill={strokeColor} />
             <Circle cx="160" cy="170" r="3" fill={strokeColor} />
-            <Line x1="50" y1="180" x2="120" y2="210" stroke={strokeColor} strokeWidth="0.8" strokeDasharray="3,3" />
-            <Line x1="120" y1="210" x2="160" y2="170" stroke={strokeColor} strokeWidth="0.8" strokeDasharray="3,3" />
+            <Line x1="50" y1="180" x2="120" y2="210" stroke={strokeColor} strokeWidth="0.8" strokeDasharray={[3, 3]} />
+            <Line x1="120" y1="210" x2="160" y2="170" stroke={strokeColor} strokeWidth="0.8" strokeDasharray={[3, 3]} />
 
             <Circle cx="240" cy="380" r="2.5" fill={strokeColor} />
             <Circle cx="290" cy="410" r="2" fill={strokeColor} />
             <Circle cx="350" cy="370" r="3" fill={strokeColor} />
-            <Line x1="240" y1="380" x2="290" y2="410" stroke={strokeColor} strokeWidth="0.8" strokeDasharray="3,3" />
-            <Line x1="290" y1="410" x2="350" y2="370" stroke={strokeColor} strokeWidth="0.8" strokeDasharray="3,3" />
+            <Line x1="240" y1="380" x2="290" y2="410" stroke={strokeColor} strokeWidth="0.8" strokeDasharray={[3, 3]} />
+            <Line x1="290" y1="410" x2="350" y2="370" stroke={strokeColor} strokeWidth="0.8" strokeDasharray={[3, 3]} />
 
             {/* Ambient small stardust */}
             <Circle cx="220" cy="80" r="1.5" fill={strokeColor} />
@@ -157,7 +157,7 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
               fill="none"
               stroke={strokeColor}
               strokeWidth="1.2"
-              strokeDasharray="6,4"
+              strokeDasharray={[6, 4]}
             />
             <Path
               d="M-50,380 C100,300 200,450 350,380 C410,350 450,420 500,380"
@@ -170,7 +170,7 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
               fill="none"
               stroke={strokeColor}
               strokeWidth="1.2"
-              strokeDasharray="4,4"
+              strokeDasharray={[4, 4]}
             />
             <Path
               d="M-50,620 C90,560 190,690 330,620 C390,590 430,650 490,620"
@@ -267,13 +267,13 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
           >
             {/* Top right concentric spheres */}
             <Circle cx="350" cy="140" r="50" fill="none" stroke={strokeColor} strokeWidth="1.5" />
-            <Circle cx="350" cy="140" r="100" fill="none" stroke={strokeColor} strokeWidth="1.2" strokeDasharray="6,4" />
-            <Circle cx="350" cy="140" r="160" fill="none" stroke={strokeColor} strokeWidth="1" strokeDasharray="3,3" />
+            <Circle cx="350" cy="140" r="100" fill="none" stroke={strokeColor} strokeWidth="1.2" strokeDasharray={[6, 4]} />
+            <Circle cx="350" cy="140" r="160" fill="none" stroke={strokeColor} strokeWidth="1" strokeDasharray={[3, 3]} />
 
             {/* Bottom left concentric spheres */}
             <Circle cx="60" cy="620" r="60" fill="none" stroke={strokeColor} strokeWidth="1.5" />
-            <Circle cx="60" cy="620" r="120" fill="none" stroke={strokeColor} strokeWidth="1.2" strokeDasharray="6,4" />
-            <Circle cx="60" cy="620" r="190" fill="none" stroke={strokeColor} strokeWidth="1" strokeDasharray="3,3" />
+            <Circle cx="60" cy="620" r="120" fill="none" stroke={strokeColor} strokeWidth="1.2" strokeDasharray={[6, 4]} />
+            <Circle cx="60" cy="620" r="190" fill="none" stroke={strokeColor} strokeWidth="1" strokeDasharray={[3, 3]} />
           </Svg>
         );
 
@@ -319,7 +319,7 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
                 fill="none"
                 stroke={strokeColor}
                 strokeWidth="1.2"
-                strokeDasharray="8,6"
+                strokeDasharray={[8, 6]}
               />
             ))}
           </Svg>
@@ -335,7 +335,7 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
             style={[StyleSheet.absoluteFillObject, { opacity: isDark ? 0.11 : 0.07 }]}
           >
             {/* Greek key / parchment border motifs */}
-            <Rect x="20" y="40" width="360" height="720" rx="16" fill="none" stroke={strokeColor} strokeWidth="1.5" strokeDasharray="8,6" />
+            <Rect x="20" y="40" width="360" height="720" rx="16" fill="none" stroke={strokeColor} strokeWidth="1.5" strokeDasharray={[8, 6]} />
             <Path d="M35,60 L55,60 L55,80 L75,80" fill="none" stroke={strokeColor} strokeWidth="1.8" />
             <Path d="M365,60 L345,60 L345,80 L325,80" fill="none" stroke={strokeColor} strokeWidth="1.8" />
             <Path d="M35,740 L55,740 L55,720 L75,720" fill="none" stroke={strokeColor} strokeWidth="1.8" />
@@ -364,5 +364,6 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
 });
