@@ -79,33 +79,19 @@ export default function CommunityScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const styles = makeStyles(colors, isDark);
 
-  // Keyboard height and container resize detection for flawless Android & iOS handling
+  // Keyboard state for smooth input bar positioning above bottom tabs / keyboard
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [contentLayoutHeight, setContentLayoutHeight] = useState(0);
-  const maxContentHeightRef = useRef(0);
-
-  const handleContainerLayout = (e) => {
-    const h = e.nativeEvent.layout.height;
-    setContentLayoutHeight(h);
-    if (!isKeyboardVisible) {
-      maxContentHeightRef.current = Math.max(maxContentHeightRef.current, h);
-    }
-  };
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const onShow = (e) => {
+    const onShow = () => {
       setIsKeyboardVisible(true);
-      const kh = e?.endCoordinates?.height || 0;
-      setKeyboardHeight(kh);
     };
 
     const onHide = () => {
       setIsKeyboardVisible(false);
-      setKeyboardHeight(0);
     };
 
     const showSub = Keyboard.addListener(showEvent, onShow);
@@ -119,26 +105,11 @@ export default function CommunityScreen({ navigation, route }) {
   const tabHeight = (Platform.OS === 'ios' ? 88 : 72) + insets.bottom;
   const isPlayerUp = isMiniPlayerVisible && Boolean(currentSong);
   const restingBottom = isPlayerUp ? tabHeight + 64 : tabHeight + 8;
-
-  // Accurate detection: if layout height shrank by > 150px, Android OS already resized the window
-  const didWindowResize =
-    isKeyboardVisible &&
-    maxContentHeightRef.current > 0 &&
-    maxContentHeightRef.current - contentLayoutHeight > 150;
-
-  // Adaptive bottom padding:
-  // On Android: if window did not resize, lift the input bar by keyboardHeight
-  // On iOS: KeyboardAvoidingView handles the lift smoothly
-  const keyboardOffset =
-    Platform.OS === 'android'
-      ? didWindowResize
-        ? 8
-        : keyboardHeight > 0
-        ? keyboardHeight
-        : 8
-      : Math.max(8, insets.bottom);
-
-  const currentBottomPadding = isKeyboardVisible ? keyboardOffset : restingBottom;
+  const currentBottomPadding = isKeyboardVisible
+    ? Platform.OS === 'ios'
+      ? Math.max(8, insets.bottom)
+      : 8
+    : restingBottom;
 
   // Profile & Ban state
   const [profile, setProfile] = useState(null);
@@ -837,7 +808,7 @@ export default function CommunityScreen({ navigation, route }) {
     );
   };
 
-  // ── BANNED SCREEN ──
+  // ---- BANNED SCREEN ----
   if (isBanned) {
     return (
       <View
@@ -891,7 +862,7 @@ export default function CommunityScreen({ navigation, route }) {
     );
   }
 
-  // ── LOADING SCREEN ──
+  // ---- LOADING SCREEN ----
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -906,7 +877,7 @@ export default function CommunityScreen({ navigation, route }) {
   // Inner Chat Content
   const renderChatContent = () => (
     <>
-      {/* ── VIEW 1: GROUP LOUNGE ── */}
+      {/* ---- VIEW 1: GROUP LOUNGE ---- */}
       {!activeDirectThread && activeTab === 'lounge' && (
         <View style={{ flex: 1 }}>
           <FlatList
@@ -916,6 +887,7 @@ export default function CommunityScreen({ navigation, route }) {
             inverted
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
+            style={{ flex: 1 }}
             contentContainerStyle={{ padding: 14 }}
             ListEmptyComponent={
               <View style={styles.emptyLoungeContainer}>
@@ -1005,9 +977,13 @@ export default function CommunityScreen({ navigation, route }) {
                 if (validationWarning) setValidationWarning('');
               }}
               onFocus={() => {
+                setIsKeyboardVisible(true);
                 setTimeout(() => {
                   groupListRef.current?.scrollToOffset({ offset: 0, animated: true });
-                }, 100);
+                }, 150);
+              }}
+              onBlur={() => {
+                setIsKeyboardVisible(false);
               }}
               multiline
               maxLength={280}
@@ -1027,7 +1003,7 @@ export default function CommunityScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* ── VIEW 2: DIRECT MESSAGE THREADS LIST ── */}
+      {/* ---- VIEW 2: DIRECT MESSAGE THREADS LIST ---- */}
       {!activeDirectThread && activeTab === 'direct' && (
         <View style={{ flex: 1, paddingBottom: restingBottom }}>
           {directThreads.length === 0 ? (
@@ -1124,7 +1100,7 @@ export default function CommunityScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* ── VIEW 3: ACTIVE DIRECT CHAT ── */}
+      {/* ---- VIEW 3: ACTIVE DIRECT CHAT ---- */}
       {activeDirectThread && (
         <View style={{ flex: 1 }}>
           {/* WhatsApp-style Private & Encrypted Lock Notice */}
@@ -1151,6 +1127,7 @@ export default function CommunityScreen({ navigation, route }) {
             keyExtractor={(item) => String(item.id)}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
+            style={{ flex: 1 }}
             contentContainerStyle={{ padding: 14 }}
             onContentSizeChange={() => directListRef.current?.scrollToEnd({ animated: true })}
             onLayout={() => directListRef.current?.scrollToEnd({ animated: false })}
@@ -1191,9 +1168,13 @@ export default function CommunityScreen({ navigation, route }) {
                 value={directInputText}
                 onChangeText={setDirectInputText}
                 onFocus={() => {
+                  setIsKeyboardVisible(true);
                   setTimeout(() => {
                     directListRef.current?.scrollToEnd({ animated: true });
-                  }, 100);
+                  }, 150);
+                }}
+                onBlur={() => {
+                  setIsKeyboardVisible(false);
                 }}
                 multiline
                 maxLength={280}
@@ -1213,11 +1194,15 @@ export default function CommunityScreen({ navigation, route }) {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : (StatusBar.currentHeight || 24)}
+    >
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      {/* ── CONSTANT TOP NAV HEADER ── */}
-      <View style={styles.header}>
+      {/* ---- CONSTANT TOP NAV HEADER ---- */}
+      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'android' ? 6 : 8) }]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity
             onPress={() => {
@@ -1332,7 +1317,7 @@ export default function CommunityScreen({ navigation, route }) {
         </View>
       </View>
 
-      {/* ── SUB-TABS (Group Lounge vs Direct Messages) ── */}
+      {/* ---- SUB-TABS (Group Lounge vs Direct Messages) ---- */}
       {!activeDirectThread && (
         <View style={styles.tabBar}>
           <TouchableOpacity
@@ -1363,23 +1348,12 @@ export default function CommunityScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* ── CONTENT CONTAINER WITH DUAL KEYBOARD AVOIDANCE ── */}
-      {Platform.OS === 'ios' ? (
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior="padding"
-          keyboardVerticalOffset={insets.top}
-          onLayout={handleContainerLayout}
-        >
-          {renderChatContent()}
-        </KeyboardAvoidingView>
-      ) : (
-        <View style={{ flex: 1 }} onLayout={handleContainerLayout}>
-          {renderChatContent()}
-        </View>
-      )}
+      {/* ---- CHAT CONTENT CONTAINER ---- */}
+      <View style={{ flex: 1 }}>
+        {renderChatContent()}
+      </View>
 
-      {/* ── MODAL: User Action Sheet ── */}
+      {/* ---- MODAL: User Action Sheet ---- */}
       {selectedUserModal && (
         <Modal
           transparent
@@ -1458,7 +1432,7 @@ export default function CommunityScreen({ navigation, route }) {
         </Modal>
       )}
 
-      {/* ── MODAL: Report Message ── */}
+      {/* ---- MODAL: Report Message ---- */}
       {showReportModal && (
         <Modal
           transparent
@@ -1518,7 +1492,7 @@ export default function CommunityScreen({ navigation, route }) {
         </Modal>
       )}
 
-      {/* ── MODAL: Community Profile & Settings ── */}
+      {/* ---- MODAL: Community Profile & Settings ---- */}
       {showSettingsModal && (
         <Modal
           transparent
@@ -1681,7 +1655,7 @@ export default function CommunityScreen({ navigation, route }) {
         </Modal>
       )}
 
-      {/* ── MODAL: First-Time Onboarding Gatekeeper ── */}
+      {/* ---- MODAL: First-Time Onboarding Gatekeeper ---- */}
       {showGatekeeper && (
         <Modal transparent animationType="slide" visible={showGatekeeper}>
           <View style={styles.modalBackdrop}>
@@ -1785,7 +1759,7 @@ export default function CommunityScreen({ navigation, route }) {
           <Text style={styles.toastText}>{toastMsg}</Text>
         </View>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -1800,7 +1774,7 @@ const makeStyles = (colors, isDark) =>
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingBottom: 12,
       borderBottomWidth: 1,
       borderBottomColor: colors.divider,
       backgroundColor: colors.bg,
