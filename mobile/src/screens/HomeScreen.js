@@ -13,6 +13,7 @@ import {
   Platform,
   StatusBar,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Network from 'expo-network';
@@ -155,12 +156,29 @@ function SectionHeader({ title, onSeeAll }) {
 }
 
 // ─── Horizontal song card ────────────────────────────────────────
-function HScrollCard({ song, categoryName, onPress }) {
+function HScrollCard({ song, categoryName, badgeText, onPress }) {
   const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
   return (
     <PressCard onPress={onPress} style={styles.hCard}>
-      <SongImage uri={song.feature_image_url} style={styles.hCardImg} iconSize={24} />
+      <View style={{ position: 'relative' }}>
+        <SongImage uri={song.feature_image_url} style={styles.hCardImg} iconSize={24} />
+        {Boolean(badgeText) && (
+          <View
+            style={{
+              position: 'absolute',
+              top: 6,
+              left: 6,
+              backgroundColor: 'rgba(139, 92, 246, 0.92)',
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+              borderRadius: 4,
+            }}
+          >
+            <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '700' }}>{badgeText}</Text>
+          </View>
+        )}
+      </View>
       <Text style={styles.hCardTitle} numberOfLines={1}>{song.title}</Text>
       <Text style={styles.hCardSub} numberOfLines={1}>{categoryName}</Text>
     </PressCard>
@@ -182,6 +200,8 @@ export default function HomeScreen({ navigation }) {
   const [lastPlayed, setLastPlayed] = useState(null);
   const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
   const [activeBanner, setActiveBanner] = useState(null);
+  const [curatedDailySong, setCuratedDailySong] = useState(null);
+  const [curatedFeaturedSongs, setCuratedFeaturedSongs] = useState([]);
   const [selectedMood, setSelectedMood] = useState(null);
   const [statusModalSong, setStatusModalSong] = useState(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -347,6 +367,56 @@ export default function HomeScreen({ navigation }) {
           setActiveBanner(null);
         }
       }
+
+      // Fetch active in-app announcements (takes priority if active)
+      try {
+        const nowIso = new Date().toISOString();
+        const { data: annData } = await supabase
+          .from('app_announcements')
+          .select('*')
+          .eq('is_active', true)
+          .lte('starts_at', nowIso)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (annData && annData.length > 0) {
+          const activeAnn = annData.find((a) => {
+            if (dismissedNotifs.includes(a.id)) return false;
+            if (a.expires_at && new Date(a.expires_at) < new Date()) return false;
+            return true;
+          });
+          if (activeAnn) {
+            setActiveBanner({ ...activeAnn, is_announcement: true });
+          }
+        }
+      } catch (_) {}
+
+      // Fetch curated Song of the Day for today
+      try {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const { data: dailyRow } = await supabase
+          .from('app_daily_songs')
+          .select('*, songs(*, categories(name))')
+          .eq('date', todayStr)
+          .maybeSingle();
+
+        if (dailyRow?.songs) {
+          setCuratedDailySong(dailyRow.songs);
+        }
+      } catch (_) {}
+
+      // Fetch curated Featured Spotlight songs
+      try {
+        const { data: featData } = await supabase
+          .from('app_featured_songs')
+          .select('*, songs(*, categories(name))')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+
+        if (featData && featData.length > 0) {
+          setCuratedFeaturedSongs(featData.filter((f) => f.songs));
+        }
+      } catch (_) {}
     } catch (err) {
       // ignore
     }
@@ -390,8 +460,9 @@ export default function HomeScreen({ navigation }) {
   categories.forEach((c) => { categoryMap[c.id] = c; });
 
   const dailySong = useMemo(() => {
+    if (curatedDailySong) return curatedDailySong;
     return getDailySong(songs);
-  }, [songs]);
+  }, [songs, curatedDailySong]);
 
   const getCatName = (song) =>
     song.categories?.name || categoryMap[song.category_id]?.name || 'Song';
@@ -645,7 +716,12 @@ export default function HomeScreen({ navigation }) {
     // Native Ad in Home feed
     sections.push({ key: 'native-ad' });
 
-    // 4️⃣ Recently Added
+    // Curated Featured Spotlight
+    if (curatedFeaturedSongs && curatedFeaturedSongs.length > 0) {
+      sections.push({ key: 'curated-featured', items: curatedFeaturedSongs });
+    }
+
+    // Recently Added
     if (recentSongs.length > 0) {
       sections.push({ key: 'recent' });
     }
@@ -704,17 +780,49 @@ export default function HomeScreen({ navigation }) {
         );
 
       case 'banner':
+        const isAnn = Boolean(item.banner?.is_announcement);
+        let bannerGrad = ['#8B5CF6', '#6D28D9'];
+        if (item.banner?.banner_type === 'success') bannerGrad = ['#059669', '#047857'];
+        else if (item.banner?.banner_type === 'warning') bannerGrad = ['#D97706', '#B45309'];
+        else if (item.banner?.banner_type === 'alert') bannerGrad = ['#DC2626', '#B91C1C'];
+
+        const handleBannerPress = () => {
+          if (item.banner?.is_dismissible) {
+            dismissNotification(item.banner.id);
+          }
+          if (isAnn) {
+            if (item.banner.action_type === 'song' && item.banner.action_id) {
+              const target = songs.find((s) => s.id === item.banner.action_id);
+              if (target) {
+                navigateToSong(target);
+              } else {
+                supabase
+                  .from('songs')
+                  .select('*, categories(name)')
+                  .eq('id', item.banner.action_id)
+                  .maybeSingle()
+                  .then(({ data }) => {
+                    if (data) navigateToSong(data);
+                  });
+              }
+            } else if (item.banner.action_type === 'category' && item.banner.action_id) {
+              navigation.navigate('Search', { categoryId: item.banner.action_id });
+            } else if (item.banner.action_type === 'url' && item.banner.action_id) {
+              Linking.openURL(item.banner.action_id).catch(() => {});
+            }
+          } else {
+            navigation.navigate('Notifications');
+          }
+        };
+
         return (
           <TouchableOpacity 
             style={styles.bannerContainer}
             activeOpacity={0.9}
-            onPress={() => {
-              dismissNotification(item.banner.id);
-              navigation.navigate('Notifications');
-            }}
+            onPress={handleBannerPress}
           >
             <LinearGradient
-              colors={['#8B5CF6', '#6D28D9']}
+              colors={bannerGrad}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.bannerGradient}
@@ -726,15 +834,56 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.bannerTitle} numberOfLines={1}>{item.banner.title}</Text>
                 <Text style={styles.bannerMessage} numberOfLines={2}>{item.banner.message}</Text>
               </View>
-              <TouchableOpacity 
-                style={styles.bannerCloseBtn}
-                onPress={() => dismissNotification(item.banner.id)}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <X size={18} color="rgba(255,255,255,0.7)" />
-              </TouchableOpacity>
+              {isAnn && item.banner.action_label ? (
+                <View
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 6,
+                    marginRight: 6,
+                  }}
+                >
+                  <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }}>
+                    {item.banner.action_label}
+                  </Text>
+                </View>
+              ) : null}
+              {(!isAnn || item.banner.is_dismissible) && (
+                <TouchableOpacity 
+                  style={styles.bannerCloseBtn}
+                  onPress={() => dismissNotification(item.banner.id)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <X size={18} color="rgba(255,255,255,0.7)" />
+                </TouchableOpacity>
+              )}
             </LinearGradient>
           </TouchableOpacity>
+        );
+
+      case 'curated-featured':
+        return (
+          <View style={{ marginBottom: 16 }}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Featured Spotlight</Text>
+            </View>
+            <FlatList
+              horizontal
+              data={item.items}
+              keyExtractor={(f) => f.id}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: GRID_PAD }}
+              renderItem={({ item: f }) => (
+                <HScrollCard
+                  song={f.songs}
+                  categoryName={getCatName(f.songs)}
+                  badgeText={f.badge_text}
+                  onPress={() => navigateToSong(f.songs)}
+                />
+              )}
+            />
+          </View>
         );
 
       case 'song-of-the-day':
