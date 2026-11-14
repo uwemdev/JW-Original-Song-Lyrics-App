@@ -25,6 +25,7 @@ import {
 } from 'lucide-react-native';
 import WhatsAppIcon from './WhatsAppIcon';
 import { useSettings } from '../context/SettingsContext';
+import { logSongEvent } from '../lib/analytics';
 
 const { width, height } = Dimensions.get('window');
 
@@ -119,7 +120,7 @@ function extractCardQuote(lyrics) {
 }
 
 export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
-  const { colors, isDark } = useSettings();
+  const { colors, isDark, deviceId } = useSettings();
   const [selectedThemeId, setSelectedThemeId] = useState('purple');
   const [isSharing, setIsSharing] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
@@ -137,6 +138,7 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
 
   // ── Share Image to WhatsApp Status ──
   const handleShareImage = async () => {
+    if (song?.id) logSongEvent(song.id, 'share_status', deviceId);
     setIsSharing(true);
     try {
       const { captureRef } = require('react-native-view-shot');
@@ -169,6 +171,7 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
 
   // ── Share formatted text to WhatsApp ──
   const handleShareTextWhatsApp = async () => {
+    if (song?.id) logSongEvent(song.id, 'share_status', deviceId);
     const formatted = `“${quoteText}”\n\n— “${song.title}”\n\nGet the app on Google Play Store:\n${PLAY_STORE_URL}`;
     const url = `whatsapp://send?text=${encodeURIComponent(formatted)}`;
 
@@ -199,6 +202,7 @@ export default function WhatsAppStatusCardModal({ visible, onClose, song }) {
 
   // ── System Share Sheet ──
   const handleMoreShare = async () => {
+    if (song?.id) logSongEvent(song.id, 'share_status', deviceId);
     const formatted = `“${quoteText}”\n\n— “${song.title}”\n\nGet the app on Google Play Store:\n${PLAY_STORE_URL}`;
     try {
       await Share.share({

@@ -36,6 +36,7 @@ import 'react-quill-new/dist/quill.snow.css';
 import FeedbackTab from './FeedbackTab';
 import NotificationsTab from './NotificationsTab';
 import AppUpdatesTab from './AppUpdatesTab';
+import AnalyticsTab from './AnalyticsTab';
 import SongImportExportModal from './SongImportExportModal';
 
 const quillModules = {
@@ -196,7 +197,8 @@ export default function AdminDashboard() {
           }
         });
     } else if (isNew) {
-      openAddSong();
+      const titleParam = searchParams.get('title') || '';
+      openAddSong(titleParam);
     }
   }, [searchParams]);
 
@@ -342,10 +344,10 @@ export default function AdminDashboard() {
     setView('list');
   };
 
-  function openAddSong() {
+  function openAddSong(initialTitle = '') {
     setEditingSong(null);
     setSongForm({
-      title: '', category_id: categories.length > 0 ? categories[0].id : '',
+      title: initialTitle || '', category_id: categories.length > 0 ? categories[0].id : '',
       writeup: '', lyrics: '', mp3_url: '', is_published: true,
     });
     setImageFile(null);
@@ -758,6 +760,10 @@ export default function AdminDashboard() {
   // ═══════════════════════════════════════
   //  TAB DISPATCH
   // ═══════════════════════════════════════
+  if (currentTab === 'analytics') {
+    return <AnalyticsTab />;
+  }
+
   if (currentTab === 'feedback') {
     return <FeedbackTab />;
   }

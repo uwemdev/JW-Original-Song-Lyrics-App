@@ -51,6 +51,7 @@ import {
 import { Replay10Icon, Forward10Icon } from '../components/SeekIcons';
 import AddToPlaylistModal from '../components/AddToPlaylistModal';
 import { isSongDownloaded, downloadSong, deleteDownloadedSong } from '../lib/offlineManager';
+import { logSongEvent } from '../lib/analytics';
 import RenderHTML from 'react-native-render-html';
 import { parseSyncedLyrics } from '../lib/lyricsParser';
 import { useSettings } from '../context/SettingsContext';
@@ -224,10 +225,13 @@ export default function SongScreen({ route, navigation }) {
       Animated.timing(contentSlide, { toValue: 0, duration: 600, useNativeDriver: true }),
     ]).start();
 
+    if (song?.id) {
+      logSongEvent(song.id, 'view', settings?.deviceId);
+    }
     loadFavoriteStatus();
     fetchMoreSongs();
     saveLastPlayed();
-  }, []);
+  }, [song?.id]);
 
   // Check offline download status
   useEffect(() => {
@@ -314,6 +318,9 @@ export default function SongScreen({ route, navigation }) {
 
     if (res.success) {
       setIsDownloaded(true);
+      if (song?.id) {
+        logSongEvent(song.id, 'download', settings?.deviceId);
+      }
       setToastMsg('Saved offline • Hidden from device media');
       setShowToast(true);
     } else {
@@ -334,6 +341,10 @@ export default function SongScreen({ route, navigation }) {
   const toggleFavorite = async () => {
     const newVal = !isFavorite;
     setIsFavorite(newVal);
+
+    if (newVal && song?.id) {
+      logSongEvent(song.id, 'favorite', settings?.deviceId);
+    }
 
     // Bounce
     Animated.sequence([

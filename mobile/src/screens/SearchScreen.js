@@ -31,6 +31,7 @@ import MoodPills from '../components/MoodPills';
 import ActiveMoodBanner from '../components/ActiveMoodBanner';
 import FamilyQuizBanner from '../components/FamilyQuizBanner';
 import { filterSongsByMood, getMoodById } from '../lib/moodCategories';
+import { logSearchQuery } from '../lib/analytics';
 
 const { width } = Dimensions.get('window');
 const STATUS_BAR_H = Platform.OS === 'ios' ? 50 : StatusBar.currentHeight || 32;
@@ -137,7 +138,7 @@ function HighlightedText({ text, highlight, style, colors }) {
 // SEARCH SCREEN
 // ═══════════════════════════════════════════════════════════════════
 export default function SearchScreen({ navigation, route }) {
-  const { colors, isDark } = useSettings();
+  const { colors, isDark, deviceId } = useSettings();
   const styles = makeStyles(colors, isDark);
   // Scoped search context (if opened from a specific category)
   const scopedCategoryId = route?.params?.categoryId || null;
@@ -288,13 +289,15 @@ export default function SearchScreen({ navigation, route }) {
 
         setResults(scored);
         saveRecentSearch(searchTerm.trim());
+        logSearchQuery(searchTerm, scored.length, deviceId);
       } catch (err) {
         console.error('Search error:', err);
         setResults([]);
+        logSearchQuery(searchTerm, 0, deviceId);
       }
       setSearching(false);
     },
-    [scopedCategoryId],
+    [scopedCategoryId, deviceId],
   );
 
   const moodSongs = useMemo(() => {

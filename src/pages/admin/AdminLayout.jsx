@@ -26,6 +26,7 @@ import {
   User,
   Filter,
   LayoutDashboard,
+  BarChart3,
   Sun,
   Moon,
 } from 'lucide-react';
@@ -261,6 +262,7 @@ export default function AdminLayout() {
     { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { key: 'songs', label: 'Songs', icon: Music },
     { key: 'categories', label: 'Categories', icon: FolderTree },
+    { key: 'analytics', label: 'Analytics & Insights', icon: BarChart3 },
     { key: 'feedback', label: 'Feedback & Chat', icon: MessageSquare, badge: unreadFeedbackCount },
     { key: 'notifications', label: 'Push Notifications', icon: Megaphone },
     { key: 'updates', label: 'App Updates', icon: Smartphone },
@@ -639,6 +641,14 @@ export default function AdminLayout() {
                     >
                       <MessageSquare size={15} color="#ec4899" />
                       <span>User Feedback</span>
+                    </button>
+
+                    <button
+                      onClick={() => executeAction(() => navigate('/admin?tab=analytics'))}
+                      className="palette-action-btn"
+                    >
+                      <BarChart3 size={15} color="#22c55e" />
+                      <span>Search & Analytics</span>
                     </button>
 
                     <button

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useSettings } from './SettingsContext';
 import { getLocalAudioUri } from '../lib/offlineManager';
+import { logSongEvent } from '../lib/analytics';
 
 const AudioContext = createContext(null);
 
@@ -127,6 +128,9 @@ export function AudioProvider({ children, navigationRef }) {
 
         player.replace({ uri: targetUri });
         player.play();
+        if (song?.id) {
+          logSongEvent(song.id, 'play', settings?.deviceId);
+        }
         try {
           player.setActiveForLockScreen(true, {
             title: song.title || 'Original Song',
