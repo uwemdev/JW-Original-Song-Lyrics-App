@@ -36,6 +36,7 @@ import {
   AlertCircle,
   Sparkles,
   MessageSquare,
+  Users,
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 import NativeAdCard from '../components/NativeAdCard';
@@ -723,7 +724,7 @@ export default function HomeScreen({ navigation }) {
       sections.push({ key: 'curated-featured', items: curatedFeaturedSongs });
     }
 
-    // 3.8️⃣ Live Fellowship Community Lounge
+    // 3.8 Live Community Lounge
     sections.push({ key: 'community-banner' });
 
     // Recently Added
@@ -754,19 +755,19 @@ export default function HomeScreen({ navigation }) {
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
-                style={[styles.headerSearchBtn, { marginRight: 12 }]}
+                style={[styles.headerCommunityBtn, { marginRight: 12 }]}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 onPress={() => navigation.navigate('Community')}
-                accessibilityLabel="Fellowship Community"
+                accessibilityLabel="Community"
               >
-                <MessageSquare color={colors.textWhite} size={22} />
+                <Users color={isDark ? '#DDD6FE' : '#6D28D9'} size={21} strokeWidth={2.4} />
                 <View style={{
                   position: 'absolute',
-                  top: -1,
-                  right: -1,
-                  width: 9,
-                  height: 9,
-                  borderRadius: 4.5,
+                  top: -2,
+                  right: -2,
+                  width: 10,
+                  height: 10,
+                  borderRadius: 5,
                   backgroundColor: '#10B981',
                   borderWidth: 2,
                   borderColor: colors.bg,
@@ -1469,6 +1470,16 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerCommunityBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: isDark ? 'rgba(139, 92, 246, 0.25)' : 'rgba(139, 92, 246, 0.14)',
+    borderWidth: 1.5,
+    borderColor: isDark ? 'rgba(167, 139, 250, 0.55)' : 'rgba(139, 92, 246, 0.35)',
     justifyContent: 'center',
     alignItems: 'center',
   },

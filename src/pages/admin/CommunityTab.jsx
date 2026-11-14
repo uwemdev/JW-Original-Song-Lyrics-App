@@ -180,7 +180,7 @@ export default function CommunityTab() {
         ipAddress: data?.ip_address || '',
         handle: handle || data?.handle || 'Unknown',
         durationDays: 7,
-        reason: 'Violating community fellowship guidelines (prohibited contact info or spam)',
+        reason: 'Violating community guidelines (prohibited contact info or spam)',
       });
       setShowBanModal(true);
     } catch (_) {
@@ -323,7 +323,7 @@ export default function CommunityTab() {
             </span>
           </div>
           <p style={{ color: 'var(--admin-text-muted)', fontSize: '13px', marginTop: '4px' }}>
-            Inspect group lounge fellowship, review reported messages, supervise direct chats, and enforce IP/Device bans.
+            Inspect group lounge community, review reported messages, supervise direct chats, and enforce IP/Device bans.
           </p>
         </div>
 
@@ -529,7 +529,7 @@ export default function CommunityTab() {
             }}
           >
             <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0 }}>
-              Live Fellowship Lounge Stream
+              Live Community Lounge Stream
             </h2>
 
             <div style={{ position: 'relative', width: '240px' }}>
@@ -658,7 +658,7 @@ export default function CommunityTab() {
               <CheckCircle2 size={32} color="#22c55e" style={{ margin: '0 auto 8px', display: 'block' }} />
               <div style={{ fontSize: '14px', fontWeight: '600' }}>No pending reports</div>
               <div style={{ fontSize: '12px', color: 'var(--admin-text-muted)', marginTop: '4px' }}>
-                The fellowship community is running clean with zero flagged messages.
+                The community is running clean with zero flagged messages.
               </div>
             </div>
           ) : (

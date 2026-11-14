@@ -13,6 +13,8 @@ import {
   KeyboardAvoidingView,
   Alert,
   ScrollView,
+  Image,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
@@ -34,8 +36,10 @@ import {
   Search,
   CheckCircle2,
   Lock,
+  Bell,
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
+import { useAudio } from '../context/AudioContext';
 import {
   validateCleanMessage,
   getOrCreateCommunityProfile,
@@ -47,8 +51,29 @@ const ONBOARDED_KEY = '@community_terms_accepted_v1';
 
 export default function CommunityScreen({ navigation }) {
   const { colors, isDark, deviceId } = useSettings();
+  const { currentSong, isMiniPlayerVisible } = useAudio();
   const insets = useSafeAreaInsets();
   const styles = makeStyles(colors, isDark);
+
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const tabHeight = (Platform.OS === 'ios' ? 88 : 72) + insets.bottom;
+  const isPlayerUp = isMiniPlayerVisible && Boolean(currentSong);
+  const restingBottom = isPlayerUp ? tabHeight + 64 : tabHeight + 8;
+  const currentBottomPadding = isKeyboardVisible ? 6 : restingBottom;
 
   // Profile & Ban state
   const [profile, setProfile] = useState(null);
@@ -476,7 +501,7 @@ export default function CommunityScreen({ navigation }) {
           Access Suspended
         </Text>
         <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
-          Your access to the community has been temporarily restricted for violating wholesome fellowship rules.
+          Your access to the community has been temporarily restricted for violating wholesome community rules.
         </Text>
         {banInfo?.reason && (
           <View style={{ backgroundColor: 'rgba(239,68,68,0.1)', padding: 12, borderRadius: 8, marginTop: 16, width: '100%' }}>
@@ -506,7 +531,7 @@ export default function CommunityScreen({ navigation }) {
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={colors.purpleAccent} />
         <Text style={{ marginTop: 12, color: colors.textMuted, fontSize: 13 }}>
-          Connecting to Fellowship Lounge...
+          Connecting to Community...
         </Text>
       </View>
     );
@@ -519,60 +544,104 @@ export default function CommunityScreen({ navigation }) {
     >
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      {/* ── TOP HEADER ── */}
+      {/* ── TOP NAV HEADER (Constant across Home & Community) ── */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => {
-            if (activeDirectThread) {
-              setActiveDirectThread(null);
-            } else {
-              navigation.goBack();
-            }
-          }}
-          style={styles.backBtn}
-        >
-          <ArrowLeft size={20} color={colors.textWhite} />
-        </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            onPress={() => {
+              if (activeDirectThread) {
+                setActiveDirectThread(null);
+              } else {
+                navigation.goBack();
+              }
+            }}
+            style={styles.backBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <ArrowLeft size={20} color={colors.textWhite} />
+          </TouchableOpacity>
 
-        <View style={{ flex: 1, marginLeft: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.headerTitle}>
-              {activeDirectThread
-                ? activeDirectThread.requester_device_id === deviceId
-                  ? activeDirectThread.recipient?.handle || 'User'
-                  : activeDirectThread.requester?.handle || 'User'
-                : 'Fellowship Lounge'}
-            </Text>
-            {activeDirectThread && (
-              <View style={[styles.statusDot, { backgroundColor: '#22C55E' }]} />
-            )}
-          </View>
-
-          {/* Subtitle / Presence Indicator */}
-          {!activeDirectThread && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
-              <View style={[styles.statusDot, { backgroundColor: '#22C55E' }]} />
-              <Text style={{ fontSize: 11, color: '#22C55E', fontWeight: '600' }}>
-                {onlineCount} Online
-              </Text>
-              <Text style={{ fontSize: 11, color: colors.textMuted }}>·</Text>
-              <Text style={{ fontSize: 11, color: colors.textMuted }}>Global Community</Text>
+          {!activeDirectThread ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={styles.headerLogo}>
+                <Image
+                  source={require('../../assets/logo-circle.png')}
+                  style={styles.headerLogoImg}
+                  resizeMode="cover"
+                />
+              </View>
+              <View style={{ marginLeft: 8 }}>
+                <Text style={styles.headerTitle}>Community</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 }}>
+                  <View style={[styles.statusDot, { backgroundColor: '#10B981', width: 6, height: 6 }]} />
+                  <Text style={{ fontSize: 10, color: '#10B981', fontWeight: '700' }}>
+                    {onlineCount} Online
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : (
+            <View style={{ marginLeft: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.headerTitle}>
+                  {activeDirectThread.requester_device_id === deviceId
+                    ? activeDirectThread.recipient?.handle || 'User'
+                    : activeDirectThread.requester?.handle || 'User'}
+                </Text>
+                <View style={[styles.statusDot, { backgroundColor: '#10B981', width: 6, height: 6 }]} />
+              </View>
+              <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 1 }}>Direct Chat</Text>
             </View>
           )}
         </View>
 
-        {/* User Handle Badge (e.g. U71234) */}
-        {profile && !activeDirectThread && (
-          <View style={styles.myProfileBadge}>
-            <View style={[styles.avatarCircle, { backgroundColor: getAvatarInfo(profile.avatar_id).bg }]}>
-              <Text style={styles.avatarInitial}>{getAvatarInfo(profile.avatar_id).initial}</Text>
-            </View>
-            <View style={{ marginLeft: 6 }}>
-              <Text style={styles.myHandleText}>{profile.handle}</Text>
-              {renderStarBadges(profile.star_level)}
-            </View>
-          </View>
-        )}
+        {/* Top Right Constant Action Icons */}
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {/* Noticeable Active Community Button (tap to toggle back to songs) */}
+          <TouchableOpacity
+            style={[styles.headerCommunityBtnActive, { marginRight: 10 }]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => {
+              if (activeDirectThread) {
+                setActiveDirectThread(null);
+              } else {
+                navigation.goBack();
+              }
+            }}
+            accessibilityLabel="Close Community"
+          >
+            <Users color="#FFFFFF" size={19} strokeWidth={2.4} />
+            <View style={{
+              position: 'absolute',
+              top: -2,
+              right: -2,
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: '#10B981',
+              borderWidth: 1.5,
+              borderColor: colors.bg,
+            }} />
+          </TouchableOpacity>
+
+          {/* Notifications Button */}
+          <TouchableOpacity
+            style={[styles.headerIconBtn, { marginRight: 10 }]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => navigation.navigate('Notifications')}
+          >
+            <Bell color={colors.textWhite} size={20} />
+          </TouchableOpacity>
+
+          {/* Search Button */}
+          <TouchableOpacity
+            style={styles.headerIconBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => navigation.navigate('Search')}
+          >
+            <Search color={colors.textWhite} size={20} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── SUB-TABS (Group Lounge vs Direct Messages) ── */}
@@ -674,7 +743,7 @@ export default function CommunityScreen({ navigation }) {
           ) : null}
 
           {/* Input Bar */}
-          <View style={styles.inputBar}>
+          <View style={[styles.inputBar, { paddingBottom: currentBottomPadding }]}>
             <TextInput
               style={styles.textInput}
               placeholder="Send an encouraging thought..."
@@ -715,10 +784,11 @@ export default function CommunityScreen({ navigation }) {
             <FlatList
               data={directThreads}
               keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingBottom: restingBottom + 16 }}
               renderItem={({ item }) => {
                 const isRequester = item.requester_device_id === deviceId;
                 const otherUser = isRequester ? item.recipient : item.requester;
-                const otherHandle = otherUser?.handle || 'Fellow Believer';
+                const otherHandle = otherUser?.handle || 'User';
                 const avatar = getAvatarInfo(otherUser?.avatar_id || 1);
                 const isPendingForMe = item.status === 'pending' && !isRequester;
 
@@ -833,7 +903,7 @@ export default function CommunityScreen({ navigation }) {
 
           {/* Direct Input Bar */}
           {activeDirectThread.status === 'accepted' ? (
-            <View style={styles.inputBar}>
+            <View style={[styles.inputBar, { paddingBottom: currentBottomPadding }]}>
               <TextInput
                 style={styles.textInput}
                 placeholder="Type a private message..."
@@ -964,10 +1034,10 @@ export default function CommunityScreen({ navigation }) {
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
                 <ShieldCheck size={36} color={colors.purpleAccent} />
                 <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textWhite, marginTop: 8 }}>
-                  Fellowship Lounge Guidelines
+                  Community Guidelines
                 </Text>
                 <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 4 }}>
-                  A safe, upbuilding space for believers worldwide
+                  A safe, upbuilding space for users worldwide
                 </Text>
               </View>
 
@@ -1060,17 +1130,56 @@ const makeStyles = (colors, isDark) =>
     header: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingVertical: 10,
       borderBottomWidth: 1,
       borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
     },
+    headerLeft: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    headerLogo: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      overflow: 'hidden',
+    },
+    headerLogoImg: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+    },
+    headerCommunityBtnActive: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: '#7C3AED',
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 4,
+      shadowColor: '#7C3AED',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.45,
+      shadowRadius: 4,
+    },
+    headerIconBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
     backBtn: {
       padding: 6,
+      marginRight: 6,
     },
     headerTitle: {
-      fontSize: 17,
-      fontWeight: '700',
+      fontSize: 16,
+      fontWeight: '800',
       color: colors.textWhite,
     },
     statusDot: {
@@ -1224,10 +1333,11 @@ const makeStyles = (colors, isDark) =>
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingTop: 8,
       borderTopWidth: 1,
       borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
       gap: 8,
+      backgroundColor: colors.bg,
     },
     textInput: {
       flex: 1,

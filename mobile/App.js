@@ -353,7 +353,7 @@ function MainNavigation() {
 
       // Direct navigation to Community Hub
       if (data?.screen === 'Community' || data?.type === 'community_message') {
-        navigationRef.navigate('Community', { initialTab: data?.initialTab || 'lounge' });
+        navigationRef.navigate('Home', { screen: 'Community', params: { initialTab: data?.initialTab || 'lounge' } });
         return;
       }
 
@@ -428,7 +428,6 @@ function MainNavigation() {
         <RootStack.Screen name="FeedbackScreen" component={FeedbackScreen} />
         <RootStack.Screen name="LyricQuiz" component={LyricQuizScreen} />
         <RootStack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
-        <RootStack.Screen name="Community" component={CommunityScreen} options={{ headerShown: false }} />
       </RootStack.Navigator>
       <AppUpdateChecker />
     </NavigationContainer>

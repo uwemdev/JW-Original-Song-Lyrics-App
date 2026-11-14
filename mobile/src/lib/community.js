@@ -151,7 +151,7 @@ export async function checkBanStatus(deviceId) {
         return {
           isBanned: true,
           bannedUntil: activeBan.banned_until,
-          reason: activeBan.reason || 'Community fellowship guideline violation',
+          reason: activeBan.reason || 'Community guideline violation',
         };
       }
     }

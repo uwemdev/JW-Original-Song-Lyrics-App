@@ -43,7 +43,7 @@ export default function CommunityBanner({ onPress }) {
             <View style={styles.topRow}>
               <View style={styles.tag}>
                 <View style={styles.liveDot} />
-                <Text style={styles.tagText}>LIVE FELLOWSHIP LOUNGE</Text>
+                <Text style={styles.tagText}>LIVE COMMUNITY</Text>
               </View>
               <View style={styles.usersWrap}>
                 <Users size={15} color="rgba(255, 255, 255, 0.75)" />
@@ -53,7 +53,7 @@ export default function CommunityBanner({ onPress }) {
             {/* Title & Subtitle */}
             <Text style={styles.title}>Join the Community Lounge</Text>
             <Text style={styles.subtitle}>
-              Anonymous real-time fellowship, live chat, and 1-on-1 direct messaging with friends worldwide.
+              Anonymous real-time live chat and 1-on-1 direct messaging with friends worldwide.
             </Text>
 
             {/* Bottom Row */}

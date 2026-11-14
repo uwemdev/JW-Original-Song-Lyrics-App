@@ -298,12 +298,12 @@ export default function SettingsScreen({ navigation }) {
           />
         </View>
 
-        {/* ── Community & Fellowship ── */}
-        <SectionHeader title="Community & Fellowship" />
+        {/* ── Community ── */}
+        <SectionHeader title="Community" />
         <View style={styles.card}>
           <SettingsRow
             icon={<Users color={colors.purpleAccent} size={20} />}
-            label="Fellowship Lounge"
+            label="Community Lounge"
             subtitle="Connect with users worldwide in real-time"
             onPress={() => navigation.navigate('Community', { initialTab: 'lounge' })}
           />
