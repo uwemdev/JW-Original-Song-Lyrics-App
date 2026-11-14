@@ -51,6 +51,32 @@ export const AVATAR_OPTIONS = [
 ];
 
 /**
+ * Robust avatar lookup with type safety and deterministic fallback seed.
+ * Guarantees a consistent avatar is returned and never changes unexpectedly.
+ */
+export function getAvatarInfo(id, fallbackSeed = null) {
+  const numId = Number(id);
+  if (!isNaN(numId) && numId >= 1 && numId <= 12) {
+    const match = AVATAR_OPTIONS.find((a) => Number(a.id) === numId);
+    if (match) return match;
+  }
+
+  // Deterministic fallback derived from seed (handle or device_id)
+  if (fallbackSeed) {
+    let hash = 0;
+    const str = String(fallbackSeed);
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0;
+    }
+    const idx = Math.abs(hash) % AVATAR_OPTIONS.length;
+    return AVATAR_OPTIONS[idx];
+  }
+
+  return AVATAR_OPTIONS[0];
+}
+
+/**
  * Detect and block phone numbers, addresses, emails, and external links
  */
 export function validateCleanMessage(rawText) {
@@ -235,7 +261,10 @@ export async function getOrCreateCommunityProfile(deviceId) {
     const localRaw = await AsyncStorage.getItem(PROFILE_KEY);
     if (localRaw) {
       const localProfile = JSON.parse(localRaw);
-      if (localProfile?.handle) {
+      if (localProfile?.handle && localProfile?.device_id === deviceId) {
+        if (!localProfile.avatar_id) {
+          localProfile.avatar_id = 1;
+        }
         if (localProfile.created_at) {
           await AsyncStorage.setItem(JOINED_AT_KEY, localProfile.created_at).catch(() => {});
         }
@@ -258,16 +287,23 @@ export async function getOrCreateCommunityProfile(deviceId) {
       return remoteData;
     }
 
-    // 3. Create fresh profile
+    // 3. Create fresh profile with deterministic default avatar based on deviceId
     const geo = await resolveUserCountryAndIp();
     const newHandle = generateUserHandle();
-    const randomAvatarId = Math.floor(Math.random() * 12) + 1;
+
+    let hash = 0;
+    const str = String(deviceId);
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0;
+    }
+    const stableAvatarId = (Math.abs(hash) % 12) + 1;
     const nowIso = new Date().toISOString();
 
     const newProfile = {
       device_id: deviceId,
       handle: newHandle,
-      avatar_id: randomAvatarId,
+      avatar_id: stableAvatarId,
       star_level: 1,
       country_name: geo.name || 'Global',
       country_code: geo.code || 'US',
@@ -275,6 +311,9 @@ export async function getOrCreateCommunityProfile(deviceId) {
       is_banned: false,
       last_active_at: nowIso,
       created_at: nowIso,
+      is_playing: false,
+      current_song_title: null,
+      share_now_playing: true,
     };
 
     const { data: inserted, error: insertError } = await supabase
@@ -297,6 +336,63 @@ export async function getOrCreateCommunityProfile(deviceId) {
       country_code: 'US',
       country_name: 'Global',
       created_at: new Date().toISOString(),
+      is_playing: false,
+      current_song_title: null,
+      share_now_playing: true,
     };
   }
+}
+
+/**
+ * Save updates to user community profile (avatar, handle, country, now-playing sharing)
+ */
+export async function updateCommunityProfile(deviceId, updates) {
+  if (!deviceId || !updates) return null;
+  try {
+    const nowIso = new Date().toISOString();
+    const payload = { ...updates, last_active_at: nowIso };
+
+    // Update remote database
+    const { data, error } = await supabase
+      .from('community_profiles')
+      .update(payload)
+      .eq('device_id', deviceId)
+      .select()
+      .maybeSingle();
+
+    if (error && error.code !== '42703') {
+      console.warn('Update community profile remote error:', error);
+    }
+
+    // Update local cache
+    const localRaw = await AsyncStorage.getItem(PROFILE_KEY);
+    const existing = localRaw ? JSON.parse(localRaw) : {};
+    const merged = { ...existing, ...payload, ...(data || {}) };
+    await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(merged));
+    return merged;
+  } catch (err) {
+    console.warn('Failed to update community profile:', err);
+    return null;
+  }
+}
+
+/**
+ * Broadcast currently playing song to Supabase for community presence
+ */
+export async function updateCommunityNowPlaying(deviceId, currentSong, isPlaying) {
+  if (!deviceId) return;
+  try {
+    const isActuallyPlaying = Boolean(isPlaying && currentSong?.title);
+    const payload = {
+      current_song_title: isActuallyPlaying ? currentSong.title : null,
+      current_song_id: isActuallyPlaying ? currentSong.id : null,
+      is_playing: isActuallyPlaying,
+      last_active_at: new Date().toISOString(),
+    };
+
+    await supabase
+      .from('community_profiles')
+      .update(payload)
+      .eq('device_id', deviceId);
+  } catch (_) {}
 }

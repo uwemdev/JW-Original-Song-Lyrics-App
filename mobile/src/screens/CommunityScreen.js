@@ -16,6 +16,7 @@ import {
   Image,
   Keyboard,
   Dimensions,
+  Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
@@ -39,18 +40,26 @@ import {
   CheckCheck,
   Lock,
   Bell,
+  Settings,
+  Music,
+  VolumeX,
+  Sparkles,
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 import { useAudio } from '../context/AudioContext';
 import {
   validateCleanMessage,
   getOrCreateCommunityProfile,
+  updateCommunityProfile,
+  updateCommunityNowPlaying,
   checkBanStatus,
   getCountryFlag,
   getUserJoinedAt,
   pingCommunityActive,
   fetchOnlineUsersCount,
   AVATAR_OPTIONS,
+  getAvatarInfo,
+  generateUserHandle,
 } from '../lib/community';
 
 const ONBOARDED_KEY = '@community_terms_accepted_v1';
@@ -64,9 +73,9 @@ const formatMessageTime = (dateStr) => {
   }
 };
 
-export default function CommunityScreen({ navigation }) {
+export default function CommunityScreen({ navigation, route }) {
   const { colors, isDark, deviceId } = useSettings();
-  const { currentSong, isMiniPlayerVisible } = useAudio();
+  const { currentSong, isMiniPlayerVisible, isPlaying } = useAudio();
   const insets = useSafeAreaInsets();
   const styles = makeStyles(colors, isDark);
 
@@ -178,6 +187,170 @@ export default function CommunityScreen({ navigation }) {
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportTarget, setReportTarget] = useState(null);
   const [reportReason, setReportReason] = useState('Sharing prohibited phone numbers / contact info');
+
+  // Community Profile & Settings Modal
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsAvatarId, setSettingsAvatarId] = useState(1);
+  const [settingsHandle, setSettingsHandle] = useState('');
+  const [settingsShareMusic, setSettingsShareMusic] = useState(true);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+  const [showToast, setShowToast] = useState(false);
+
+  // Live Now-Playing states
+  const [selectedUserNowPlaying, setSelectedUserNowPlaying] = useState(null);
+  const [chatPartnerNowPlaying, setChatPartnerNowPlaying] = useState(null);
+
+  // Open settings helper
+  const openSettingsModal = () => {
+    if (!profile) return;
+    setSettingsAvatarId(profile.avatar_id || 1);
+    setSettingsHandle(profile.handle || '');
+    setSettingsShareMusic(profile.share_now_playing !== false);
+    setShowSettingsModal(true);
+  };
+
+  // Check if routed with openSettings request
+  useEffect(() => {
+    if (route?.params?.openSettings && profile) {
+      openSettingsModal();
+    }
+  }, [route?.params?.openSettings, profile]);
+
+  // Save Community Profile Settings
+  const handleSaveSettings = async () => {
+    if (!profile?.device_id || isSavingSettings) return;
+    setIsSavingSettings(true);
+    try {
+      const updates = {
+        avatar_id: settingsAvatarId,
+        handle: settingsHandle.trim() || profile.handle,
+        share_now_playing: settingsShareMusic,
+      };
+      const updated = await updateCommunityProfile(profile.device_id, updates);
+      if (updated) {
+        setProfile(updated);
+        setToastMsg('Profile preferences updated.');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2500);
+      }
+      setShowSettingsModal(false);
+    } catch (err) {
+      Alert.alert('Error', 'Failed to save settings. Please try again.');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  // Broadcast currently playing song for community presence
+  useEffect(() => {
+    if (!profile?.device_id) return;
+    if (profile.share_now_playing === false) {
+      updateCommunityNowPlaying(profile.device_id, null, false);
+      return;
+    }
+    updateCommunityNowPlaying(profile.device_id, currentSong, isPlaying);
+  }, [profile?.device_id, profile?.share_now_playing, currentSong?.id, isPlaying]);
+
+  // Fetch now-playing song when a user is tapped on in Group Lounge
+  useEffect(() => {
+    if (!selectedUserModal?.device_id) {
+      setSelectedUserNowPlaying(null);
+      return;
+    }
+
+    let isMounted = true;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('community_profiles')
+          .select('current_song_title, is_playing, share_now_playing')
+          .eq('device_id', selectedUserModal.device_id)
+          .maybeSingle();
+
+        if (isMounted) {
+          if (data?.is_playing && data?.current_song_title && data?.share_now_playing !== false) {
+            setSelectedUserNowPlaying(data.current_song_title);
+          } else {
+            setSelectedUserNowPlaying(null);
+          }
+        }
+      } catch (_) {
+        if (isMounted) setSelectedUserNowPlaying(null);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedUserModal?.device_id]);
+
+  // Fetch and monitor now-playing song for 1-on-1 direct chat partner
+  useEffect(() => {
+    if (!activeDirectThread || !deviceId) {
+      setChatPartnerNowPlaying(null);
+      return;
+    }
+
+    const otherDeviceId =
+      activeDirectThread.requester_device_id === deviceId
+        ? activeDirectThread.recipient_device_id
+        : activeDirectThread.requester_device_id;
+
+    if (!otherDeviceId) return;
+
+    let isMounted = true;
+    const fetchPartnerSong = async () => {
+      try {
+        const { data } = await supabase
+          .from('community_profiles')
+          .select('current_song_title, is_playing, share_now_playing')
+          .eq('device_id', otherDeviceId)
+          .maybeSingle();
+
+        if (isMounted) {
+          if (data?.is_playing && data?.current_song_title && data?.share_now_playing !== false) {
+            setChatPartnerNowPlaying(data.current_song_title);
+          } else {
+            setChatPartnerNowPlaying(null);
+          }
+        }
+      } catch (_) {
+        if (isMounted) setChatPartnerNowPlaying(null);
+      }
+    };
+
+    fetchPartnerSong();
+
+    // Live subscription for partner song change
+    const partnerChannel = supabase
+      .channel(`partner_presence_${otherDeviceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'community_profiles',
+          filter: `device_id=eq.${otherDeviceId}`,
+        },
+        (payload) => {
+          const updated = payload.new;
+          if (updated && isMounted) {
+            if (updated.is_playing && updated.current_song_title && updated.share_now_playing !== false) {
+              setChatPartnerNowPlaying(updated.current_song_title);
+            } else {
+              setChatPartnerNowPlaying(null);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(partnerChannel);
+    };
+  }, [activeDirectThread?.id, deviceId]);
 
   // Generate random math problem
   const generateMathProblem = () => {
@@ -636,16 +809,16 @@ export default function CommunityScreen({ navigation }) {
       setShowGatekeeper(false);
 
       const prof = await getOrCreateCommunityProfile(deviceId);
-      await supabase
-        .from('community_profiles')
-        .update({ avatar_id: selectedAvatarId, last_active_at: nowIso })
-        .eq('device_id', deviceId);
+      const updatedProf = await updateCommunityProfile(deviceId, {
+        avatar_id: selectedAvatarId,
+        last_active_at: nowIso,
+      });
 
-      prof.avatar_id = selectedAvatarId;
-      setProfile(prof);
-      setUserJoinedAt(prof.created_at || nowIso);
-      userJoinedAtRef.current = prof.created_at || nowIso;
-      loadGroupMessages(prof.created_at || nowIso);
+      const finalProf = updatedProf || { ...prof, avatar_id: selectedAvatarId };
+      setProfile(finalProf);
+      setUserJoinedAt(finalProf.created_at || nowIso);
+      userJoinedAtRef.current = finalProf.created_at || nowIso;
+      loadGroupMessages(finalProf.created_at || nowIso);
       loadDirectThreads();
     } catch (err) {
       console.warn('Gatekeeper error:', err);
@@ -662,11 +835,6 @@ export default function CommunityScreen({ navigation }) {
         ))}
       </View>
     );
-  };
-
-  // Avatar helper
-  const getAvatarInfo = (id) => {
-    return AVATAR_OPTIONS.find((a) => a.id === id) || AVATAR_OPTIONS[0];
   };
 
   // ── BANNED SCREEN ──
@@ -760,7 +928,7 @@ export default function CommunityScreen({ navigation }) {
             }
             renderItem={({ item }) => {
               const isMe = item.sender_device_id === deviceId;
-              const avatar = getAvatarInfo(item.sender_avatar_id);
+              const avatar = getAvatarInfo(item.sender_avatar_id, item.sender_handle || item.sender_device_id);
               return (
                 <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
                   {!isMe && (
@@ -879,7 +1047,7 @@ export default function CommunityScreen({ navigation }) {
                 const isRequester = item.requester_device_id === deviceId;
                 const otherUser = isRequester ? item.recipient : item.requester;
                 const otherHandle = otherUser?.handle || 'User';
-                const avatar = getAvatarInfo(otherUser?.avatar_id);
+                const avatar = getAvatarInfo(otherUser?.avatar_id, otherHandle || otherUser?.device_id);
                 const isPendingForMe = item.status === 'pending' && item.recipient_device_id === deviceId;
 
                 return (
@@ -1102,39 +1270,48 @@ export default function CommunityScreen({ navigation }) {
                 </Text>
                 <View style={[styles.statusDot, { backgroundColor: '#10B981', width: 6, height: 6 }]} />
               </View>
-              <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 1 }}>Direct Chat</Text>
+              {chatPartnerNowPlaying ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 }}>
+                  <Music size={11} color="#10B981" />
+                  <Text style={{ fontSize: 10, color: '#10B981', fontWeight: '700' }} numberOfLines={1}>
+                    Listening to: {chatPartnerNowPlaying}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 1 }}>Direct Chat</Text>
+              )}
             </View>
           )}
         </View>
 
         {/* Top Right Constant Action Icons */}
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {/* Community Profile & Settings Button */}
           <TouchableOpacity
-            style={[styles.headerCommunityBtnActive, { marginRight: 10 }]}
+            style={[styles.headerProfileBtn, { marginRight: 10 }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={() => {
-              if (activeDirectThread) {
-                setActiveDirectThread(null);
-              } else {
-                navigation.goBack();
-              }
-            }}
-            accessibilityLabel="Close Community"
+            onPress={openSettingsModal}
+            accessibilityLabel="Community Profile and Settings"
           >
-            <Users color="#FFFFFF" size={19} strokeWidth={2.4} />
-            <View
-              style={{
-                position: 'absolute',
-                top: -2,
-                right: -2,
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: '#10B981',
-                borderWidth: 1.5,
-                borderColor: colors.bg,
-              }}
-            />
+            {profile ? (
+              <View
+                style={[
+                  styles.headerAvatarCircle,
+                  { backgroundColor: getAvatarInfo(profile.avatar_id, profile.handle).bg },
+                ]}
+              >
+                <Text style={styles.headerAvatarInitial}>
+                  {getAvatarInfo(profile.avatar_id, profile.handle).initial}
+                </Text>
+                <View style={styles.headerAvatarCogBadge}>
+                  <Settings size={9} color="#FFFFFF" />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.headerIconBtn}>
+                <Settings color={colors.textWhite} size={19} />
+              </View>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -1216,10 +1393,12 @@ export default function CommunityScreen({ navigation }) {
                 <View
                   style={[
                     styles.avatarCircleLarge,
-                    { backgroundColor: getAvatarInfo(selectedUserModal.avatar_id).bg },
+                    { backgroundColor: getAvatarInfo(selectedUserModal.avatar_id, selectedUserModal.handle).bg },
                   ]}
                 >
-                  <Text style={styles.avatarInitialLarge}>{getAvatarInfo(selectedUserModal.avatar_id).initial}</Text>
+                  <Text style={styles.avatarInitialLarge}>
+                    {getAvatarInfo(selectedUserModal.avatar_id, selectedUserModal.handle).initial}
+                  </Text>
                 </View>
                 <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textWhite, marginTop: 8 }}>
                   {selectedUserModal.handle}
@@ -1232,6 +1411,21 @@ export default function CommunityScreen({ navigation }) {
                   </Text>
                 </View>
               </View>
+
+              {/* Live Now Playing status if user is listening to music */}
+              {selectedUserNowPlaying ? (
+                <View style={styles.nowPlayingCardModal}>
+                  <View style={styles.nowPlayingPulseIcon}>
+                    <Music size={15} color="#10B981" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.nowPlayingCardLabel}>CURRENTLY LISTENING TO</Text>
+                    <Text style={styles.nowPlayingCardTitle} numberOfLines={2}>
+                      {selectedUserNowPlaying}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
 
               <TouchableOpacity
                 onPress={() => handleInitiateMessageRequest(selectedUserModal)}
@@ -1319,6 +1513,169 @@ export default function CommunityScreen({ navigation }) {
                   <Text style={styles.actionBtnText}>Submit Report</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* ── MODAL: Community Profile & Settings ── */}
+      {showSettingsModal && (
+        <Modal
+          transparent
+          animationType="slide"
+          visible={showSettingsModal}
+          onRequestClose={() => setShowSettingsModal(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.settingsModalCard, { maxHeight: '88%' }]}>
+              {/* Header */}
+              <View style={styles.settingsModalHeader}>
+                <View>
+                  <Text style={styles.settingsModalTitle}>Community Settings</Text>
+                  <Text style={styles.settingsModalSubtitle}>
+                    Customize your persona, avatar motif, and sharing
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setShowSettingsModal(false)}
+                  style={styles.settingsCloseBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <X size={18} color={colors.textWhite} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
+              >
+                {/* 1. Current Profile Preview Card */}
+                <View style={styles.settingsProfileCard}>
+                  <View
+                    style={[
+                      styles.avatarCircleLarge,
+                      { backgroundColor: getAvatarInfo(settingsAvatarId, settingsHandle).bg },
+                    ]}
+                  >
+                    <Text style={styles.avatarInitialLarge}>
+                      {getAvatarInfo(settingsAvatarId, settingsHandle).initial}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textWhite }}>
+                        {settingsHandle}
+                      </Text>
+                      {renderStarBadges(profile?.star_level || 1)}
+                    </View>
+                    <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                      {profile?.country_name || 'Global'} {getCountryFlag(profile?.country_code)}
+                    </Text>
+                    {currentSong && isPlaying && settingsShareMusic ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                        <Music size={11} color="#10B981" />
+                        <Text style={{ fontSize: 11, color: '#10B981', fontWeight: '600' }} numberOfLines={1}>
+                          Listening: {currentSong.title}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+
+                {/* 2. Choose Avatar */}
+                <Text style={styles.settingsSectionTitle}>Choose Your Avatar Motif</Text>
+                <Text style={styles.settingsSectionSub}>
+                  Select the color and musical motif that represents you across conversations.
+                </Text>
+                <View style={styles.avatarGrid}>
+                  {AVATAR_OPTIONS.map((av) => {
+                    const isSelected = Number(settingsAvatarId) === Number(av.id);
+                    return (
+                      <TouchableOpacity
+                        key={av.id}
+                        onPress={() => setSettingsAvatarId(av.id)}
+                        style={[
+                          styles.avatarGridItem,
+                          isSelected && styles.avatarGridItemSelected,
+                        ]}
+                        activeOpacity={0.75}
+                      >
+                        <View style={[styles.avatarCircleSmall, { backgroundColor: av.bg }]}>
+                          <Text style={styles.avatarInitialSmall}>{av.initial}</Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.avatarGridName,
+                            isSelected && { color: colors.purpleAccent, fontWeight: '700' },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {av.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* 3. Handle Identity */}
+                <View style={{ marginTop: 18 }}>
+                  <Text style={styles.settingsSectionTitle}>Community Handle</Text>
+                  <Text style={styles.settingsSectionSub}>
+                    Handles are dignified anonymous identifiers to protect your personal identity.
+                  </Text>
+                  <View style={styles.handleRow}>
+                    <View style={styles.handleBox}>
+                      <Text style={styles.handleBoxText}>{settingsHandle}</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setSettingsHandle(generateUserHandle())}
+                      style={styles.handleRegenBtn}
+                      activeOpacity={0.75}
+                    >
+                      <RefreshCw size={14} color="#FFFFFF" />
+                      <Text style={styles.handleRegenText}>New Handle</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* 4. Live Music Sharing Toggle */}
+                <View style={styles.settingToggleCard}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                      <Music size={15} color={colors.purpleAccent} />
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textWhite }}>
+                        Share Live Song Playback
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, lineHeight: 16 }}>
+                      When you are listening to Kingdom songs, other brothers and sisters can see what is currently playing when chatting or viewing your profile.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={settingsShareMusic}
+                    onValueChange={setSettingsShareMusic}
+                    trackColor={{ false: isDark ? '#334155' : '#CBD5E1', true: '#8B5CF6' }}
+                    thumbColor={settingsShareMusic ? '#FFFFFF' : '#94A3B8'}
+                  />
+                </View>
+
+                {/* Save Button */}
+                <TouchableOpacity
+                  onPress={handleSaveSettings}
+                  disabled={isSavingSettings}
+                  style={[styles.actionBtnPrimary, { marginTop: 22 }]}
+                  activeOpacity={0.8}
+                >
+                  {isSavingSettings ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Check size={16} color="#FFFFFF" />
+                      <Text style={styles.actionBtnText}>Save Preferences</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -1419,6 +1776,14 @@ export default function CommunityScreen({ navigation }) {
             </View>
           </View>
         </Modal>
+      )}
+
+      {/* Toast Notice */}
+      {showToast && (
+        <View style={styles.toastBox}>
+          <CheckCircle2 size={15} color="#FFFFFF" />
+          <Text style={styles.toastText}>{toastMsg}</Text>
+        </View>
       )}
     </View>
   );
@@ -1852,6 +2217,222 @@ const makeStyles = (colors, isDark) =>
     primaryBtnText: {
       color: '#FFFFFF',
       fontSize: 15,
+      fontWeight: '700',
+    },
+    headerProfileBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    headerAvatarCircle: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: colors.divider,
+    },
+    headerAvatarInitial: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    headerAvatarCogBadge: {
+      position: 'absolute',
+      bottom: -3,
+      right: -3,
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+      backgroundColor: colors.purple,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: colors.bg,
+    },
+    nowPlayingCardModal: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.25)',
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      marginBottom: 14,
+      width: '100%',
+      gap: 10,
+    },
+    nowPlayingPulseIcon: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: 'rgba(16, 185, 129, 0.2)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    nowPlayingCardLabel: {
+      fontSize: 9,
+      fontWeight: '800',
+      color: '#10B981',
+      letterSpacing: 0.8,
+    },
+    nowPlayingCardTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textWhite,
+      marginTop: 1,
+    },
+    settingsModalCard: {
+      width: '92%',
+      backgroundColor: isDark ? '#1A162B' : '#FFFFFF',
+      borderRadius: 24,
+      paddingVertical: 18,
+      overflow: 'hidden',
+    },
+    settingsModalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      paddingHorizontal: 20,
+      paddingBottom: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    settingsModalTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.textWhite,
+    },
+    settingsModalSubtitle: {
+      fontSize: 12,
+      color: colors.textMuted,
+      marginTop: 2,
+    },
+    settingsCloseBtn: {
+      padding: 6,
+      borderRadius: 12,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+    },
+    settingsProfileCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+      padding: 14,
+      borderRadius: 16,
+      marginTop: 14,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.divider,
+    },
+    settingsSectionTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.textWhite,
+      marginTop: 6,
+    },
+    settingsSectionSub: {
+      fontSize: 11,
+      color: colors.textMuted,
+      marginTop: 2,
+      marginBottom: 10,
+      lineHeight: 15,
+    },
+    avatarGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      justifyContent: 'space-between',
+    },
+    avatarGridItem: {
+      width: '31%',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+      paddingVertical: 10,
+      paddingHorizontal: 6,
+      borderRadius: 12,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.divider,
+    },
+    avatarGridItemSelected: {
+      borderColor: colors.purpleAccent,
+      backgroundColor: 'rgba(167, 139, 250, 0.12)',
+      borderWidth: 1.5,
+    },
+    avatarGridName: {
+      fontSize: 10,
+      color: colors.textMuted,
+      marginTop: 4,
+      textAlign: 'center',
+      fontWeight: '500',
+    },
+    handleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: 4,
+    },
+    handleBox: {
+      flex: 1,
+      backgroundColor: colors.cardBg,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderWidth: 1,
+      borderColor: colors.divider,
+    },
+    handleBoxText: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: colors.textWhite,
+      letterSpacing: 1,
+    },
+    handleRegenBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.purple,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 10,
+    },
+    handleRegenText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    settingToggleCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+      padding: 14,
+      borderRadius: 14,
+      marginTop: 16,
+      borderWidth: 1,
+      borderColor: colors.divider,
+    },
+    toastBox: {
+      position: 'absolute',
+      top: 60,
+      alignSelf: 'center',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: 'rgba(16, 185, 129, 0.95)',
+      paddingHorizontal: 16,
+      paddingVertical: 9,
+      borderRadius: 20,
+      zIndex: 999,
+      elevation: 6,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3,
+    },
+    toastText: {
+      color: '#FFFFFF',
+      fontSize: 12,
       fontWeight: '700',
     },
   });

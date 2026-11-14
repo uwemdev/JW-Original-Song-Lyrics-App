@@ -31,6 +31,7 @@ import {
   Share2,
   MessageSquare,
   Users,
+  User,
   Shield,
   Trash2,
   ChevronRight,
@@ -313,6 +314,13 @@ export default function SettingsScreen({ navigation }) {
             label="Direct Messages"
             subtitle="Private 1-on-1 chats and requests"
             onPress={() => navigation.navigate('Community', { initialTab: 'direct' })}
+          />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon={<User color={colors.purpleAccent} size={20} />}
+            label="Community Profile & Settings"
+            subtitle="Change avatar motif, handle, and now-playing sharing"
+            onPress={() => navigation.navigate('Community', { openSettings: true })}
           />
         </View>
 
