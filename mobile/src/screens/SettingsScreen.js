@@ -38,6 +38,8 @@ import {
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 import RatingModal from '../components/RatingModal';
+import WallpaperPickerModal from '../components/WallpaperPickerModal';
+import { getWallpaperName } from '../lib/wallpapers';
 
 const FONT_LABELS = ['Small', 'Medium', 'Large'];
 
@@ -135,6 +137,7 @@ export default function SettingsScreen({ navigation }) {
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [showRatingModal, setShowRatingModal] = useState(false);
+  const [showWallpaperModal, setShowWallpaperModal] = useState(false);
 
   const showToastMessage = (msg) => {
     setToastMsg(msg);
@@ -317,6 +320,13 @@ export default function SettingsScreen({ navigation }) {
           />
           <View style={styles.divider} />
           <SettingsRow
+            icon={<Palette color={colors.purpleAccent} size={20} />}
+            label="Chat Wallpaper"
+            subtitle={`Background: ${getWallpaperName(settings.chatWallpaper)}`}
+            onPress={() => setShowWallpaperModal(true)}
+          />
+          <View style={styles.divider} />
+          <SettingsRow
             icon={<User color={colors.purpleAccent} size={20} />}
             label="Community Profile & Settings"
             subtitle="Change avatar motif, handle, and now-playing sharing"
@@ -388,6 +398,10 @@ export default function SettingsScreen({ navigation }) {
         onClose={() => setShowRatingModal(false)}
         navigation={navigation}
         isManualTrigger={true}
+      />
+      <WallpaperPickerModal
+        visible={showWallpaperModal}
+        onClose={() => setShowWallpaperModal(false)}
       />
     </View>
   );

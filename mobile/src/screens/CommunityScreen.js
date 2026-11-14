@@ -44,9 +44,14 @@ import {
   Music,
   VolumeX,
   Sparkles,
+  Palette,
 } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSettings } from '../context/SettingsContext';
 import { useAudio } from '../context/AudioContext';
+import { WALLPAPERS, getWallpaperName } from '../lib/wallpapers';
+import ChatWallpaperBackground from '../components/ChatWallpaperBackground';
+import WallpaperPickerModal from '../components/WallpaperPickerModal';
 import {
   validateCleanMessage,
   getOrCreateCommunityProfile,
@@ -74,10 +79,12 @@ const formatMessageTime = (dateStr) => {
 };
 
 export default function CommunityScreen({ navigation, route }) {
-  const { colors, isDark, deviceId } = useSettings();
+  const { colors, isDark, deviceId, chatWallpaper, setChatWallpaper } = useSettings();
   const { currentSong, isMiniPlayerVisible, isPlaying } = useAudio();
   const insets = useSafeAreaInsets();
   const styles = makeStyles(colors, isDark);
+
+  const [showWallpaperModal, setShowWallpaperModal] = useState(false);
 
   // Keyboard state for smooth input bar positioning above bottom tabs / keyboard
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -808,7 +815,7 @@ export default function CommunityScreen({ navigation, route }) {
     );
   };
 
-  // ---- BANNED SCREEN ----
+  // ── BANNED SCREEN ──
   if (isBanned) {
     return (
       <View
@@ -862,7 +869,7 @@ export default function CommunityScreen({ navigation, route }) {
     );
   }
 
-  // ---- LOADING SCREEN ----
+  // ── LOADING SCREEN ──
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -877,9 +884,14 @@ export default function CommunityScreen({ navigation, route }) {
   // Inner Chat Content
   const renderChatContent = () => (
     <>
-      {/* ---- VIEW 1: GROUP LOUNGE ---- */}
+      {/* ── VIEW 1: GROUP LOUNGE ── */}
       {!activeDirectThread && activeTab === 'lounge' && (
         <View style={{ flex: 1 }}>
+          <ChatWallpaperBackground
+            wallpaperId={chatWallpaper}
+            isDark={isDark}
+            colors={colors}
+          />
           <FlatList
             ref={groupListRef}
             data={groupMessages}
@@ -1003,7 +1015,7 @@ export default function CommunityScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* ---- VIEW 2: DIRECT MESSAGE THREADS LIST ---- */}
+      {/* ── VIEW 2: DIRECT MESSAGE THREADS LIST ── */}
       {!activeDirectThread && activeTab === 'direct' && (
         <View style={{ flex: 1, paddingBottom: restingBottom }}>
           {directThreads.length === 0 ? (
@@ -1100,9 +1112,14 @@ export default function CommunityScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* ---- VIEW 3: ACTIVE DIRECT CHAT ---- */}
+      {/* ── VIEW 3: ACTIVE DIRECT CHAT ── */}
       {activeDirectThread && (
         <View style={{ flex: 1 }}>
+          <ChatWallpaperBackground
+            wallpaperId={chatWallpaper}
+            isDark={isDark}
+            colors={colors}
+          />
           {/* WhatsApp-style Private & Encrypted Lock Notice */}
           <View style={styles.privateNoticeCard}>
             <Lock size={13} color="#F59E0B" style={{ marginTop: 1 }} />
@@ -1201,7 +1218,7 @@ export default function CommunityScreen({ navigation, route }) {
     >
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      {/* ---- CONSTANT TOP NAV HEADER ---- */}
+      {/* ── CONSTANT TOP NAV HEADER ── */}
       <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'android' ? 6 : 8) }]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity
@@ -1232,7 +1249,6 @@ export default function CommunityScreen({ navigation, route }) {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 }}>
                   <View style={[styles.statusDot, { backgroundColor: '#10B981', width: 6, height: 6 }]} />
                   <Text style={{ fontSize: 10, color: '#10B981', fontWeight: '700' }}>
-                    {profile?.country_code ? `${getCountryFlag(profile.country_code)} ` : ''}
                     {onlineCount} Online
                   </Text>
                 </View>
@@ -1317,7 +1333,7 @@ export default function CommunityScreen({ navigation, route }) {
         </View>
       </View>
 
-      {/* ---- SUB-TABS (Group Lounge vs Direct Messages) ---- */}
+      {/* ── SUB-TABS (Group Lounge vs Direct Messages) ── */}
       {!activeDirectThread && (
         <View style={styles.tabBar}>
           <TouchableOpacity
@@ -1348,12 +1364,12 @@ export default function CommunityScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* ---- CHAT CONTENT CONTAINER ---- */}
+      {/* ── CHAT CONTENT CONTAINER ── */}
       <View style={{ flex: 1 }}>
         {renderChatContent()}
       </View>
 
-      {/* ---- MODAL: User Action Sheet ---- */}
+      {/* ── MODAL: User Action Sheet ── */}
       {selectedUserModal && (
         <Modal
           transparent
@@ -1432,7 +1448,7 @@ export default function CommunityScreen({ navigation, route }) {
         </Modal>
       )}
 
-      {/* ---- MODAL: Report Message ---- */}
+      {/* ── MODAL: Report Message ── */}
       {showReportModal && (
         <Modal
           transparent
@@ -1492,7 +1508,7 @@ export default function CommunityScreen({ navigation, route }) {
         </Modal>
       )}
 
-      {/* ---- MODAL: Community Profile & Settings ---- */}
+      {/* ── MODAL: Community Profile & Settings ── */}
       {showSettingsModal && (
         <Modal
           transparent
@@ -1633,6 +1649,75 @@ export default function CommunityScreen({ navigation, route }) {
                   />
                 </View>
 
+                {/* 5. Chat Wallpaper Section */}
+                <View style={{ marginTop: 18 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                    <Text style={styles.settingsSectionTitle}>Chat Wallpaper</Text>
+                    <TouchableOpacity
+                      onPress={() => setShowWallpaperModal(true)}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Palette size={13} color={colors.purpleAccent} />
+                      <Text style={{ fontSize: 12, color: colors.purpleAccent, fontWeight: '700' }}>
+                        Browse All (16)
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.settingsSectionSub}>
+                    Select an artistic background for your group lounge and direct conversations.
+                  </Text>
+
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
+                  >
+                    {WALLPAPERS.map((wp) => {
+                      const isSelected = wp.id === (chatWallpaper || 'default');
+                      const gradientColors = isDark ? wp.darkGradient : wp.lightGradient;
+                      return (
+                        <TouchableOpacity
+                          key={wp.id}
+                          onPress={() => setChatWallpaper(wp.id)}
+                          style={[
+                            styles.wallpaperPickerCard,
+                            {
+                              borderColor: isSelected ? colors.purpleAccent : colors.divider,
+                              borderWidth: isSelected ? 2 : 1,
+                              backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                            },
+                          ]}
+                          activeOpacity={0.75}
+                        >
+                          <View style={styles.wallpaperPickerSwatch}>
+                            <LinearGradient
+                              colors={gradientColors}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                              style={StyleSheet.absoluteFillObject}
+                            />
+                            {isSelected && (
+                              <View style={[styles.wallpaperCheckBadge, { backgroundColor: colors.purple }]}>
+                                <Check size={11} color="#FFFFFF" strokeWidth={3} />
+                              </View>
+                            )}
+                          </View>
+                          <Text
+                            style={[
+                              styles.wallpaperPickerName,
+                              { color: isSelected ? colors.purpleAccent : colors.textWhite, fontWeight: isSelected ? '800' : '600' },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {wp.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
                 {/* Save Button */}
                 <TouchableOpacity
                   onPress={handleSaveSettings}
@@ -1655,7 +1740,7 @@ export default function CommunityScreen({ navigation, route }) {
         </Modal>
       )}
 
-      {/* ---- MODAL: First-Time Onboarding Gatekeeper ---- */}
+      {/* ── MODAL: First-Time Onboarding Gatekeeper ── */}
       {showGatekeeper && (
         <Modal transparent animationType="slide" visible={showGatekeeper}>
           <View style={styles.modalBackdrop}>
@@ -1751,6 +1836,12 @@ export default function CommunityScreen({ navigation, route }) {
           </View>
         </Modal>
       )}
+
+      {/* Modal: Wallpaper Picker */}
+      <WallpaperPickerModal
+        visible={showWallpaperModal}
+        onClose={() => setShowWallpaperModal(false)}
+      />
 
       {/* Toast Notice */}
       {showToast && (
@@ -2385,6 +2476,36 @@ const makeStyles = (colors, isDark) =>
       marginTop: 16,
       borderWidth: 1,
       borderColor: colors.divider,
+    },
+    wallpaperPickerCard: {
+      width: 100,
+      padding: 6,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    wallpaperPickerSwatch: {
+      width: '100%',
+      height: 48,
+      borderRadius: 8,
+      overflow: 'hidden',
+      marginBottom: 6,
+      position: 'relative',
+    },
+    wallpaperCheckBadge: {
+      position: 'absolute',
+      top: 4,
+      right: 4,
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: '#FFFFFF',
+    },
+    wallpaperPickerName: {
+      fontSize: 10,
+      textAlign: 'center',
     },
     toastBox: {
       position: 'absolute',

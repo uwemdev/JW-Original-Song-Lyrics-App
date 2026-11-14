@@ -23,6 +23,7 @@ const KEYS = {
   installDate: '@settings_install_date',
   dismissedNotifs: '@settings_dismissed_notifs',
   deliveredPushIds: '@settings_delivered_push_ids',
+  chatWallpaper: '@settings_chat_wallpaper',
 };
 
 // Defaults
@@ -36,6 +37,7 @@ const DEFAULTS = {
   dailySongReminder: true,
   sundayMeetingReminder: true,
   inactivityReminders: true,
+  chatWallpaper: 'default',
 };
 
 export const DarkColors = {
@@ -70,6 +72,7 @@ export function SettingsProvider({ children }) {
   const [dailySongReminder, setDailySongReminderState] = useState(DEFAULTS.dailySongReminder);
   const [sundayMeetingReminder, setSundayMeetingReminderState] = useState(DEFAULTS.sundayMeetingReminder);
   const [inactivityReminders, setInactivityRemindersState] = useState(DEFAULTS.inactivityReminders);
+  const [chatWallpaper, setChatWallpaperState] = useState(DEFAULTS.chatWallpaper);
   const [deviceId, setDeviceIdState] = useState(null);
   const [hasUnreadFeedback, setHasUnreadFeedback] = useState(false);
   const [installDate, setInstallDate] = useState(null);
@@ -107,6 +110,7 @@ export function SettingsProvider({ children }) {
         if (map[KEYS.inactivityReminders] !== undefined) setInactivityRemindersState(map[KEYS.inactivityReminders] !== 'false');
         scheduleSundayMeetingReminder(map[KEYS.sundayMeetingReminder] !== 'false');
         scheduleInactivityReminders(map[KEYS.inactivityReminders] !== 'false');
+        if (map[KEYS.chatWallpaper]) setChatWallpaperState(map[KEYS.chatWallpaper]);
 
         if (map[KEYS.deviceId]) {
           setDeviceIdState(map[KEYS.deviceId]);
@@ -373,6 +377,11 @@ export function SettingsProvider({ children }) {
     scheduleInactivityReminders(val);
   }, []);
 
+  const setChatWallpaper = useCallback(async (val) => {
+    setChatWallpaperState(val);
+    await AsyncStorage.setItem(KEYS.chatWallpaper, val);
+  }, []);
+
   const dismissNotification = useCallback(async (idOrIds) => {
     setDismissedNotifs(prev => {
       const incoming = Array.isArray(idOrIds) ? idOrIds : [idOrIds];
@@ -405,6 +414,7 @@ export function SettingsProvider({ children }) {
       setSundayMeetingReminderState(DEFAULTS.sundayMeetingReminder);
       scheduleDailySongReminder(true);
       setInactivityRemindersState(DEFAULTS.inactivityReminders);
+      setChatWallpaperState(DEFAULTS.chatWallpaper);
       scheduleSundayMeetingReminder(true);
       scheduleInactivityReminders(true);
     } catch (_) {}
@@ -421,6 +431,7 @@ export function SettingsProvider({ children }) {
     dailySongReminder, setDailySongReminder,
     sundayMeetingReminder, setSundayMeetingReminder,
     inactivityReminders, setInactivityReminders,
+    chatWallpaper, setChatWallpaper,
     deviceId,
     installDate,
     dismissedNotifs, dismissNotification,
