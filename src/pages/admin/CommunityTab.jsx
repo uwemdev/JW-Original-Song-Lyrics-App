@@ -22,6 +22,18 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
+function getCountryFlag(countryCode) {
+  if (!countryCode || typeof countryCode !== 'string') return '';
+  const clean = countryCode.trim().toUpperCase();
+  if (clean.length !== 2) return '';
+  const offset = 127397;
+  try {
+    return String.fromCodePoint(clean.charCodeAt(0) + offset, clean.charCodeAt(1) + offset);
+  } catch (_) {
+    return '';
+  }
+}
+
 export default function CommunityTab() {
   const [activeSubTab, setActiveSubTab] = useState('group'); // 'group', 'direct', 'reports', 'bans'
   const [loading, setLoading] = useState(true);
@@ -118,7 +130,86 @@ export default function CommunityTab() {
 
   useEffect(() => {
     fetchCommunityData();
-  }, [fetchCommunityData]);
+
+    // Supabase Realtime channel for live community monitoring
+    const adminChannel = supabase
+      .channel('admin_community_realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'community_group_messages' },
+        (payload) => {
+          setGroupMessages((prev) => {
+            if (prev.some((m) => m.id === payload.new.id)) return prev;
+            return [payload.new, ...prev];
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'community_group_messages' },
+        (payload) => {
+          setGroupMessages((prev) => prev.filter((m) => m.id !== payload.old.id));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'community_reports' },
+        (payload) => {
+          setReports((prev) => {
+            if (prev.some((r) => r.id === payload.new.id)) return prev;
+            return [payload.new, ...prev];
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'community_reports' },
+        (payload) => {
+          setReports((prev) =>
+            prev.map((r) => (r.id === payload.new.id ? payload.new : r))
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'community_direct_messages' },
+        (payload) => {
+          const newDm = payload.new;
+          if (!newDm) return;
+          setThreadMessages((prev) => {
+            if (selectedThread && selectedThread.id === newDm.thread_id) {
+              if (prev.some((m) => m.id === newDm.id)) return prev;
+              return [...prev, newDm];
+            }
+            return prev;
+          });
+          setDirectThreads((prev) =>
+            prev.map((t) =>
+              t.id === newDm.thread_id ? { ...t, last_message_at: newDm.created_at } : t
+            )
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'community_direct_threads' },
+        () => {
+          fetchCommunityData(true);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'community_bans' },
+        () => {
+          fetchCommunityData(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(adminChannel);
+    };
+  }, [fetchCommunityData, selectedThread]);
 
   const showToast = (msg, isError = false) => {
     if (isError) {
@@ -598,8 +689,11 @@ export default function CommunityTab() {
                         </div>
                       </td>
                       <td>
-                        <span style={{ fontSize: '11px', color: 'var(--admin-text-muted)' }}>
-                          {msg.sender_country_code || 'Unknown'}
+                        <span style={{ fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <span>{getCountryFlag(msg.sender_country_code)}</span>
+                          <span style={{ fontSize: '11px', color: 'var(--admin-text-muted)' }}>
+                            {msg.sender_country_code || 'Global'}
+                          </span>
                         </span>
                       </td>
                       <td>
@@ -767,9 +861,11 @@ export default function CommunityTab() {
                     {directThreads.map((th) => (
                       <tr key={th.id} style={{ background: selectedThread?.id === th.id ? 'rgba(139, 92, 246, 0.08)' : undefined }}>
                         <td>
-                          <div style={{ fontSize: '12px', fontWeight: '600' }}>
+                          <div style={{ fontSize: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>{getCountryFlag(th.requester?.country_code)}</span>
                             <span>{th.requester?.handle || 'User A'}</span>
                             <span style={{ color: 'var(--admin-text-muted)', margin: '0 4px' }}>to</span>
+                            <span>{getCountryFlag(th.recipient?.country_code)}</span>
                             <span>{th.recipient?.handle || 'User B'}</span>
                           </div>
                         </td>

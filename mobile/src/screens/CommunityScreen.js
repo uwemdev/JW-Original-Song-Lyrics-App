@@ -44,6 +44,10 @@ import {
   validateCleanMessage,
   getOrCreateCommunityProfile,
   checkBanStatus,
+  getCountryFlag,
+  getUserJoinedAt,
+  pingCommunityActive,
+  fetchOnlineUsersCount,
   AVATAR_OPTIONS,
 } from '../lib/community';
 
@@ -56,14 +60,23 @@ export default function CommunityScreen({ navigation }) {
   const styles = makeStyles(colors, isDark);
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
-    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => {
-      setIsKeyboardVisible(true);
-    });
-    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => {
-      setIsKeyboardVisible(false);
-    });
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setIsKeyboardVisible(true);
+        setKeyboardHeight(e?.endCoordinates?.height || 0);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setIsKeyboardVisible(false);
+        setKeyboardHeight(0);
+      }
+    );
     return () => {
       showSub.remove();
       hideSub.remove();
@@ -73,22 +86,25 @@ export default function CommunityScreen({ navigation }) {
   const tabHeight = (Platform.OS === 'ios' ? 88 : 72) + insets.bottom;
   const isPlayerUp = isMiniPlayerVisible && Boolean(currentSong);
   const restingBottom = isPlayerUp ? tabHeight + 64 : tabHeight + 8;
-  const currentBottomPadding = isKeyboardVisible ? 6 : restingBottom;
+  const currentBottomPadding = isKeyboardVisible
+    ? Platform.OS === 'ios'
+      ? Math.max(8, insets.bottom)
+      : 8
+    : restingBottom;
 
   // Profile & Ban state
   const [profile, setProfile] = useState(null);
+  const [userJoinedAt, setUserJoinedAt] = useState(null);
   const [isBanned, setIsBanned] = useState(false);
   const [banInfo, setBanInfo] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Onboarding Gatekeeper Modal
   const [showGatekeeper, setShowGatekeeper] = useState(false);
-  const [gatekeeperStep, setGatekeeperStep] = useState(1); // 1: Terms, 2: Math, 3: Avatar
   const [mathQuestion, setMathQuestion] = useState({ a: 7, b: 5, answer: 12 });
   const [userMathInput, setUserMathInput] = useState('');
   const [mathError, setMathError] = useState('');
   const [selectedAvatarId, setSelectedAvatarId] = useState(1);
-  const [optInPush, setOptInPush] = useState(true);
 
   // Navigation Sub-tab
   const [activeTab, setActiveTab] = useState('lounge'); // 'lounge' (group), 'direct' (private)
@@ -108,11 +124,11 @@ export default function CommunityScreen({ navigation }) {
   const [directInputText, setDirectInputText] = useState('');
   const directListRef = useRef(null);
 
-  // User Action Sheet Modal (when tapping a user in group chat)
+  // User Action Sheet Modal
   const [selectedUserModal, setSelectedUserModal] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportTarget, setReportTarget] = useState(null);
-  const [reportReason, setReportReason] = useState('Sharing private contact information');
+  const [reportReason, setReportReason] = useState('Sharing prohibited phone numbers / contact info');
 
   // Generate random math problem
   const generateMathProblem = () => {
@@ -125,6 +141,8 @@ export default function CommunityScreen({ navigation }) {
 
   // 1. Initial Load & Onboarding Check
   useEffect(() => {
+    let isMounted = true;
+
     (async () => {
       setLoading(true);
       try {
@@ -133,9 +151,11 @@ export default function CommunityScreen({ navigation }) {
         // Check active bans
         const banCheck = await checkBanStatus(deviceId);
         if (banCheck.isBanned) {
-          setIsBanned(true);
-          setBanInfo(banCheck);
-          setLoading(false);
+          if (isMounted) {
+            setIsBanned(true);
+            setBanInfo(banCheck);
+            setLoading(false);
+          }
           return;
         }
 
@@ -143,79 +163,162 @@ export default function CommunityScreen({ navigation }) {
         const hasAccepted = await AsyncStorage.getItem(ONBOARDED_KEY);
         if (!hasAccepted) {
           generateMathProblem();
-          setShowGatekeeper(true);
-          setLoading(false);
+          if (isMounted) {
+            setShowGatekeeper(true);
+            setLoading(false);
+          }
           return;
         }
 
-        // Load profile
+        // Load or create profile
         const prof = await getOrCreateCommunityProfile(deviceId);
-        setProfile(prof);
-        loadGroupMessages();
-        loadDirectThreads();
-        setupRealtime(prof);
+        const joinedAt = await getUserJoinedAt(prof);
+
+        if (isMounted) {
+          setProfile(prof);
+          setUserJoinedAt(joinedAt);
+          loadGroupMessages(joinedAt);
+          loadDirectThreads();
+        }
       } catch (err) {
         console.warn('Community init error:', err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     })();
+
+    return () => {
+      isMounted = false;
+    };
   }, [deviceId]);
 
-  // Realtime Presence & Group Chat Subscription
-  const setupRealtime = (userProf) => {
-    try {
-      const channel = supabase.channel('community_room', {
-        config: { presence: { key: userProf.device_id } },
+  // 2. Realtime Subscriptions & Online Presence Heartbeat
+  useEffect(() => {
+    if (!profile?.device_id || !userJoinedAt) return;
+
+    let heartbeatTimer = null;
+
+    // Heartbeat ping & accurate online counter
+    const runHeartbeat = async () => {
+      await pingCommunityActive(profile.device_id);
+      const dbCount = await fetchOnlineUsersCount();
+      setOnlineCount((prev) => Math.max(1, dbCount, prev));
+    };
+
+    runHeartbeat();
+    heartbeatTimer = setInterval(runHeartbeat, 30000);
+
+    // Supabase Presence channel
+    const presenceChannel = supabase.channel('community_presence', {
+      config: { presence: { key: profile.device_id } },
+    });
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const pCount = Object.keys(state).length;
+        setOnlineCount((prev) => Math.max(1, pCount, prev));
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            device_id: profile.device_id,
+            handle: profile.handle,
+            country_code: profile.country_code || 'US',
+            online_at: new Date().toISOString(),
+          });
+        }
       });
 
-      // Presence: track online users
-      channel
-        .on('presence', { event: 'sync' }, () => {
-          const state = channel.presenceState();
-          const count = Object.keys(state).length;
-          setOnlineCount(Math.max(1, count));
-        })
-        .subscribe(async (status) => {
-          if (status === 'SUBSCRIBED') {
-            await channel.track({
-              device_id: userProf.device_id,
-              handle: userProf.handle,
-              online_at: new Date().toISOString(),
-            });
+    // Realtime Database Broadcasts: Group messages, direct messages, and direct threads
+    const liveChannel = supabase
+      .channel('community_live_updates')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'community_group_messages' },
+        (payload) => {
+          const newMsg = payload.new;
+          if (!newMsg) return;
+
+          // Newer members rule: only show messages created at or after the user joined
+          if (new Date(newMsg.created_at) < new Date(userJoinedAt)) return;
+
+          setGroupMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [newMsg, ...prev];
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'community_group_messages' },
+        (payload) => {
+          const deletedId = payload.old?.id;
+          if (deletedId) {
+            setGroupMessages((prev) => prev.filter((m) => m.id !== deletedId));
           }
-        });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'community_direct_messages' },
+        (payload) => {
+          const newDm = payload.new;
+          if (!newDm) return;
 
-      // Group Messages Realtime broadcast
-      const msgSub = supabase
-        .channel('public:community_group_messages')
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'community_group_messages' },
-          (payload) => {
-            setGroupMessages((prev) => {
-              if (prev.find((m) => m.id === payload.new.id)) return prev;
-              return [payload.new, ...prev];
-            });
-          }
-        )
-        .subscribe();
+          // If currently inside this active thread, append message
+          setActiveDirectThread((currentActive) => {
+            if (currentActive && currentActive.id === newDm.thread_id) {
+              setDirectMessages((prev) => {
+                if (prev.some((m) => m.id === newDm.id)) return prev;
+                return [...prev, newDm];
+              });
+              // Mark as read if received from other person
+              if (newDm.sender_device_id !== profile.device_id) {
+                supabase
+                  .from('community_direct_messages')
+                  .update({ is_read: true })
+                  .eq('id', newDm.id)
+                  .then(() => {});
+              }
+            }
+            return currentActive;
+          });
 
-      return () => {
-        supabase.removeChannel(channel);
-        supabase.removeChannel(msgSub);
-      };
-    } catch (_) {}
-  };
+          // Update thread list preview in real time
+          setDirectThreads((prev) =>
+            prev.map((t) =>
+              t.id === newDm.thread_id ? { ...t, last_message_at: newDm.created_at } : t
+            )
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'community_direct_threads' },
+        () => {
+          loadDirectThreads();
+        }
+      )
+      .subscribe();
 
-  // Load recent Group Lounge messages
-  const loadGroupMessages = async () => {
+    return () => {
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      supabase.removeChannel(presenceChannel);
+      supabase.removeChannel(liveChannel);
+    };
+  }, [profile?.device_id, userJoinedAt]);
+
+  // Load Group Messages (filtered so newer members only see from their join timestamp onwards)
+  const loadGroupMessages = async (joinedAt) => {
     try {
+      const filterTime = joinedAt || userJoinedAt || new Date().toISOString();
       const { data, error } = await supabase
         .from('community_group_messages')
         .select('*')
+        .gte('created_at', filterTime)
         .order('created_at', { ascending: false })
-        .limit(60);
+        .limit(80);
 
       if (error && error.code !== '42P01') throw error;
       setGroupMessages(data || []);
@@ -230,7 +333,9 @@ export default function CommunityScreen({ navigation }) {
       if (!deviceId) return;
       const { data, error } = await supabase
         .from('community_direct_threads')
-        .select('*, requester:community_profiles!requester_device_id(handle, star_level, avatar_id, country_code), recipient:community_profiles!recipient_device_id(handle, star_level, avatar_id, country_code)')
+        .select(
+          '*, requester:community_profiles!requester_device_id(handle, star_level, avatar_id, country_code), recipient:community_profiles!recipient_device_id(handle, star_level, avatar_id, country_code)'
+        )
         .or(`requester_device_id.eq.${deviceId},recipient_device_id.eq.${deviceId}`)
         .order('last_message_at', { ascending: false });
 
@@ -271,7 +376,6 @@ export default function CommunityScreen({ navigation }) {
   const handleSendGroupMessage = async () => {
     if (!inputText.trim() || sending || !profile) return;
 
-    // Contact info & privacy validation
     const check = validateCleanMessage(inputText);
     if (!check.isValid) {
       setValidationWarning(check.error);
@@ -302,7 +406,10 @@ export default function CommunityScreen({ navigation }) {
       if (error) throw error;
 
       if (data) {
-        setGroupMessages((prev) => [data, ...prev]);
+        setGroupMessages((prev) => {
+          if (prev.some((m) => m.id === data.id)) return prev;
+          return [data, ...prev];
+        });
       }
     } catch (err) {
       console.warn('Failed to send group message:', err);
@@ -342,7 +449,6 @@ export default function CommunityScreen({ navigation }) {
 
       if (data) {
         setDirectMessages((prev) => [...prev, data]);
-        // Update thread timestamp
         await supabase
           .from('community_direct_threads')
           .update({ last_message_at: new Date().toISOString() })
@@ -359,7 +465,6 @@ export default function CommunityScreen({ navigation }) {
     setSelectedUserModal(null);
 
     try {
-      // Check if thread already exists
       const existing = directThreads.find(
         (t) =>
           (t.requester_device_id === profile.device_id && t.recipient_device_id === targetUser.device_id) ||
@@ -372,7 +477,6 @@ export default function CommunityScreen({ navigation }) {
         return;
       }
 
-      // Create new pending thread
       const { data, error } = await supabase
         .from('community_direct_threads')
         .insert([
@@ -382,7 +486,9 @@ export default function CommunityScreen({ navigation }) {
             status: 'pending',
           },
         ])
-        .select('*, requester:community_profiles!requester_device_id(handle, star_level, avatar_id, country_code), recipient:community_profiles!recipient_device_id(handle, star_level, avatar_id, country_code)')
+        .select(
+          '*, requester:community_profiles!requester_device_id(handle, star_level, avatar_id, country_code), recipient:community_profiles!recipient_device_id(handle, star_level, avatar_id, country_code)'
+        )
         .single();
 
       if (error) throw error;
@@ -391,14 +497,17 @@ export default function CommunityScreen({ navigation }) {
         setDirectThreads((prev) => [data, ...prev]);
         setActiveTab('direct');
         openDirectThread(data);
-        Alert.alert('Request Sent', `Message request sent to ${targetUser.handle}. They can accept to begin chatting.`);
+        Alert.alert(
+          'Request Sent',
+          `Message request sent to ${targetUser.handle}. They can accept to begin chatting.`
+        );
       }
     } catch (err) {
       Alert.alert('Notice', 'Unable to initiate request: ' + (err.message || 'Unknown'));
     }
   };
 
-  // Respond to Direct Message Request (Accept, Decline, Block)
+  // Respond to Direct Message Request
   const handleRespondToRequest = async (threadId, newStatus) => {
     try {
       const { error } = await supabase
@@ -439,7 +548,10 @@ export default function CommunityScreen({ navigation }) {
         },
       ]);
       setShowReportModal(false);
-      Alert.alert('Report Received', 'Thank you. The admin team has received your report and will take action if guidelines were violated.');
+      Alert.alert(
+        'Report Received',
+        'Thank you. The admin team has received your report and will take action if guidelines were violated.'
+      );
     } catch (err) {
       Alert.alert('Error', 'Failed to submit report.');
     }
@@ -447,7 +559,6 @@ export default function CommunityScreen({ navigation }) {
 
   // Complete Onboarding Gatekeeper
   const handleCompleteGatekeeper = async () => {
-    // Verify Math Answer
     if (parseInt(userMathInput.trim(), 10) !== mathQuestion.answer) {
       setMathError('Incorrect answer. Please solve the simple math problem.');
       generateMathProblem();
@@ -455,21 +566,21 @@ export default function CommunityScreen({ navigation }) {
     }
 
     try {
-      await AsyncStorage.setItem(ONBOARDED_KEY, new Date().toISOString());
+      const nowIso = new Date().toISOString();
+      await AsyncStorage.setItem(ONBOARDED_KEY, nowIso);
       setShowGatekeeper(false);
 
       const prof = await getOrCreateCommunityProfile(deviceId);
-      // Update selected avatar
       await supabase
         .from('community_profiles')
-        .update({ avatar_id: selectedAvatarId })
+        .update({ avatar_id: selectedAvatarId, last_active_at: nowIso })
         .eq('device_id', deviceId);
 
       prof.avatar_id = selectedAvatarId;
       setProfile(prof);
-      loadGroupMessages();
+      setUserJoinedAt(prof.created_at || nowIso);
+      loadGroupMessages(prof.created_at || nowIso);
       loadDirectThreads();
-      setupRealtime(prof);
     } catch (err) {
       console.warn('Gatekeeper error:', err);
     }
@@ -495,16 +606,37 @@ export default function CommunityScreen({ navigation }) {
   // ── BANNED SCREEN ──
   if (isBanned) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+      <View
+        style={[
+          styles.container,
+          { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center', padding: 24 },
+        ]}
+      >
         <Ban size={48} color="#EF4444" style={{ marginBottom: 16 }} />
         <Text style={{ fontSize: 20, fontWeight: '700', color: colors.textWhite, textAlign: 'center' }}>
           Access Suspended
         </Text>
-        <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
+        <Text
+          style={{
+            fontSize: 14,
+            color: colors.textMuted,
+            textAlign: 'center',
+            marginTop: 8,
+            lineHeight: 20,
+          }}
+        >
           Your access to the community has been temporarily restricted for violating wholesome community rules.
         </Text>
         {banInfo?.reason && (
-          <View style={{ backgroundColor: 'rgba(239,68,68,0.1)', padding: 12, borderRadius: 8, marginTop: 16, width: '100%' }}>
+          <View
+            style={{
+              backgroundColor: 'rgba(239,68,68,0.1)',
+              padding: 12,
+              borderRadius: 8,
+              marginTop: 16,
+              width: '100%',
+            }}
+          >
             <Text style={{ fontSize: 12, color: '#EF4444', textAlign: 'center' }}>
               Reason: {banInfo.reason}
             </Text>
@@ -538,13 +670,10 @@ export default function CommunityScreen({ navigation }) {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={[styles.container, { paddingTop: insets.top }]}
-    >
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      {/* ── TOP NAV HEADER (Constant across Home & Community) ── */}
+      {/* ── CONSTANT TOP NAV HEADER ── */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity
@@ -572,9 +701,10 @@ export default function CommunityScreen({ navigation }) {
               </View>
               <View style={{ marginLeft: 8 }}>
                 <Text style={styles.headerTitle}>Community</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 }}>
                   <View style={[styles.statusDot, { backgroundColor: '#10B981', width: 6, height: 6 }]} />
                   <Text style={{ fontSize: 10, color: '#10B981', fontWeight: '700' }}>
+                    {profile?.country_code ? `${getCountryFlag(profile.country_code)} ` : ''}
                     {onlineCount} Online
                   </Text>
                 </View>
@@ -588,6 +718,13 @@ export default function CommunityScreen({ navigation }) {
                     ? activeDirectThread.recipient?.handle || 'User'
                     : activeDirectThread.requester?.handle || 'User'}
                 </Text>
+                <Text style={styles.countryFlagText}>
+                  {getCountryFlag(
+                    activeDirectThread.requester_device_id === deviceId
+                      ? activeDirectThread.recipient?.country_code
+                      : activeDirectThread.requester?.country_code
+                  )}
+                </Text>
                 <View style={[styles.statusDot, { backgroundColor: '#10B981', width: 6, height: 6 }]} />
               </View>
               <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 1 }}>Direct Chat</Text>
@@ -597,7 +734,6 @@ export default function CommunityScreen({ navigation }) {
 
         {/* Top Right Constant Action Icons */}
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {/* Noticeable Active Community Button (tap to toggle back to songs) */}
           <TouchableOpacity
             style={[styles.headerCommunityBtnActive, { marginRight: 10 }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -611,20 +747,21 @@ export default function CommunityScreen({ navigation }) {
             accessibilityLabel="Close Community"
           >
             <Users color="#FFFFFF" size={19} strokeWidth={2.4} />
-            <View style={{
-              position: 'absolute',
-              top: -2,
-              right: -2,
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: '#10B981',
-              borderWidth: 1.5,
-              borderColor: colors.bg,
-            }} />
+            <View
+              style={{
+                position: 'absolute',
+                top: -2,
+                right: -2,
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: '#10B981',
+                borderWidth: 1.5,
+                borderColor: colors.bg,
+              }}
+            />
           </TouchableOpacity>
 
-          {/* Notifications Button */}
           <TouchableOpacity
             style={[styles.headerIconBtn, { marginRight: 10 }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -633,7 +770,6 @@ export default function CommunityScreen({ navigation }) {
             <Bell color={colors.textWhite} size={20} />
           </TouchableOpacity>
 
-          {/* Search Button */}
           <TouchableOpacity
             style={styles.headerIconBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -675,263 +811,325 @@ export default function CommunityScreen({ navigation }) {
         </View>
       )}
 
-      {/* ── VIEW 1: GROUP LOUNGE ── */}
-      {!activeDirectThread && activeTab === 'lounge' && (
-        <View style={{ flex: 1 }}>
-          <FlatList
-            ref={groupListRef}
-            data={groupMessages}
-            keyExtractor={(item) => String(item.id)}
-            inverted
-            contentContainerStyle={{ padding: 16 }}
-            renderItem={({ item }) => {
-              const isMe = item.sender_device_id === deviceId;
-              const avatar = getAvatarInfo(item.sender_avatar_id);
-              return (
-                <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
-                  {/* Avatar (tap to open profile modal) */}
-                  {!isMe && (
-                    <TouchableOpacity
-                      onPress={() =>
-                        setSelectedUserModal({
-                          device_id: item.sender_device_id,
-                          handle: item.sender_handle,
-                          star_level: item.sender_star_level,
-                          avatar_id: item.sender_avatar_id,
-                          country_code: item.sender_country_code,
-                          message_id: item.id,
-                          message_text: item.message,
-                        })
-                      }
-                      style={[styles.avatarCircleSmall, { backgroundColor: avatar.bg }]}
-                    >
-                      <Text style={styles.avatarInitialSmall}>{avatar.initial}</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-                    {/* Header info (Handle + Stars + Country) */}
+      {/* ── KEYBOARD AVOIDING CONTENT WRAPPER ── */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+      >
+        {/* ── VIEW 1: GROUP LOUNGE ── */}
+        {!activeDirectThread && activeTab === 'lounge' && (
+          <View style={{ flex: 1 }}>
+            <FlatList
+              ref={groupListRef}
+              data={groupMessages}
+              keyExtractor={(item) => String(item.id)}
+              inverted
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ padding: 16 }}
+              ListEmptyComponent={
+                <View style={styles.emptyLoungeContainer}>
+                  <Users size={36} color={colors.purpleAccent} style={{ marginBottom: 10 }} />
+                  <Text style={styles.emptyLoungeTitle}>Welcome to Community Lounge</Text>
+                  <Text style={styles.emptyLoungeSub}>
+                    You joined successfully. New messages from members worldwide will appear here in real time.
+                  </Text>
+                </View>
+              }
+              renderItem={({ item }) => {
+                const isMe = item.sender_device_id === deviceId;
+                const avatar = getAvatarInfo(item.sender_avatar_id);
+                return (
+                  <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
                     {!isMe && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <Text style={styles.senderHandle}>{item.sender_handle}</Text>
-                        {renderStarBadges(item.sender_star_level)}
-                        {item.sender_country_code && (
-                          <Text style={styles.countryBadge}>{item.sender_country_code}</Text>
-                        )}
-                      </View>
+                      <TouchableOpacity
+                        onPress={() =>
+                          setSelectedUserModal({
+                            device_id: item.sender_device_id,
+                            handle: item.sender_handle,
+                            star_level: item.sender_star_level,
+                            avatar_id: item.sender_avatar_id,
+                            country_code: item.sender_country_code,
+                            message_id: item.id,
+                            message_text: item.message,
+                          })
+                        }
+                        style={[styles.avatarCircleSmall, { backgroundColor: avatar.bg }]}
+                      >
+                        <Text style={styles.avatarInitialSmall}>{avatar.initial}</Text>
+                      </TouchableOpacity>
                     )}
 
-                    <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
-                      {item.message}
-                    </Text>
-
-                    <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>
-                      {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                  </View>
-                </View>
-              );
-            }}
-          />
-
-          {/* Validation Warning Notice */}
-          {validationWarning ? (
-            <View style={styles.warningBox}>
-              <AlertCircle size={14} color="#EF4444" />
-              <Text style={styles.warningText}>{validationWarning}</Text>
-            </View>
-          ) : null}
-
-          {/* Input Bar */}
-          <View style={[styles.inputBar, { paddingBottom: currentBottomPadding }]}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Send an encouraging thought..."
-              placeholderTextColor={colors.textMuted}
-              value={inputText}
-              onChangeText={(text) => {
-                setInputText(text);
-                if (validationWarning) setValidationWarning('');
-              }}
-              multiline
-              maxLength={280}
-            />
-            <TouchableOpacity
-              onPress={handleSendGroupMessage}
-              disabled={!inputText.trim() || sending}
-              style={[styles.sendBtn, !inputText.trim() && { opacity: 0.5 }]}
-            >
-              <Send size={18} color="#FFF" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {/* ── VIEW 2: DIRECT MESSAGES INBOX ── */}
-      {!activeDirectThread && activeTab === 'direct' && (
-        <View style={{ flex: 1, padding: 16 }}>
-          {directThreads.length === 0 ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <MessageSquare size={40} color={colors.textMuted} style={{ marginBottom: 12 }} />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textWhite }}>
-                No Direct Messages Yet
-              </Text>
-              <Text style={{ fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: 6, maxWidth: 260 }}>
-                Tap on any user's avatar in the Group Lounge to send them a private message request.
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={directThreads}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={{ paddingBottom: restingBottom + 16 }}
-              renderItem={({ item }) => {
-                const isRequester = item.requester_device_id === deviceId;
-                const otherUser = isRequester ? item.recipient : item.requester;
-                const otherHandle = otherUser?.handle || 'User';
-                const avatar = getAvatarInfo(otherUser?.avatar_id || 1);
-                const isPendingForMe = item.status === 'pending' && !isRequester;
-
-                return (
-                  <TouchableOpacity
-                    onPress={() => openDirectThread(item)}
-                    style={styles.threadCard}
-                  >
-                    <View style={[styles.avatarCircle, { backgroundColor: avatar.bg }]}>
-                      <Text style={styles.avatarInitial}>{avatar.initial}</Text>
-                    </View>
-
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textWhite }}>
-                            {otherHandle}
-                          </Text>
-                          {renderStarBadges(otherUser?.star_level || 1)}
+                    <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
+                      {!isMe && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+                          <Text style={styles.senderHandle}>{item.sender_handle}</Text>
+                          {renderStarBadges(item.sender_star_level)}
+                          {item.sender_country_code ? (
+                            <Text style={styles.countryFlagText}>
+                              {getCountryFlag(item.sender_country_code)}
+                            </Text>
+                          ) : null}
                         </View>
-                        <Text style={{ fontSize: 11, color: colors.textMuted }}>
-                          {new Date(item.last_message_at).toLocaleDateString()}
-                        </Text>
-                      </View>
-
-                      {/* Status / Request banner */}
-                      {isPendingForMe ? (
-                        <View style={{ marginTop: 6 }}>
-                          <Text style={{ fontSize: 12, color: '#F59E0B', fontWeight: '600' }}>
-                            Wants to connect with you
-                          </Text>
-                          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                            <TouchableOpacity
-                              onPress={() => handleRespondToRequest(item.id, 'accepted')}
-                              style={[styles.reqBtn, { backgroundColor: '#22C55E' }]}
-                            >
-                              <Text style={styles.reqBtnText}>Accept</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => handleRespondToRequest(item.id, 'declined')}
-                              style={[styles.reqBtn, { backgroundColor: 'rgba(239,68,68,0.2)' }]}
-                            >
-                              <Text style={[styles.reqBtnText, { color: '#EF4444' }]}>Decline</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      ) : item.status === 'pending' ? (
-                        <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
-                          Request pending approval...
-                        </Text>
-                      ) : item.status === 'declined' ? (
-                        <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 4 }}>
-                          Request declined
-                        </Text>
-                      ) : (
-                        <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
-                          Tap to open conversation
-                        </Text>
                       )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              }}
-            />
-          )}
-        </View>
-      )}
 
-      {/* ── VIEW 3: ACTIVE DIRECT CHAT ── */}
-      {activeDirectThread && (
-        <View style={{ flex: 1 }}>
-          {/* If pending, notice */}
-          {activeDirectThread.status === 'pending' ? (
-            <View style={{ backgroundColor: 'rgba(245,158,11,0.1)', padding: 12, margin: 16, borderRadius: 8 }}>
-              <Text style={{ color: '#F59E0B', fontSize: 12, textAlign: 'center' }}>
-                {activeDirectThread.requester_device_id === deviceId
-                  ? 'Waiting for recipient to accept your message request.'
-                  : 'Accept this request to enable two-way messaging.'}
-              </Text>
-            </View>
-          ) : null}
+                      <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
+                        {item.message}
+                      </Text>
 
-          <FlatList
-            ref={directListRef}
-            data={directMessages}
-            keyExtractor={(item) => String(item.id)}
-            contentContainerStyle={{ padding: 16 }}
-            renderItem={({ item }) => {
-              const isMe = item.sender_device_id === deviceId;
-              return (
-                <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
-                  <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-                    <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
-                      {item.message}
-                    </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 2 }}>
                       <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>
                         {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </Text>
-                      {/* BBM status: Delivered (D) and Read (R) */}
-                      {isMe && (
-                        <Text style={{ fontSize: 10, color: item.is_read ? '#60A5FA' : 'rgba(255,255,255,0.7)', fontWeight: '700' }}>
-                          {item.is_read ? 'R' : 'D'}
-                        </Text>
-                      )}
                     </View>
                   </View>
-                </View>
-              );
-            }}
-          />
+                );
+              }}
+            />
 
-          {/* Direct Input Bar */}
-          {activeDirectThread.status === 'accepted' ? (
+            {/* Validation Warning */}
+            {validationWarning ? (
+              <View style={styles.warningBox}>
+                <AlertCircle size={14} color="#EF4444" />
+                <Text style={styles.warningText}>{validationWarning}</Text>
+              </View>
+            ) : null}
+
+            {/* Input Bar */}
             <View style={[styles.inputBar, { paddingBottom: currentBottomPadding }]}>
               <TextInput
                 style={styles.textInput}
-                placeholder="Type a private message..."
+                placeholder="Send an encouraging thought..."
                 placeholderTextColor={colors.textMuted}
-                value={directInputText}
-                onChangeText={setDirectInputText}
+                value={inputText}
+                onChangeText={(text) => {
+                  setInputText(text);
+                  if (validationWarning) setValidationWarning('');
+                }}
+                onFocus={() => {
+                  if (groupListRef.current) {
+                    groupListRef.current.scrollToOffset({ offset: 0, animated: true });
+                  }
+                }}
                 multiline
                 maxLength={280}
               />
               <TouchableOpacity
-                onPress={handleSendDirectMessage}
-                disabled={!directInputText.trim()}
-                style={[styles.sendBtn, !directInputText.trim() && { opacity: 0.5 }]}
+                onPress={handleSendGroupMessage}
+                disabled={!inputText.trim() || sending}
+                style={[styles.sendBtn, (!inputText.trim() || sending) && { opacity: 0.5 }]}
               >
-                <Send size={18} color="#FFF" />
+                {sending ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Send size={18} color="#FFF" />
+                )}
               </TouchableOpacity>
             </View>
-          ) : null}
-        </View>
-      )}
+          </View>
+        )}
 
-      {/* ── MODAL: User Action Sheet (when tapping avatar in group chat) ── */}
+        {/* ── VIEW 2: DIRECT MESSAGE THREADS LIST ── */}
+        {!activeDirectThread && activeTab === 'direct' && (
+          <View style={{ flex: 1, paddingBottom: restingBottom }}>
+            {directThreads.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <MessageSquare size={48} color={colors.purpleAccent} style={{ marginBottom: 12 }} />
+                <Text style={styles.emptyTitle}>No Private Conversations Yet</Text>
+                <Text style={styles.emptySub}>
+                  Tap any member avatar in the Group Lounge to send them a private message request.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={directThreads}
+                keyExtractor={(item) => String(item.id)}
+                contentContainerStyle={{ padding: 16 }}
+                renderItem={({ item }) => {
+                  const isRequester = item.requester_device_id === deviceId;
+                  const otherUser = isRequester ? item.recipient : item.requester;
+                  const otherHandle = otherUser?.handle || 'User';
+                  const avatar = getAvatarInfo(otherUser?.avatar_id);
+                  const isPendingForMe = item.status === 'pending' && item.recipient_device_id === deviceId;
+
+                  return (
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (item.status === 'accepted') {
+                          openDirectThread(item);
+                        }
+                      }}
+                      style={styles.threadCard}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.avatarCircle, { backgroundColor: avatar.bg }]}>
+                        <Text style={styles.avatarInitial}>{avatar.initial}</Text>
+                      </View>
+
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textWhite }}>
+                              {otherHandle}
+                            </Text>
+                            {renderStarBadges(otherUser?.star_level || 1)}
+                            {otherUser?.country_code ? (
+                              <Text style={styles.countryFlagText}>
+                                {getCountryFlag(otherUser.country_code)}
+                              </Text>
+                            ) : null}
+                          </View>
+                          <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                            {new Date(item.last_message_at).toLocaleDateString()}
+                          </Text>
+                        </View>
+
+                        {isPendingForMe ? (
+                          <View style={{ marginTop: 6 }}>
+                            <Text style={{ fontSize: 12, color: '#F59E0B', fontWeight: '600' }}>
+                              Wants to connect with you
+                            </Text>
+                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                              <TouchableOpacity
+                                onPress={() => handleRespondToRequest(item.id, 'accepted')}
+                                style={[styles.reqBtn, { backgroundColor: '#22C55E' }]}
+                              >
+                                <Text style={styles.reqBtnText}>Accept</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => handleRespondToRequest(item.id, 'declined')}
+                                style={[styles.reqBtn, { backgroundColor: 'rgba(239,68,68,0.2)' }]}
+                              >
+                                <Text style={[styles.reqBtnText, { color: '#EF4444' }]}>Decline</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        ) : item.status === 'pending' ? (
+                          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
+                            Request pending approval...
+                          </Text>
+                        ) : item.status === 'declined' ? (
+                          <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 4 }}>
+                            Request declined
+                          </Text>
+                        ) : (
+                          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
+                            Tap to open conversation
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+          </View>
+        )}
+
+        {/* ── VIEW 3: ACTIVE DIRECT CHAT ── */}
+        {activeDirectThread && (
+          <View style={{ flex: 1 }}>
+            {activeDirectThread.status === 'pending' ? (
+              <View style={{ backgroundColor: 'rgba(245,158,11,0.1)', padding: 12, margin: 16, borderRadius: 8 }}>
+                <Text style={{ color: '#F59E0B', fontSize: 12, textAlign: 'center' }}>
+                  {activeDirectThread.requester_device_id === deviceId
+                    ? 'Waiting for recipient to accept your message request.'
+                    : 'Accept this request to enable two-way messaging.'}
+                </Text>
+              </View>
+            ) : null}
+
+            <FlatList
+              ref={directListRef}
+              data={directMessages}
+              keyExtractor={(item) => String(item.id)}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ padding: 16 }}
+              onContentSizeChange={() => directListRef.current?.scrollToEnd({ animated: true })}
+              onLayout={() => directListRef.current?.scrollToEnd({ animated: false })}
+              renderItem={({ item }) => {
+                const isMe = item.sender_device_id === deviceId;
+                return (
+                  <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
+                    <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
+                      <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
+                        {item.message}
+                      </Text>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'flex-end',
+                          gap: 4,
+                          marginTop: 2,
+                        }}
+                      >
+                        <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>
+                          {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                        {isMe && (
+                          <Text
+                            style={{
+                              fontSize: 10,
+                              color: item.is_read ? '#60A5FA' : 'rgba(255,255,255,0.7)',
+                              fontWeight: '700',
+                            }}
+                          >
+                            {item.is_read ? 'R' : 'D'}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+                );
+              }}
+            />
+
+            {activeDirectThread.status === 'accepted' ? (
+              <View style={[styles.inputBar, { paddingBottom: currentBottomPadding }]}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Type a private message..."
+                  placeholderTextColor={colors.textMuted}
+                  value={directInputText}
+                  onChangeText={setDirectInputText}
+                  onFocus={() => {
+                    directListRef.current?.scrollToEnd({ animated: true });
+                  }}
+                  multiline
+                  maxLength={280}
+                />
+                <TouchableOpacity
+                  onPress={handleSendDirectMessage}
+                  disabled={!directInputText.trim()}
+                  style={[styles.sendBtn, !directInputText.trim() && { opacity: 0.5 }]}
+                >
+                  <Send size={18} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
+        )}
+      </KeyboardAvoidingView>
+
+      {/* ── MODAL: User Action Sheet ── */}
       {selectedUserModal && (
-        <Modal transparent animationType="fade" visible={Boolean(selectedUserModal)} onRequestClose={() => setSelectedUserModal(null)}>
+        <Modal
+          transparent
+          animationType="fade"
+          visible={Boolean(selectedUserModal)}
+          onRequestClose={() => setSelectedUserModal(null)}
+        >
           <View style={styles.modalBackdrop}>
             <View style={[styles.actionSheetCard, { backgroundColor: isDark ? '#1F1B2E' : '#FFFFFF' }]}>
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                <View style={[styles.avatarCircleLarge, { backgroundColor: getAvatarInfo(selectedUserModal.avatar_id).bg }]}>
+                <View
+                  style={[
+                    styles.avatarCircleLarge,
+                    { backgroundColor: getAvatarInfo(selectedUserModal.avatar_id).bg },
+                  ]}
+                >
                   <Text style={styles.avatarInitialLarge}>{getAvatarInfo(selectedUserModal.avatar_id).initial}</Text>
                 </View>
                 <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textWhite, marginTop: 8 }}>
@@ -940,7 +1138,9 @@ export default function CommunityScreen({ navigation }) {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                   {renderStarBadges(selectedUserModal.star_level)}
                   <Text style={{ fontSize: 12, color: colors.textMuted }}>·</Text>
-                  <Text style={{ fontSize: 12, color: colors.textMuted }}>{selectedUserModal.country_code || 'Global'}</Text>
+                  <Text style={{ fontSize: 13, color: colors.textMuted }}>
+                    {getCountryFlag(selectedUserModal.country_code)} {selectedUserModal.country_code || 'Global'}
+                  </Text>
                 </View>
               </View>
 
@@ -977,7 +1177,12 @@ export default function CommunityScreen({ navigation }) {
 
       {/* ── MODAL: Report Message ── */}
       {showReportModal && (
-        <Modal transparent animationType="fade" visible={showReportModal} onRequestClose={() => setShowReportModal(false)}>
+        <Modal
+          transparent
+          animationType="fade"
+          visible={showReportModal}
+          onRequestClose={() => setShowReportModal(false)}
+        >
           <View style={styles.modalBackdrop}>
             <View style={[styles.actionSheetCard, { backgroundColor: isDark ? '#1F1B2E' : '#FFFFFF' }]}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textWhite, marginBottom: 12 }}>
@@ -999,7 +1204,12 @@ export default function CommunityScreen({ navigation }) {
                   onPress={() => setReportReason(reason)}
                   style={[styles.reasonOption, reportReason === reason && styles.reasonOptionSelected]}
                 >
-                  <Text style={{ fontSize: 13, color: reportReason === reason ? colors.purpleAccent : colors.textWhite }}>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: reportReason === reason ? colors.purpleAccent : colors.textWhite,
+                    }}
+                  >
                     {reason}
                   </Text>
                 </TouchableOpacity>
@@ -1030,7 +1240,6 @@ export default function CommunityScreen({ navigation }) {
         <Modal transparent animationType="slide" visible={showGatekeeper}>
           <View style={styles.modalBackdrop}>
             <View style={[styles.gatekeeperCard, { backgroundColor: isDark ? '#181424' : '#FFFFFF' }]}>
-              {/* Header */}
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
                 <ShieldCheck size={36} color={colors.purpleAccent} />
                 <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textWhite, marginTop: 8 }}>
@@ -1086,7 +1295,15 @@ export default function CommunityScreen({ navigation }) {
               </View>
 
               {/* Avatar Selector */}
-              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textMuted, marginBottom: 8, textTransform: 'uppercase' }}>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: colors.textMuted,
+                  marginBottom: 8,
+                  textTransform: 'uppercase',
+                }}
+              >
                 Choose Your Avatar Symbol
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
@@ -1107,17 +1324,14 @@ export default function CommunityScreen({ navigation }) {
                 </View>
               </ScrollView>
 
-              <TouchableOpacity
-                onPress={handleCompleteGatekeeper}
-                style={styles.primaryBtn}
-              >
+              <TouchableOpacity onPress={handleCompleteGatekeeper} style={styles.primaryBtn}>
                 <Text style={styles.primaryBtnText}>Agree & Enter Lounge</Text>
               </TouchableOpacity>
             </View>
           </View>
         </Modal>
       )}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -1132,99 +1346,71 @@ const makeStyles = (colors, isDark) =>
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 16,
-      paddingVertical: 10,
+      paddingVertical: 12,
       borderBottomWidth: 1,
-      borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+      borderBottomColor: colors.divider,
+      backgroundColor: colors.bg,
     },
     headerLeft: {
-      flex: 1,
       flexDirection: 'row',
-      alignItems: 'center',
-    },
-    headerLogo: {
-      width: 34,
-      height: 34,
-      borderRadius: 17,
-      overflow: 'hidden',
-    },
-    headerLogoImg: {
-      width: 34,
-      height: 34,
-      borderRadius: 17,
-    },
-    headerCommunityBtnActive: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      backgroundColor: '#7C3AED',
-      justifyContent: 'center',
-      alignItems: 'center',
-      elevation: 4,
-      shadowColor: '#7C3AED',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.45,
-      shadowRadius: 4,
-    },
-    headerIconBtn: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-      justifyContent: 'center',
       alignItems: 'center',
     },
     backBtn: {
-      padding: 6,
-      marginRight: 6,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+    },
+    headerLogo: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      overflow: 'hidden',
+    },
+    headerLogoImg: {
+      width: '100%',
+      height: '100%',
     },
     headerTitle: {
       fontSize: 16,
-      fontWeight: '800',
+      fontWeight: '700',
       color: colors.textWhite,
     },
     statusDot: {
-      width: 7,
-      height: 7,
-      borderRadius: 4,
+      borderRadius: 3,
     },
-    myProfileBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 16,
-    },
-    avatarCircle: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+    headerCommunityBtnActive: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.purpleAccent,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    avatarInitial: {
-      color: '#FFF',
-      fontWeight: '700',
-      fontSize: 12,
-    },
-    myHandleText: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: colors.textWhite,
+    headerIconBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     tabBar: {
       flexDirection: 'row',
       borderBottomWidth: 1,
-      borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+      borderBottomColor: colors.divider,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
     },
     tabItem: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
       paddingVertical: 12,
-      position: 'relative',
+      gap: 6,
     },
     tabItemActive: {
       borderBottomWidth: 2,
@@ -1237,78 +1423,73 @@ const makeStyles = (colors, isDark) =>
     },
     tabTextActive: {
       color: colors.purpleAccent,
+      fontWeight: '700',
     },
     unreadDot: {
       width: 6,
       height: 6,
       borderRadius: 3,
       backgroundColor: '#EF4444',
-      position: 'absolute',
-      top: 10,
-      right: 20,
     },
     messageRow: {
       flexDirection: 'row',
-      marginBottom: 12,
       alignItems: 'flex-end',
+      marginBottom: 12,
       gap: 8,
     },
     messageRowMe: {
       justifyContent: 'flex-end',
     },
     avatarCircleSmall: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 2,
     },
     avatarInitialSmall: {
       color: '#FFF',
-      fontSize: 10,
       fontWeight: '700',
+      fontSize: 11,
     },
     bubble: {
-      maxWidth: '75%',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 14,
-    },
-    bubbleMe: {
-      backgroundColor: colors.purpleAccent,
-      borderBottomRightRadius: 2,
+      maxWidth: '78%',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 18,
     },
     bubbleThem: {
-      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F1F5F9',
-      borderBottomLeftRadius: 2,
+      backgroundColor: colors.cardBg,
+      borderBottomLeftRadius: 4,
+      borderWidth: 1,
+      borderColor: colors.divider,
+    },
+    bubbleMe: {
+      backgroundColor: colors.purple,
+      borderBottomRightRadius: 4,
     },
     senderHandle: {
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: '700',
       color: colors.purpleAccent,
     },
-    countryBadge: {
-      fontSize: 9,
-      color: colors.textMuted,
-      fontWeight: '700',
-      paddingHorizontal: 4,
-      borderRadius: 3,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+    countryFlagText: {
+      fontSize: 13,
+      marginLeft: 2,
     },
     messageText: {
       fontSize: 14,
       color: colors.textWhite,
-      lineHeight: 19,
+      lineHeight: 20,
     },
     messageTextMe: {
       color: '#FFFFFF',
     },
     messageTime: {
-      fontSize: 9,
+      fontSize: 10,
       color: colors.textMuted,
+      marginTop: 4,
       alignSelf: 'flex-end',
-      marginTop: 2,
     },
     messageTimeMe: {
       color: 'rgba(255,255,255,0.7)',
@@ -1316,168 +1497,224 @@ const makeStyles = (colors, isDark) =>
     warningBox: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
-      backgroundColor: 'rgba(239,68,68,0.1)',
-      paddingHorizontal: 12,
+      backgroundColor: 'rgba(239, 68, 68, 0.12)',
+      paddingHorizontal: 14,
       paddingVertical: 8,
       marginHorizontal: 16,
-      borderRadius: 6,
-      marginBottom: 6,
+      marginBottom: 8,
+      borderRadius: 8,
+      gap: 8,
     },
     warningText: {
-      fontSize: 11,
       color: '#EF4444',
+      fontSize: 12,
       flex: 1,
     },
     inputBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 12,
+      paddingHorizontal: 16,
       paddingTop: 8,
-      borderTopWidth: 1,
-      borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-      gap: 8,
       backgroundColor: colors.bg,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+      gap: 10,
     },
     textInput: {
       flex: 1,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#F1F5F9',
+      minHeight: 40,
+      maxHeight: 100,
+      backgroundColor: colors.cardBg,
       borderRadius: 20,
-      paddingHorizontal: 14,
-      paddingVertical: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
       fontSize: 14,
       color: colors.textWhite,
-      maxHeight: 90,
+      borderWidth: 1,
+      borderColor: colors.divider,
     },
     sendBtn: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      backgroundColor: colors.purpleAccent,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.purple,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    emptyLoungeContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+      paddingVertical: 48,
+      transform: [{ scaleY: -1 }], // Inverts back inside inverted FlatList
+    },
+    emptyLoungeTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.textWhite,
+      textAlign: 'center',
+      marginBottom: 6,
+    },
+    emptyLoungeSub: {
+      fontSize: 13,
+      color: colors.textMuted,
+      textAlign: 'center',
+      lineHeight: 18,
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+      paddingTop: 64,
+    },
+    emptyTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.textWhite,
+      textAlign: 'center',
+      marginBottom: 6,
+    },
+    emptySub: {
+      fontSize: 13,
+      color: colors.textMuted,
+      textAlign: 'center',
+      lineHeight: 18,
     },
     threadCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
-      borderRadius: 12,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#FFFFFF',
+      backgroundColor: colors.cardBg,
+      padding: 14,
+      borderRadius: 14,
       marginBottom: 10,
+      borderWidth: 1,
+      borderColor: colors.divider,
+    },
+    avatarCircle: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarInitial: {
+      color: '#FFF',
+      fontWeight: '700',
+      fontSize: 16,
     },
     reqBtn: {
-      paddingHorizontal: 12,
+      paddingHorizontal: 14,
       paddingVertical: 6,
-      borderRadius: 6,
+      borderRadius: 8,
     },
     reqBtnText: {
       color: '#FFF',
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: '700',
     },
     modalBackdrop: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.65)',
+      backgroundColor: 'rgba(0,0,0,0.6)',
       justifyContent: 'center',
       alignItems: 'center',
       padding: 20,
     },
     actionSheetCard: {
       width: '100%',
-      maxWidth: 340,
-      borderRadius: 16,
+      borderRadius: 18,
       padding: 20,
     },
     avatarCircleLarge: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
       alignItems: 'center',
       justifyContent: 'center',
     },
     avatarInitialLarge: {
       color: '#FFF',
-      fontSize: 22,
       fontWeight: '700',
+      fontSize: 22,
     },
     actionBtnPrimary: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 8,
-      backgroundColor: colors.purpleAccent,
+      backgroundColor: colors.purple,
       paddingVertical: 12,
-      borderRadius: 10,
+      borderRadius: 12,
+      gap: 8,
     },
     actionBtnText: {
       color: '#FFF',
+      fontSize: 14,
       fontWeight: '700',
-      fontSize: 13,
     },
     actionBtnSecondary: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 8,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
       paddingVertical: 12,
-      borderRadius: 10,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F1F5F9',
+      borderRadius: 12,
+      gap: 8,
     },
     actionBtnTextSecondary: {
       color: colors.textWhite,
+      fontSize: 14,
       fontWeight: '600',
-      fontSize: 13,
     },
     reasonOption: {
-      padding: 10,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#E2E8F0',
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 10,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
       marginBottom: 6,
     },
     reasonOptionSelected: {
+      borderWidth: 1,
       borderColor: colors.purpleAccent,
-      backgroundColor: 'rgba(139,92,246,0.1)',
+      backgroundColor: 'rgba(167, 139, 250, 0.1)',
     },
     gatekeeperCard: {
       width: '100%',
-      maxWidth: 360,
       borderRadius: 20,
-      padding: 24,
+      padding: 22,
     },
     ruleItem: {
       flexDirection: 'row',
-      gap: 8,
-      marginBottom: 10,
       alignItems: 'flex-start',
+      gap: 10,
+      marginBottom: 10,
     },
     ruleText: {
-      fontSize: 12,
-      color: colors.textWhite,
       flex: 1,
-      lineHeight: 17,
+      fontSize: 13,
+      color: colors.textWhite,
+      lineHeight: 18,
     },
     mathBox: {
-      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F8FAFC',
-      padding: 12,
-      borderRadius: 10,
-      marginBottom: 14,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+      padding: 14,
+      borderRadius: 12,
+      marginBottom: 16,
     },
     mathInput: {
-      backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : '#FFFFFF',
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1',
+      backgroundColor: colors.cardBg,
       borderRadius: 8,
       paddingHorizontal: 12,
-      paddingVertical: 6,
-      color: colors.textWhite,
-      fontSize: 14,
+      paddingVertical: 8,
       marginTop: 8,
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.textWhite,
+      borderWidth: 1,
+      borderColor: colors.divider,
     },
     avatarChoice: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1486,15 +1723,15 @@ const makeStyles = (colors, isDark) =>
       borderColor: '#FFFFFF',
     },
     primaryBtn: {
-      backgroundColor: colors.purpleAccent,
-      paddingVertical: 13,
-      borderRadius: 12,
+      backgroundColor: colors.purple,
+      paddingVertical: 14,
+      borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
     },
     primaryBtnText: {
       color: '#FFFFFF',
-      fontSize: 14,
+      fontSize: 15,
       fontWeight: '700',
     },
   });

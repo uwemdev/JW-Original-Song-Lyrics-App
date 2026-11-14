@@ -5,6 +5,7 @@ const PROFILE_KEY = '@community_profile';
 const IP_KEY = '@community_user_ip';
 const COUNTRY_KEY = '@community_user_country';
 const ONBOARDED_KEY = '@community_terms_accepted';
+export const JOINED_AT_KEY = '@community_joined_at';
 
 /**
  * Generate randomized BBM-style handle: 1 letter + 5 digits (e.g. U71234)
@@ -14,6 +15,21 @@ export function generateUserHandle() {
   const randomLetter = letters.charAt(Math.floor(Math.random() * letters.length));
   const randomDigits = Math.floor(10000 + Math.random() * 90000).toString();
   return `${randomLetter}${randomDigits}`;
+}
+
+/**
+ * Convert 2-letter ISO country code into Unicode flag regional indicator
+ */
+export function getCountryFlag(countryCode) {
+  if (!countryCode || typeof countryCode !== 'string') return '';
+  const clean = countryCode.trim().toUpperCase();
+  if (clean.length !== 2) return '';
+  const offset = 127397;
+  try {
+    return String.fromCodePoint(clean.charCodeAt(0) + offset, clean.charCodeAt(1) + offset);
+  } catch (_) {
+    return '';
+  }
 }
 
 /**
@@ -161,6 +177,54 @@ export async function checkBanStatus(deviceId) {
 }
 
 /**
+ * Get the timestamp when the current user joined the community
+ */
+export async function getUserJoinedAt(profile) {
+  if (profile?.created_at) {
+    await AsyncStorage.setItem(JOINED_AT_KEY, profile.created_at).catch(() => {});
+    return profile.created_at;
+  }
+  try {
+    const local = await AsyncStorage.getItem(JOINED_AT_KEY);
+    if (local) return local;
+  } catch (_) {}
+  const now = new Date().toISOString();
+  await AsyncStorage.setItem(JOINED_AT_KEY, now).catch(() => {});
+  return now;
+}
+
+/**
+ * Ping user activity timestamp for accurate online user counter
+ */
+export async function pingCommunityActive(deviceId) {
+  if (!deviceId) return;
+  try {
+    await supabase
+      .from('community_profiles')
+      .update({ last_active_at: new Date().toISOString() })
+      .eq('device_id', deviceId);
+  } catch (_) {}
+}
+
+/**
+ * Query number of community members active in the last 3 minutes
+ */
+export async function fetchOnlineUsersCount() {
+  try {
+    const threeMinsAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+    const { count, error } = await supabase
+      .from('community_profiles')
+      .select('device_id', { count: 'exact', head: true })
+      .gte('last_active_at', threeMinsAgo);
+
+    if (error && error.code !== '42P01') throw error;
+    return Math.max(1, count || 1);
+  } catch (_) {
+    return 1;
+  }
+}
+
+/**
  * Retrieve or initialize community profile for device
  */
 export async function getOrCreateCommunityProfile(deviceId) {
@@ -171,7 +235,12 @@ export async function getOrCreateCommunityProfile(deviceId) {
     const localRaw = await AsyncStorage.getItem(PROFILE_KEY);
     if (localRaw) {
       const localProfile = JSON.parse(localRaw);
-      if (localProfile?.handle) return localProfile;
+      if (localProfile?.handle) {
+        if (localProfile.created_at) {
+          await AsyncStorage.setItem(JOINED_AT_KEY, localProfile.created_at).catch(() => {});
+        }
+        return localProfile;
+      }
     }
 
     // 2. Check remote database
@@ -183,6 +252,9 @@ export async function getOrCreateCommunityProfile(deviceId) {
 
     if (remoteData) {
       await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(remoteData));
+      if (remoteData.created_at) {
+        await AsyncStorage.setItem(JOINED_AT_KEY, remoteData.created_at).catch(() => {});
+      }
       return remoteData;
     }
 
@@ -190,6 +262,7 @@ export async function getOrCreateCommunityProfile(deviceId) {
     const geo = await resolveUserCountryAndIp();
     const newHandle = generateUserHandle();
     const randomAvatarId = Math.floor(Math.random() * 12) + 1;
+    const nowIso = new Date().toISOString();
 
     const newProfile = {
       device_id: deviceId,
@@ -200,6 +273,8 @@ export async function getOrCreateCommunityProfile(deviceId) {
       country_code: geo.code || 'US',
       ip_address: geo.ip || null,
       is_banned: false,
+      last_active_at: nowIso,
+      created_at: nowIso,
     };
 
     const { data: inserted, error: insertError } = await supabase
@@ -210,6 +285,7 @@ export async function getOrCreateCommunityProfile(deviceId) {
 
     const result = inserted || newProfile;
     await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(result));
+    await AsyncStorage.setItem(JOINED_AT_KEY, result.created_at || nowIso).catch(() => {});
     return result;
   } catch (err) {
     console.warn('[Community] Profile retrieval fallback:', err?.message || err);
@@ -220,6 +296,7 @@ export async function getOrCreateCommunityProfile(deviceId) {
       star_level: 1,
       country_code: 'US',
       country_name: 'Global',
+      created_at: new Date().toISOString(),
     };
   }
 }

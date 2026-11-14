@@ -173,3 +173,49 @@ CREATE POLICY "Admins can view and manage reports"
   ON public.community_reports FOR ALL
   USING (auth.role() = 'authenticated')
   WITH CHECK (auth.role() = 'authenticated');
+
+
+-- 7. Realtime Replication Publication
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'community_group_messages'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.community_group_messages;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'community_direct_messages'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.community_direct_messages;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'community_direct_threads'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.community_direct_threads;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'community_profiles'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.community_profiles;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'community_reports'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.community_reports;
+  END IF;
+END $$;
+
+ALTER TABLE public.community_group_messages REPLICA IDENTITY FULL;
+ALTER TABLE public.community_direct_messages REPLICA IDENTITY FULL;
+ALTER TABLE public.community_direct_threads REPLICA IDENTITY FULL;
+ALTER TABLE public.community_profiles REPLICA IDENTITY FULL;
+ALTER TABLE public.community_reports REPLICA IDENTITY FULL;
