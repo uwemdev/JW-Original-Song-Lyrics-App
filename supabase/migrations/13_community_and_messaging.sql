@@ -19,16 +19,28 @@ CREATE TABLE IF NOT EXISTS public.community_profiles (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Ensure all columns exist on community_profiles if created previously
+ALTER TABLE public.community_profiles ADD COLUMN IF NOT EXISTS is_banned BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.community_profiles ADD COLUMN IF NOT EXISTS banned_until TIMESTAMPTZ;
+ALTER TABLE public.community_profiles ADD COLUMN IF NOT EXISTS ban_reason TEXT;
+ALTER TABLE public.community_profiles ADD COLUMN IF NOT EXISTS country_name TEXT;
+ALTER TABLE public.community_profiles ADD COLUMN IF NOT EXISTS country_code TEXT;
+ALTER TABLE public.community_profiles ADD COLUMN IF NOT EXISTS ip_address TEXT;
+ALTER TABLE public.community_profiles ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE public.community_profiles ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ DEFAULT now();
+
 CREATE INDEX IF NOT EXISTS idx_community_profiles_handle ON public.community_profiles(handle);
 CREATE INDEX IF NOT EXISTS idx_community_profiles_ip ON public.community_profiles(ip_address);
 CREATE INDEX IF NOT EXISTS idx_community_profiles_last_active ON public.community_profiles(last_active_at DESC);
 
 ALTER TABLE public.community_profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view active profiles" ON public.community_profiles;
 CREATE POLICY "Anyone can view active profiles"
   ON public.community_profiles FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "Users can create or update own profile" ON public.community_profiles;
 CREATE POLICY "Users can create or update own profile"
   ON public.community_profiles FOR ALL
   USING (true)
@@ -46,16 +58,38 @@ CREATE TABLE IF NOT EXISTS public.community_bans (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Ensure banned_until exists on community_bans (auto-migrate if expires_at was used previously)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'community_bans' AND column_name = 'expires_at'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'community_bans' AND column_name = 'banned_until'
+  ) THEN
+    ALTER TABLE public.community_bans RENAME COLUMN expires_at TO banned_until;
+  END IF;
+END $$;
+
+ALTER TABLE public.community_bans ADD COLUMN IF NOT EXISTS banned_until TIMESTAMPTZ;
+ALTER TABLE public.community_bans ADD COLUMN IF NOT EXISTS reason TEXT;
+ALTER TABLE public.community_bans ADD COLUMN IF NOT EXISTS banned_by TEXT DEFAULT 'admin';
+ALTER TABLE public.community_bans ADD COLUMN IF NOT EXISTS device_id TEXT;
+ALTER TABLE public.community_bans ADD COLUMN IF NOT EXISTS ip_address TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_community_bans_device ON public.community_bans(device_id);
 CREATE INDEX IF NOT EXISTS idx_community_bans_ip ON public.community_bans(ip_address);
 CREATE INDEX IF NOT EXISTS idx_community_bans_until ON public.community_bans(banned_until);
 
 ALTER TABLE public.community_bans ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read bans to check status" ON public.community_bans;
 CREATE POLICY "Anyone can read bans to check status"
   ON public.community_bans FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "Admins can manage bans" ON public.community_bans;
 CREATE POLICY "Admins can manage bans"
   ON public.community_bans FOR ALL
   USING (auth.role() = 'authenticated')
@@ -80,14 +114,17 @@ CREATE INDEX IF NOT EXISTS idx_community_group_messages_sender ON public.communi
 
 ALTER TABLE public.community_group_messages ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read group messages" ON public.community_group_messages;
 CREATE POLICY "Anyone can read group messages"
   ON public.community_group_messages FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "Anyone can post group messages" ON public.community_group_messages;
 CREATE POLICY "Anyone can post group messages"
   ON public.community_group_messages FOR INSERT
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Admins can delete group messages" ON public.community_group_messages;
 CREATE POLICY "Admins can delete group messages"
   ON public.community_group_messages FOR DELETE
   USING (auth.role() = 'authenticated');
@@ -111,6 +148,7 @@ CREATE INDEX IF NOT EXISTS idx_direct_threads_status ON public.community_direct_
 
 ALTER TABLE public.community_direct_threads ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can access their own threads" ON public.community_direct_threads;
 CREATE POLICY "Users can access their own threads"
   ON public.community_direct_threads FOR ALL
   USING (true)
@@ -132,6 +170,7 @@ CREATE INDEX IF NOT EXISTS idx_direct_messages_sender ON public.community_direct
 
 ALTER TABLE public.community_direct_messages ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can access messages in their threads" ON public.community_direct_messages;
 CREATE POLICY "Users can access messages in their threads"
   ON public.community_direct_messages FOR ALL
   USING (true)
@@ -157,10 +196,12 @@ CREATE INDEX IF NOT EXISTS idx_community_reports_created ON public.community_rep
 
 ALTER TABLE public.community_reports ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can submit a report" ON public.community_reports;
 CREATE POLICY "Anyone can submit a report"
   ON public.community_reports FOR INSERT
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Admins can view and manage reports" ON public.community_reports;
 CREATE POLICY "Admins can view and manage reports"
   ON public.community_reports FOR ALL
   USING (auth.role() = 'authenticated')
