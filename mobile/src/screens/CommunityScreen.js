@@ -1370,16 +1370,6 @@ export default function CommunityScreen({ navigation, route }) {
 
         {/* Top Right Constant Action Icons */}
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {/* WhatsApp-style Chat Theme Switcher */}
-          <TouchableOpacity
-            style={[styles.headerIconBtn, { marginRight: 10 }]}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={() => setShowWallpaperModal(true)}
-            accessibilityLabel="Chat Theme"
-          >
-            <Palette color={myBubbleBg} size={19} />
-          </TouchableOpacity>
-
           {/* Community Profile & Settings Button */}
           <TouchableOpacity
             style={[styles.headerProfileBtn, { marginRight: 10 }]}
@@ -1797,22 +1787,12 @@ export default function CommunityScreen({ navigation, route }) {
                           activeOpacity={0.75}
                         >
                           <View style={styles.wallpaperPickerSwatch}>
-                            <LinearGradient
-                              colors={gradient}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 0.3, y: 1 }}
-                              pointerEvents="none"
-                              style={StyleSheet.absoluteFillObject}
+                            <ChatWallpaperBackground
+                              wallpaperId={wp.id}
+                              isDark={isDark}
+                              colors={colors}
+                              preview
                             />
-
-                            {wp.imageUrl ? (
-                              <Image
-                                source={{ uri: wp.imageUrl }}
-                                style={[StyleSheet.absoluteFillObject, { opacity: 0.88 }]}
-                                resizeMode="cover"
-                                pointerEvents="none"
-                              />
-                            ) : null}
 
                             <View style={styles.miniSwatchChat} pointerEvents="none">
                               <View

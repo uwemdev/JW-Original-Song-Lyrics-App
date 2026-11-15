@@ -172,22 +172,12 @@ export default function WallpaperPickerModal({ visible, onClose }) {
                           activeOpacity={0.8}
                         >
                           {/* Miniature Phone Wallpaper Background */}
-                          <LinearGradient
-                            colors={gradient}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 0.3, y: 1 }}
-                            pointerEvents="none"
-                            style={StyleSheet.absoluteFillObject}
+                          <ChatWallpaperBackground
+                            wallpaperId={wp.id}
+                            isDark={isDark}
+                            colors={colors}
+                            preview
                           />
-
-                          {wp.imageUrl ? (
-                            <Image
-                              source={{ uri: wp.imageUrl }}
-                              style={[StyleSheet.absoluteFillObject, { opacity: 0.88 }]}
-                              resizeMode="cover"
-                              pointerEvents="none"
-                            />
-                          ) : null}
 
                           {/* Mini Speech Bubbles inside Card */}
                           <View style={styles.miniChatContainer} pointerEvents="none">
