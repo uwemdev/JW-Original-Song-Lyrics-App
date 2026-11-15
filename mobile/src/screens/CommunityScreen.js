@@ -37,7 +37,6 @@ import {
   RefreshCw,
   Search,
   CheckCircle2,
-  CheckCheck,
   Lock,
   Bell,
   Settings,
@@ -46,10 +45,9 @@ import {
   Sparkles,
   Palette,
 } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSettings } from '../context/SettingsContext';
 import { useAudio } from '../context/AudioContext';
-import { WALLPAPERS, getWallpaperName, getWallpaperById } from '../lib/wallpapers';
+import { WALLPAPERS, getWallpaperById } from '../lib/wallpapers';
 import ChatWallpaperBackground from '../components/ChatWallpaperBackground';
 import WallpaperPickerModal from '../components/WallpaperPickerModal';
 import {
@@ -1002,10 +1000,10 @@ export default function CommunityScreen({ navigation, route }) {
                   >
                     {!isMe && (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                        <Text style={[styles.senderHandle, { color: avatar.text || avatar.bg }]}>
+                        <Text style={[styles.senderHandle, { color: isDark ? '#C4B5FD' : '#5B21B6' }]}>
                           {item.sender_handle}
                         </Text>
-                        {renderStarBadges(item.sender_star_level)}
+                        <Text style={styles.messageLevel}>Level {Math.max(1, Math.min(5, item.sender_star_level || 1))}</Text>
                         {item.sender_country_code ? (
                           <Text style={styles.countryFlagText}>
                             {getCountryFlag(item.sender_country_code)}
@@ -1028,9 +1026,7 @@ export default function CommunityScreen({ navigation, route }) {
                         {formatMessageTime(item.created_at)}
                       </Text>
                       {isMe && (
-                        <View style={{ marginLeft: 3, marginBottom: 1 }}>
-                          <CheckCheck size={13} color="rgba(255,255,255,0.7)" />
-                        </View>
+                        <Text style={[styles.messageTime, styles.messageTimeMe, { marginLeft: 5 }]}>Sent</Text>
                       )}
                     </View>
                   </View>
@@ -1242,13 +1238,9 @@ export default function CommunityScreen({ navigation, route }) {
                         {formatMessageTime(item.created_at)}
                       </Text>
                       {isMe && (
-                        <View style={{ marginLeft: 3, marginBottom: 1 }}>
-                          {item.is_read ? (
-                            <CheckCheck size={13} color="#38BDF8" />
-                          ) : (
-                            <CheckCheck size={13} color="rgba(255,255,255,0.7)" />
-                          )}
-                        </View>
+                        <Text style={[styles.messageTime, styles.messageTimeMe, { marginLeft: 5 }]}>
+                          {item.is_read ? 'Read' : 'Sent'}
+                        </Text>
                       )}
                     </View>
                   </View>
@@ -1756,7 +1748,7 @@ export default function CommunityScreen({ navigation, route }) {
                     >
                       <Palette size={13} color={colors.purpleAccent} />
                       <Text style={{ fontSize: 12, color: colors.purpleAccent, fontWeight: '700' }}>
-                        Browse All (16)
+                        Browse All ({WALLPAPERS.length})
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -1770,8 +1762,7 @@ export default function CommunityScreen({ navigation, route }) {
                     contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
                   >
                     {WALLPAPERS.map((wp) => {
-                      const isSelected = wp.id === (chatWallpaper || 'default');
-                      const gradient = isDark ? wp.darkGradient : wp.lightGradient;
+                      const isSelected = wp.id === currentTheme.id;
                       return (
                         <TouchableOpacity
                           key={wp.id}
@@ -2113,6 +2104,10 @@ const makeStyles = (colors, isDark) =>
       fontSize: 12,
       fontWeight: '700',
     },
+    messageLevel: {
+      fontSize: 10,
+      color: isDark ? '#FDE68A' : '#92400E',
+    },
     countryFlagText: {
       fontSize: 13,
       marginLeft: 2,
@@ -2137,12 +2132,12 @@ const makeStyles = (colors, isDark) =>
       color: colors.textMuted,
     },
     messageTimeMe: {
-      color: 'rgba(255,255,255,0.75)',
+      color: '#FFFFFF',
     },
     privateNoticeCard: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      backgroundColor: 'rgba(245, 158, 11, 0.08)',
+      backgroundColor: isDark ? '#1F1B2E' : '#FFFFFF',
       paddingHorizontal: 14,
       paddingVertical: 10,
       marginHorizontal: 16,
@@ -2212,6 +2207,8 @@ const makeStyles = (colors, isDark) =>
       justifyContent: 'center',
       paddingHorizontal: 32,
       paddingVertical: 48,
+      backgroundColor: isDark ? '#1F1B2E' : '#FFFFFF',
+      borderRadius: 16,
       transform: [{ scaleY: -1 }],
     },
     emptyLoungeTitle: {

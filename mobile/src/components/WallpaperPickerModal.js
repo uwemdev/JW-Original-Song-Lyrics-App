@@ -1,48 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   Modal,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { X, Check, Sparkles, ArrowLeft } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Check, ArrowLeft } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 import { WALLPAPERS, THEME_CATEGORIES, getWallpaperById } from '../lib/wallpapers';
 import ChatWallpaperBackground from './ChatWallpaperBackground';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
 export default function WallpaperPickerModal({ visible, onClose }) {
   const { colors, isDark, chatWallpaper, setChatWallpaper } = useSettings();
-  const [selectedWallpaperId, setSelectedWallpaperId] = useState(chatWallpaper || 'default');
-
-  useEffect(() => {
-    if (visible) {
-      setSelectedWallpaperId(chatWallpaper || 'default');
-    }
-  }, [visible, chatWallpaper]);
-
-  const currentWallpaper = getWallpaperById(selectedWallpaperId);
-
-  const handleSelectWallpaper = (id) => {
-    setSelectedWallpaperId(id);
-    setChatWallpaper(id);
-  };
+  const insets = useSafeAreaInsets();
+  const currentWallpaper = getWallpaperById(chatWallpaper);
+  const selectedWallpaperId = currentWallpaper.id;
 
   return (
     <Modal
-      transparent
       animationType="slide"
+      presentationStyle="fullScreen"
       visible={visible}
       onRequestClose={onClose}
     >
       <View style={styles.backdrop}>
-        <View style={[styles.modalCard, { backgroundColor: isDark ? '#110D1D' : '#FFFFFF' }]}>
+        <View style={[styles.modalCard, { backgroundColor: isDark ? '#110D1D' : '#FFFFFF', paddingTop: insets.top + 8 }]}>
           {/* Header styled like WhatsApp */}
           <View style={[styles.header, { borderBottomColor: colors.divider }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -86,12 +71,12 @@ export default function WallpaperPickerModal({ visible, onClose }) {
                   style={[
                     styles.previewBubbleThem,
                     {
-                      backgroundColor: isDark ? 'rgba(31, 27, 46, 0.95)' : '#FFFFFF',
+                      backgroundColor: isDark ? '#1F1B2E' : '#FFFFFF',
                       borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
                     },
                   ]}
                 >
-                  <Text style={[styles.previewHandle, { color: currentWallpaper.bubbleColor }]}>
+                  <Text style={[styles.previewHandle, { color: isDark ? '#C4B5FD' : '#5B21B6' }]}>
                     Community Brother
                   </Text>
                   <Text style={[styles.previewMsgText, { color: colors.textWhite }]}>
@@ -112,7 +97,7 @@ export default function WallpaperPickerModal({ visible, onClose }) {
                   <Text style={[styles.previewMsgText, { color: currentWallpaper.bubbleTextColor || '#FFFFFF' }]}>
                     Thank you! The melodies always bring comfort.
                   </Text>
-                  <Text style={[styles.previewTime, { color: 'rgba(255,255,255,0.85)' }]}>
+                  <Text style={[styles.previewTime, { color: '#FFFFFF' }]}>
                     8:16 AM
                   </Text>
                 </View>
@@ -136,7 +121,7 @@ export default function WallpaperPickerModal({ visible, onClose }) {
           {/* Categorized WhatsApp-style Phone Themes */}
           <ScrollView
             style={styles.listScroll}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 24 }]}
             showsVerticalScrollIndicator={false}
           >
             {THEME_CATEGORIES.map((category) => {
@@ -156,12 +141,13 @@ export default function WallpaperPickerModal({ visible, onClose }) {
                   >
                     {themes.map((wp) => {
                       const isSelected = wp.id === selectedWallpaperId;
-                      const gradient = isDark ? wp.darkGradient : wp.lightGradient;
-
                       return (
                         <TouchableOpacity
                           key={wp.id}
-                          onPress={() => handleSelectWallpaper(wp.id)}
+                          onPress={() => setChatWallpaper(wp.id)}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: isSelected }}
+                          accessibilityLabel={`${wp.name}. ${wp.subtitle}`}
                           style={[
                             styles.phoneCard,
                             {
@@ -210,10 +196,7 @@ export default function WallpaperPickerModal({ visible, onClose }) {
 
                           <View style={styles.cardFooter} pointerEvents="none">
                             <Text
-                              style={[
-                                styles.phoneCardLabel,
-                                { color: isSelected ? wp.bubbleColor : colors.textWhite },
-                              ]}
+                              style={styles.phoneCardLabel}
                               numberOfLines={1}
                             >
                               {wp.name}
@@ -241,10 +224,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: '100%',
-    height: '92%',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 16,
+    flex: 1,
     overflow: 'hidden',
   },
   header: {
@@ -419,12 +399,13 @@ const styles = StyleSheet.create({
   cardFooter: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: '#1F1B2E',
     borderRadius: 8,
     paddingVertical: 2,
     paddingHorizontal: 4,
   },
   phoneCardLabel: {
+    color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '700',
     textAlign: 'center',

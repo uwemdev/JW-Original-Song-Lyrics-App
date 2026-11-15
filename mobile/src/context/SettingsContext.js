@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useColorScheme, AppState, Platform } from 'react-native';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { useColorScheme, AppState, Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { supabase } from '../lib/supabase';
@@ -73,6 +73,8 @@ export function SettingsProvider({ children }) {
   const [sundayMeetingReminder, setSundayMeetingReminderState] = useState(DEFAULTS.sundayMeetingReminder);
   const [inactivityReminders, setInactivityRemindersState] = useState(DEFAULTS.inactivityReminders);
   const [chatWallpaper, setChatWallpaperState] = useState(DEFAULTS.chatWallpaper);
+  const wallpaperChanged = useRef(false);
+  const wallpaperWrites = useRef(Promise.resolve());
   const [deviceId, setDeviceIdState] = useState(null);
   const [hasUnreadFeedback, setHasUnreadFeedback] = useState(false);
   const [installDate, setInstallDate] = useState(null);
@@ -110,7 +112,7 @@ export function SettingsProvider({ children }) {
         if (map[KEYS.inactivityReminders] !== undefined) setInactivityRemindersState(map[KEYS.inactivityReminders] !== 'false');
         scheduleSundayMeetingReminder(map[KEYS.sundayMeetingReminder] !== 'false');
         scheduleInactivityReminders(map[KEYS.inactivityReminders] !== 'false');
-        if (map[KEYS.chatWallpaper]) setChatWallpaperState(map[KEYS.chatWallpaper]);
+        if (map[KEYS.chatWallpaper] && !wallpaperChanged.current) setChatWallpaperState(map[KEYS.chatWallpaper]);
 
         if (map[KEYS.deviceId]) {
           setDeviceIdState(map[KEYS.deviceId]);
@@ -377,9 +379,17 @@ export function SettingsProvider({ children }) {
     scheduleInactivityReminders(val);
   }, []);
 
-  const setChatWallpaper = useCallback(async (val) => {
+  const setChatWallpaper = useCallback((val) => {
+    wallpaperChanged.current = true;
     setChatWallpaperState(val);
-    await AsyncStorage.setItem(KEYS.chatWallpaper, val);
+    wallpaperWrites.current = wallpaperWrites.current.then(async () => {
+      try {
+        await AsyncStorage.setItem(KEYS.chatWallpaper, val);
+      } catch (err) {
+        console.warn('[Settings] Could not save chat theme:', err);
+        Alert.alert('Could not save chat theme', 'Your selection may not be available after restarting the app. Please try again.');
+      }
+    });
   }, []);
 
   const dismissNotification = useCallback(async (idOrIds) => {
@@ -394,6 +404,8 @@ export function SettingsProvider({ children }) {
   // Reset all settings + app data
   const resetAllData = useCallback(async () => {
     try {
+      wallpaperChanged.current = true;
+      await wallpaperWrites.current;
       await AsyncStorage.multiRemove([
         ...Object.values(KEYS),
         '@favorites',

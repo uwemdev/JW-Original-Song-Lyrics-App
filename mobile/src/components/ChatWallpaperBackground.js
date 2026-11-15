@@ -1,89 +1,101 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getWallpaperById } from '../lib/wallpapers';
 
-export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, preview = false }) {
-  const wallpaper = useMemo(() => getWallpaperById(wallpaperId), [wallpaperId]);
-  const defaultBg = colors?.bg || (isDark ? '#0F0A1A' : '#FFFFFF');
+const PALM_CANOPIES = [
+  { left: '-25%', bottom: '38%', transform: [{ rotate: '-18deg' }] },
+  { left: '3%', bottom: '38%', transform: [{ rotate: '20deg' }] },
+  { right: '-26%', bottom: '32%', transform: [{ rotate: '18deg' }] },
+  { right: '2%', bottom: '32%', transform: [{ rotate: '-20deg' }] },
+];
+const FOREST_CANOPIES = [
+  { left: '-20%', bottom: '12%' },
+  { left: '6%', bottom: '18%' },
+  { left: '32%', bottom: '10%' },
+  { right: '-20%', bottom: '17%' },
+];
 
-  if (!wallpaper || wallpaper.id === 'pitch_black') {
+function Scenery({ type, isDark }) {
+  const silhouette = isDark ? '#071A30' : '#38526B';
+  const glow = isDark ? '#FFFFFF' : '#FFF8E8';
+
+  if (type === 'dunes' || type === 'ocean') {
     return (
-      <View
-        pointerEvents="none"
-        style={[
-          styles.container,
-          { backgroundColor: isDark ? '#000000' : '#F8FAFC' },
-        ]}
-      />
+      <>
+        <View style={[styles.duneBack, { backgroundColor: silhouette, opacity: type === 'ocean' ? 0.18 : 0.25 }]} />
+        <View style={[styles.duneFront, { backgroundColor: silhouette, opacity: type === 'ocean' ? 0.24 : 0.4 }]} />
+      </>
     );
   }
 
-  const gradientColors = isDark ? wallpaper.darkGradient : wallpaper.lightGradient;
-  const safeColors =
-    Array.isArray(gradientColors) && gradientColors.length >= 2
-      ? gradientColors
-      : [defaultBg, defaultBg];
+  if (type === 'mountains') {
+    return (
+      <>
+        <View style={[styles.mountainBack, { backgroundColor: silhouette, opacity: 0.24 }]} />
+        <View style={[styles.mountainFront, { backgroundColor: silhouette, opacity: 0.42 }]} />
+      </>
+    );
+  }
+
+  if (type === 'aurora') {
+    return (
+      <>
+        <View style={[styles.auroraBand, styles.auroraBack, { backgroundColor: glow }]} />
+        <View style={[styles.auroraBand, styles.auroraFront, { backgroundColor: glow }]} />
+      </>
+    );
+  }
+
+  if (type === 'sunset') {
+    return (
+      <>
+        <View style={[styles.sunGlow, { backgroundColor: glow }]} />
+        <View style={[styles.sun, { backgroundColor: glow }]} />
+        <View style={[styles.horizon, { backgroundColor: silhouette }]} />
+      </>
+    );
+  }
+
+  if (type === 'palms' || type === 'forest') {
+    return (
+      <>
+        <View style={[styles.canopyGround, { backgroundColor: silhouette }]} />
+        {(type === 'palms' ? PALM_CANOPIES : FOREST_CANOPIES).map((position, index) => (
+          <View key={index} style={[styles.canopy, position, { backgroundColor: silhouette }]} />
+        ))}
+        {type === 'palms' && (
+          <>
+            <View style={[styles.palmTrunk, styles.trunkLeft, { backgroundColor: silhouette }]} />
+            <View style={[styles.palmTrunk, styles.trunkRight, { backgroundColor: silhouette }]} />
+          </>
+        )}
+      </>
+    );
+  }
+
+  return <View style={[styles.minimalGlow, { backgroundColor: glow }]} />;
+}
+
+export default function ChatWallpaperBackground({ wallpaperId, isDark }) {
+  const wallpaper = getWallpaperById(wallpaperId);
 
   return (
     <View pointerEvents="none" style={styles.container}>
-      {/* 1. Primary atmospheric gradient */}
       <LinearGradient
-        colors={safeColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
-        pointerEvents="none"
+        colors={isDark ? wallpaper.darkGradient : wallpaper.lightGradient}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
-
-      {/* 2. Top-right ambient lighting orb */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: wallpaper.previewColors[0], opacity: 0.17 }]} />
+      <Scenery type={wallpaper.landscapeType} isDark={isDark} />
       <View
-        pointerEvents="none"
         style={[
-          styles.ambientOrbTop,
-          {
-            backgroundColor: isDark
-              ? 'rgba(255, 255, 255, 0.09)'
-              : 'rgba(255, 255, 255, 0.25)',
-          },
+          StyleSheet.absoluteFillObject,
+          { backgroundColor: isDark ? 'rgba(15, 10, 26, 0.35)' : 'rgba(255, 255, 255, 0.12)' },
         ]}
       />
-
-      {/* 3. Bottom-left ambient illumination orb */}
-      <View
-        pointerEvents="none"
-        style={[
-          styles.ambientOrbBottom,
-          {
-            backgroundColor: isDark
-              ? 'rgba(255, 255, 255, 0.06)'
-              : 'rgba(255, 255, 255, 0.18)',
-          },
-        ]}
-      />
-
-      {/* 4. Subtle diagonal light sweep */}
-      <View
-        pointerEvents="none"
-        style={[
-          styles.lightSweep,
-          {
-            backgroundColor: isDark
-              ? 'rgba(255, 255, 255, 0.04)'
-              : 'rgba(255, 255, 255, 0.14)',
-          },
-        ]}
-      />
-
-      {/* 5. Delicate decorative stardust specks */}
-      <View pointerEvents="none" style={styles.dustContainer}>
-        <View style={[styles.dustDot, { top: '15%', left: '20%', opacity: isDark ? 0.45 : 0.25 }]} />
-        <View style={[styles.dustDot, { top: '25%', right: '18%', width: 4, height: 4, borderRadius: 2, opacity: isDark ? 0.5 : 0.3 }]} />
-        <View style={[styles.dustDot, { top: '48%', left: '12%', width: 3, height: 3, borderRadius: 1.5, opacity: isDark ? 0.4 : 0.2 }]} />
-        <View style={[styles.dustDot, { top: '62%', right: '24%', width: 5, height: 5, borderRadius: 2.5, opacity: isDark ? 0.55 : 0.3 }]} />
-        <View style={[styles.dustDot, { top: '78%', left: '30%', opacity: isDark ? 0.45 : 0.25 }]} />
-        <View style={[styles.dustDot, { top: '88%', right: '15%', width: 3.5, height: 3.5, borderRadius: 1.75, opacity: isDark ? 0.4 : 0.2 }]} />
-      </View>
     </View>
   );
 }
@@ -91,43 +103,54 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
     overflow: 'hidden',
   },
-  ambientOrbTop: {
-    position: 'absolute',
-    top: -50,
-    right: -40,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+  duneBack: {
+    position: 'absolute', left: '-30%', bottom: '-4%', width: '150%', height: '38%',
+    borderTopLeftRadius: 300, borderTopRightRadius: 300, transform: [{ rotate: '-9deg' }],
   },
-  ambientOrbBottom: {
-    position: 'absolute',
-    bottom: -60,
-    left: -50,
-    width: 280,
-    height: 280,
-    borderRadius: 140,
+  duneFront: {
+    position: 'absolute', left: '-25%', bottom: '-13%', width: '150%', height: '38%',
+    borderTopLeftRadius: 300, borderTopRightRadius: 300, transform: [{ rotate: '8deg' }],
   },
-  lightSweep: {
-    position: 'absolute',
-    top: '38%',
-    left: -80,
-    right: -80,
-    height: 120,
-    borderRadius: 60,
-    transform: [{ rotate: '-18deg' }],
+  mountainBack: {
+    position: 'absolute', left: '-28%', bottom: '-24%', width: '100%', height: '60%',
+    borderRadius: 28, transform: [{ rotate: '45deg' }],
   },
-  dustContainer: {
-    ...StyleSheet.absoluteFillObject,
+  mountainFront: {
+    position: 'absolute', right: '-35%', bottom: '-28%', width: '110%', height: '60%',
+    borderRadius: 28, transform: [{ rotate: '-45deg' }],
   },
-  dustDot: {
-    position: 'absolute',
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: '#FFFFFF',
+  auroraBand: {
+    position: 'absolute', left: '-25%', width: '150%', height: '13%',
+    borderRadius: 100, transform: [{ rotate: '-12deg' }],
+  },
+  auroraBack: { top: '18%', opacity: 0.17 },
+  auroraFront: { top: '31%', opacity: 0.1 },
+  sunGlow: {
+    position: 'absolute', width: '80%', height: '40%', left: '10%', bottom: '14%',
+    borderRadius: 300, opacity: 0.13,
+  },
+  sun: {
+    position: 'absolute', width: '48%', height: '24%', left: '26%', bottom: '18%',
+    borderRadius: 300, opacity: 0.35,
+  },
+  horizon: {
+    position: 'absolute', left: 0, right: 0, bottom: 0, height: '25%', opacity: 0.32,
+  },
+  canopyGround: {
+    position: 'absolute', left: 0, right: 0, bottom: 0, height: '18%', opacity: 0.4,
+  },
+  canopy: {
+    position: 'absolute', width: '55%', height: '24%', borderRadius: 200, opacity: 0.36,
+  },
+  palmTrunk: {
+    position: 'absolute', width: '5%', height: '45%', bottom: '8%', opacity: 0.4, borderRadius: 20,
+  },
+  trunkLeft: { left: '15%', transform: [{ rotate: '8deg' }] },
+  trunkRight: { right: '15%', transform: [{ rotate: '-8deg' }] },
+  minimalGlow: {
+    position: 'absolute', width: '100%', height: '30%', top: '10%', left: '30%',
+    borderRadius: 300, opacity: 0.08,
   },
 });
