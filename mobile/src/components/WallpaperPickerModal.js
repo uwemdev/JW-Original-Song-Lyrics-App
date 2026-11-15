@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   Modal,
   TouchableOpacity,
@@ -178,6 +179,15 @@ export default function WallpaperPickerModal({ visible, onClose }) {
                             pointerEvents="none"
                             style={StyleSheet.absoluteFillObject}
                           />
+
+                          {wp.imageUrl ? (
+                            <Image
+                              source={{ uri: wp.imageUrl }}
+                              style={[StyleSheet.absoluteFillObject, { opacity: 0.88 }]}
+                              resizeMode="cover"
+                              pointerEvents="none"
+                            />
+                          ) : null}
 
                           {/* Mini Speech Bubbles inside Card */}
                           <View style={styles.miniChatContainer} pointerEvents="none">

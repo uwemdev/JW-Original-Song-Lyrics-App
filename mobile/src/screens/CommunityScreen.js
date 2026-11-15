@@ -1805,6 +1805,15 @@ export default function CommunityScreen({ navigation, route }) {
                               style={StyleSheet.absoluteFillObject}
                             />
 
+                            {wp.imageUrl ? (
+                              <Image
+                                source={{ uri: wp.imageUrl }}
+                                style={[StyleSheet.absoluteFillObject, { opacity: 0.88 }]}
+                                resizeMode="cover"
+                                pointerEvents="none"
+                              />
+                            ) : null}
+
                             <View style={styles.miniSwatchChat} pointerEvents="none">
                               <View
                                 style={[
