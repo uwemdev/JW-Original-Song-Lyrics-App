@@ -35,6 +35,7 @@ import { AudioProvider } from './src/context/AudioContext';
 import { PlaylistProvider } from './src/context/PlaylistContext';
 import PlaylistScreen from './src/screens/PlaylistScreen';
 import MiniPlayer from './src/components/MiniPlayer';
+import { getTabBarHeight } from './src/lib/bottomDock';
 
 const Tab = createBottomTabNavigator();
 const HomeStackNav = createNativeStackNavigator();
@@ -232,11 +233,11 @@ function SettingsStackScreen() {
 function MainTabs() {
   const { colors, isDark, hasUnreadFeedback } = useSettings();
   const insets = useSafeAreaInsets();
-  const ACTIVE_COLOR = colors.purpleAccent;
+  const ACTIVE_COLOR = isDark ? colors.purpleAccent : colors.purple;
   const INACTIVE_COLOR = colors.textMuted;
   const tabBg = isDark ? 'rgba(12, 10, 24, 0.97)' : 'rgba(255, 255, 255, 0.97)';
 
-  const tabHeight = (Platform.OS === 'ios' ? 88 : 72) + insets.bottom;
+  const tabHeight = getTabBarHeight(Platform.OS, insets.bottom);
   const paddingBottom = (Platform.OS === 'ios' ? 28 : 12) + insets.bottom;
 
   return (
@@ -248,7 +249,8 @@ function MainTabs() {
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: tabBg,
-          borderTopWidth: 0,
+          borderTopWidth: 1,
+          borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)',
           elevation: 0,
           position: 'absolute',
           height: tabHeight,
@@ -258,13 +260,14 @@ function MainTabs() {
         tabBarActiveTintColor: ACTIVE_COLOR,
         tabBarInactiveTintColor: INACTIVE_COLOR,
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '600',
           marginTop: 2,
         },
+        tabBarItemStyle: {
+          paddingHorizontal: 2,
+        },
         tabBarIcon: ({ color, focused }) => {
-          const size = route.name === 'Home' ? 24 : 22;
-
           let IconComponent;
           if (route.name === 'Search') IconComponent = Search;
           else if (route.name === 'Categories') IconComponent = LayoutGrid;
@@ -272,24 +275,22 @@ function MainTabs() {
           else if (route.name === 'Favorites') IconComponent = Heart;
           else if (route.name === 'Settings') IconComponent = Settings;
 
-          // Elevated Home tab
-          if (route.name === 'Home') {
-            return (
-              <View style={styles.homeTabWrap}>
-                <View style={[styles.homeTabCircle, focused && { backgroundColor: colors.purple, ...Platform.select({ ios: { shadowColor: colors.purple, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 10 }, android: { elevation: 8 } }) }]}>
-                  <IconComponent color="#FFF" size={size} strokeWidth={2.5} />
-                </View>
-              </View>
-            );
-          }
-
-          return <IconComponent color={color} size={size} strokeWidth={2} />;
+          return (
+            <View
+              style={[
+                styles.tabIconPill,
+                focused && { backgroundColor: isDark ? 'rgba(167,139,250,0.18)' : 'rgba(109,40,217,0.12)' },
+              ]}
+            >
+              <IconComponent color={color} size={21} strokeWidth={focused ? 2.5 : 2} />
+            </View>
+          );
         },
       })}
     >
       <Tab.Screen name="Search" component={SearchStackScreen} options={{ tabBarShowLabel: true, tabBarLabel: 'Search' }} />
       <Tab.Screen name="Categories" component={CategoriesStackScreen} options={{ tabBarShowLabel: true, tabBarLabel: 'Categories' }} />
-      <Tab.Screen name="Home" component={HomeStackScreen} options={{ tabBarLabel: () => null }} />
+      <Tab.Screen name="Home" component={HomeStackScreen} options={{ tabBarLabel: 'Home' }} />
       <Tab.Screen name="Favorites" component={FavoritesStackScreen} options={{ tabBarShowLabel: true, tabBarLabel: 'Favorites' }} />
       <Tab.Screen 
         name="Settings" 
@@ -481,18 +482,11 @@ export default function App() {
 
 // ─── Styles ──────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  homeTabWrap: {
-    position: 'relative',
-    top: -8,
+  tabIconPill: {
+    width: 48,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  homeTabCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#4B5563',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

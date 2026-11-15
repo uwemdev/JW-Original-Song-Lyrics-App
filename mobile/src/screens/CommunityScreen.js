@@ -50,6 +50,7 @@ import { useAudio } from '../context/AudioContext';
 import { WALLPAPERS, getWallpaperById } from '../lib/wallpapers';
 import ChatWallpaperBackground from '../components/ChatWallpaperBackground';
 import WallpaperPickerModal from '../components/WallpaperPickerModal';
+import { getChatBottomPadding } from '../lib/bottomDock';
 import {
   validateCleanMessage,
   getOrCreateCommunityProfile,
@@ -78,7 +79,7 @@ const formatMessageTime = (dateStr) => {
 
 export default function CommunityScreen({ navigation, route }) {
   const { colors, isDark, deviceId, chatWallpaper, setChatWallpaper } = useSettings();
-  const { currentSong, isMiniPlayerVisible, isPlaying } = useAudio();
+  const { currentSong, isMiniPlayerVisible, miniPlayerHeight, isPlaying } = useAudio();
   const insets = useSafeAreaInsets();
   const styles = makeStyles(colors, isDark);
 
@@ -89,22 +90,16 @@ export default function CommunityScreen({ navigation, route }) {
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
 
   // Keyboard state for input bar positioning above bottom tabs / keyboard
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(() => Keyboard.isVisible());
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const onShow = (e) => {
-      setIsKeyboardVisible(true);
-      const kh = e?.endCoordinates?.height || 0;
-      if (kh > 0) setKeyboardHeight(kh);
-    };
+    const onShow = () => setIsKeyboardVisible(true);
 
     const onHide = () => {
       setIsKeyboardVisible(false);
-      setKeyboardHeight(0);
     };
 
     const showSub = Keyboard.addListener(showEvent, onShow);
@@ -115,15 +110,9 @@ export default function CommunityScreen({ navigation, route }) {
     };
   }, []);
 
-  const tabHeight = (Platform.OS === 'ios' ? 88 : 72) + insets.bottom;
   const isPlayerUp = isMiniPlayerVisible && Boolean(currentSong);
-  const restingBottom = isPlayerUp ? tabHeight + 64 : tabHeight + 8;
-
-  const currentBottomPadding = isKeyboardVisible
-    ? Platform.OS === 'ios'
-      ? Math.max(8, insets.bottom)
-      : Math.max(8, keyboardHeight > 0 ? keyboardHeight : 280)
-    : restingBottom;
+  const restingBottom = getChatBottomPadding(Platform.OS, insets.bottom, isPlayerUp, miniPlayerHeight, false);
+  const currentBottomPadding = getChatBottomPadding(Platform.OS, insets.bottom, isPlayerUp, miniPlayerHeight, isKeyboardVisible);
 
   // Profile & Ban state
   const [profile, setProfile] = useState(null);
@@ -1055,7 +1044,6 @@ export default function CommunityScreen({ navigation, route }) {
                 if (validationWarning) setValidationWarning('');
               }}
               onFocus={() => {
-                setIsKeyboardVisible(true);
                 setTimeout(() => {
                   groupListRef.current?.scrollToOffset({ offset: 0, animated: true });
                 }, 150);
@@ -1258,7 +1246,6 @@ export default function CommunityScreen({ navigation, route }) {
                 value={directInputText}
                 onChangeText={setDirectInputText}
                 onFocus={() => {
-                  setIsKeyboardVisible(true);
                   setTimeout(() => {
                     directListRef.current?.scrollToEnd({ animated: true });
                   }, 150);
@@ -2209,7 +2196,6 @@ const makeStyles = (colors, isDark) =>
       paddingVertical: 48,
       backgroundColor: isDark ? '#1F1B2E' : '#FFFFFF',
       borderRadius: 16,
-      transform: [{ scaleY: -1 }],
     },
     emptyLoungeTitle: {
       fontSize: 16,

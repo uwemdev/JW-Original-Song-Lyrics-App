@@ -4,6 +4,7 @@ import { useSettings } from './SettingsContext';
 import { getLocalAudioUri } from '../lib/offlineManager';
 import { logSongEvent } from '../lib/analytics';
 import { updateCommunityNowPlaying } from '../lib/community';
+import { INITIAL_MINI_PLAYER_HEIGHT } from '../lib/bottomDock';
 
 const AudioContext = createContext(null);
 
@@ -13,6 +14,7 @@ export function AudioProvider({ children, navigationRef }) {
   const [queue, setQueue] = useState([]);
   const [queueIndex, setQueueIndex] = useState(-1);
   const [isMiniPlayerVisible, setIsMiniPlayerVisible] = useState(false);
+  const [miniPlayerHeight, setMiniPlayerHeight] = useState(INITIAL_MINI_PLAYER_HEIGHT);
   const [currentScreen, setCurrentScreen] = useState('');
   const [isAudioOffline, setIsAudioOffline] = useState(false);
 
@@ -262,6 +264,8 @@ export function AudioProvider({ children, navigationRef }) {
     progress,
     isAudioOffline,
     isMiniPlayerVisible: isMiniPlayerVisible && !!currentSong && currentScreen !== 'Song',
+    miniPlayerHeight,
+    setMiniPlayerHeight,
     sleepTimerOption,
     sleepTimerRemainingSec,
     setSleepTimer,

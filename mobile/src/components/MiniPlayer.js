@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,14 @@ import {
   TouchableOpacity,
   Image,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Play, Pause, Music, X } from 'lucide-react-native';
 import { useAudio } from '../context/AudioContext';
 import { useSettings } from '../context/SettingsContext';
+import { getMiniPlayerBottom } from '../lib/bottomDock';
 
 /**
  * Global floating mini-player docked right above the bottom tab bar.
@@ -28,9 +30,22 @@ export default function MiniPlayer() {
     togglePlayPause,
     dismissMiniPlayer,
     isMiniPlayerVisible,
+    setMiniPlayerHeight,
   } = useAudio();
+  const [keyboardVisible, setKeyboardVisible] = useState(() => Keyboard.isVisible());
 
-  if (!isMiniPlayerVisible || !currentSong) {
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  if (!isMiniPlayerVisible || !currentSong || keyboardVisible) {
     return null;
   }
 
@@ -38,13 +53,13 @@ export default function MiniPlayer() {
     navigation.navigate('Song', { song: currentSong });
   };
 
-  const tabHeight = (Platform.OS === 'ios' ? 88 : 72) + insets.bottom;
-  const bottomPosition = tabHeight + 8;
+  const bottomPosition = getMiniPlayerBottom(Platform.OS, insets.bottom);
 
   const categoryName = currentSong.categories?.name || currentSong.category_name || 'Original Song';
 
   return (
     <View
+      onLayout={(event) => setMiniPlayerHeight(event.nativeEvent.layout.height)}
       style={[
         styles.container,
         {
