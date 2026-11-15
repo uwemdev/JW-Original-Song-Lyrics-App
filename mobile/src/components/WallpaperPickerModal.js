@@ -9,9 +9,9 @@ import {
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { X, Check, Image as ImageIcon, Sparkles } from 'lucide-react-native';
+import { X, Check, Sparkles, ArrowLeft } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
-import { WALLPAPERS, getWallpaperById } from '../lib/wallpapers';
+import { WALLPAPERS, THEME_CATEGORIES, getWallpaperById } from '../lib/wallpapers';
 import ChatWallpaperBackground from './ChatWallpaperBackground';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -41,30 +41,35 @@ export default function WallpaperPickerModal({ visible, onClose }) {
       onRequestClose={onClose}
     >
       <View style={styles.backdrop}>
-        <View style={[styles.modalCard, { backgroundColor: isDark ? '#161324' : '#FFFFFF' }]}>
-          {/* Header */}
+        <View style={[styles.modalCard, { backgroundColor: isDark ? '#110D1D' : '#FFFFFF' }]}>
+          {/* Header styled like WhatsApp */}
           <View style={[styles.header, { borderBottomColor: colors.divider }]}>
-            <View>
-              <Text style={[styles.title, { color: colors.textWhite }]}>Chat Wallpaper</Text>
-              <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-                Choose a soothing background for your community chats
-              </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={[
+                  styles.closeBtn,
+                  { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+                ]}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <ArrowLeft size={18} color={colors.textWhite} />
+              </TouchableOpacity>
+              <Text style={[styles.title, { color: colors.textWhite }]}>Chat theme</Text>
             </View>
+
             <TouchableOpacity
               onPress={onClose}
-              style={[
-                styles.closeBtn,
-                { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
-              ]}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={[styles.doneHeaderBtn, { backgroundColor: currentWallpaper.bubbleColor }]}
+              activeOpacity={0.8}
             >
-              <X size={18} color={colors.textWhite} />
+              <Text style={styles.doneHeaderBtnText}>Done</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Live Preview Card */}
+          {/* WhatsApp-style Live Interactive Preview Card */}
           <View style={styles.previewContainer}>
-            <View style={[styles.previewFrame, { borderColor: colors.divider, position: 'relative' }]}>
+            <View style={[styles.previewFrame, { borderColor: colors.divider }]}>
               {/* Wallpaper behind preview */}
               <ChatWallpaperBackground
                 wallpaperId={selectedWallpaperId}
@@ -73,20 +78,20 @@ export default function WallpaperPickerModal({ visible, onClose }) {
                 preview
               />
 
-              {/* Simulated chat bubbles */}
-              <View style={[styles.previewChatContent, { zIndex: 10 }]}>
-                {/* Incoming bubble */}
+              {/* Simulated chat bubbles that change with the theme */}
+              <View style={styles.previewChatContent}>
+                {/* Incoming bubble (grey) */}
                 <View
                   style={[
                     styles.previewBubbleThem,
                     {
-                      backgroundColor: isDark ? '#1F1B2E' : '#FFFFFF',
-                      borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                      backgroundColor: isDark ? 'rgba(31, 27, 46, 0.95)' : '#FFFFFF',
+                      borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
                     },
                   ]}
                 >
-                  <Text style={[styles.previewHandle, { color: colors.purpleAccent }]}>
-                    Grace M.
+                  <Text style={[styles.previewHandle, { color: currentWallpaper.bubbleColor }]}>
+                    Community Brother
                   </Text>
                   <Text style={[styles.previewMsgText, { color: colors.textWhite }]}>
                     May your day be filled with peace and joyful songs.
@@ -96,101 +101,132 @@ export default function WallpaperPickerModal({ visible, onClose }) {
                   </Text>
                 </View>
 
-                {/* Outgoing bubble */}
+                {/* Outgoing bubble matching theme's vibrant color */}
                 <View
                   style={[
                     styles.previewBubbleMe,
-                    { backgroundColor: isDark ? '#6D28D9' : '#7C3AED' },
+                    { backgroundColor: currentWallpaper.bubbleColor },
                   ]}
                 >
-                  <Text style={[styles.previewMsgText, { color: '#FFFFFF' }]}>
+                  <Text style={[styles.previewMsgText, { color: currentWallpaper.bubbleTextColor || '#FFFFFF' }]}>
                     Thank you! The melodies always bring comfort.
                   </Text>
-                  <Text style={[styles.previewTime, { color: 'rgba(255,255,255,0.75)' }]}>
+                  <Text style={[styles.previewTime, { color: 'rgba(255,255,255,0.85)' }]}>
                     8:16 AM
                   </Text>
                 </View>
               </View>
 
-              <View style={[styles.previewBadge, { zIndex: 11 }]}>
-                <Sparkles size={11} color="#A78BFA" />
+              {/* Theme Badge */}
+              <View style={styles.previewBadge}>
+                <View style={[styles.previewDot, { backgroundColor: currentWallpaper.bubbleColor }]} />
                 <Text style={styles.previewBadgeText}>{currentWallpaper.name}</Text>
               </View>
             </View>
           </View>
 
-          {/* Wallpapers Grid List */}
+          {/* Helper caption like WhatsApp */}
+          <View style={styles.captionRow}>
+            <Text style={[styles.captionText, { color: colors.textMuted }]}>
+              Only you can see this theme. Outgoing bubbles match the wallpaper.
+            </Text>
+          </View>
+
+          {/* Categorized WhatsApp-style Phone Themes */}
           <ScrollView
             style={styles.listScroll}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={[styles.sectionHeading, { color: colors.textMuted }]}>
-              SELECT A WALLPAPER
-            </Text>
+            {THEME_CATEGORIES.map((category) => {
+              const themes = WALLPAPERS.filter((w) => w.category === category);
+              if (themes.length === 0) return null;
 
-            <View style={styles.grid}>
-              {WALLPAPERS.map((wp) => {
-                const isSelected = wp.id === selectedWallpaperId;
+              return (
+                <View key={category} style={styles.categorySection}>
+                  <Text style={[styles.sectionHeading, { color: colors.textWhite }]}>
+                    {category}
+                  </Text>
 
-                return (
-                  <TouchableOpacity
-                    key={wp.id}
-                    onPress={() => handleSelectWallpaper(wp.id)}
-                    style={[
-                      styles.wallpaperCard,
-                      {
-                        backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                        borderColor: isSelected ? colors.purpleAccent : colors.divider,
-                        borderWidth: isSelected ? 2 : 1,
-                      },
-                    ]}
-                    activeOpacity={0.75}
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.categoryRow}
                   >
-                    {/* Swatch */}
-                    <View style={styles.swatchWrap}>
-                      <ChatWallpaperBackground
-                        wallpaperId={wp.id}
-                        isDark={isDark}
-                        colors={colors}
-                        preview
-                      />
-                      {isSelected && (
-                        <View style={[styles.checkCircle, { backgroundColor: colors.purple, zIndex: 10 }]}>
-                          <Check size={14} color="#FFFFFF" strokeWidth={3} />
-                        </View>
-                      )}
-                    </View>
+                    {themes.map((wp) => {
+                      const isSelected = wp.id === selectedWallpaperId;
+                      const gradient = isDark ? wp.darkGradient : wp.lightGradient;
 
-                    {/* Meta */}
-                    <Text
-                      style={[
-                        styles.wpName,
-                        { color: isSelected ? colors.purpleAccent : colors.textWhite },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {wp.name}
-                    </Text>
-                    <Text style={[styles.wpSub, { color: colors.textMuted }]} numberOfLines={1}>
-                      {wp.subtitle}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                      return (
+                        <TouchableOpacity
+                          key={wp.id}
+                          onPress={() => handleSelectWallpaper(wp.id)}
+                          style={[
+                            styles.phoneCard,
+                            {
+                              borderColor: isSelected ? wp.bubbleColor : colors.divider,
+                              borderWidth: isSelected ? 2.5 : 1,
+                            },
+                          ]}
+                          activeOpacity={0.8}
+                        >
+                          {/* Miniature Phone Wallpaper Background */}
+                          <LinearGradient
+                            colors={gradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 0.3, y: 1 }}
+                            pointerEvents="none"
+                            style={StyleSheet.absoluteFillObject}
+                          />
+
+                          {/* Mini Speech Bubbles inside Card */}
+                          <View style={styles.miniChatContainer} pointerEvents="none">
+                            {/* Incoming grey bubble */}
+                            <View
+                              style={[
+                                styles.miniBubbleThem,
+                                {
+                                  backgroundColor: isDark
+                                    ? 'rgba(255,255,255,0.22)'
+                                    : 'rgba(0,0,0,0.15)',
+                                },
+                              ]}
+                            />
+                            {/* Outgoing colored bubble */}
+                            <View
+                              style={[
+                                styles.miniBubbleMe,
+                                { backgroundColor: wp.bubbleColor },
+                              ]}
+                            />
+                          </View>
+
+                          {/* Selection Badge like WhatsApp */}
+                          {isSelected && (
+                            <View style={[styles.selectedCircleBadge, { backgroundColor: wp.bubbleColor }]}>
+                              <Check size={11} color="#FFFFFF" strokeWidth={3.5} />
+                            </View>
+                          )}
+
+                          <View style={styles.cardFooter} pointerEvents="none">
+                            <Text
+                              style={[
+                                styles.phoneCardLabel,
+                                { color: isSelected ? wp.bubbleColor : colors.textWhite },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {wp.name}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              );
+            })}
           </ScrollView>
-
-          {/* Footer Action */}
-          <View style={[styles.footer, { borderTopColor: colors.divider }]}>
-            <TouchableOpacity
-              onPress={onClose}
-              style={[styles.doneBtn, { backgroundColor: colors.purple }]}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.doneBtnText}>Done</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
     </Modal>
@@ -205,17 +241,17 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: '100%',
-    height: '84%',
+    height: '92%',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingTop: 18,
+    paddingTop: 16,
     overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
+    alignItems: 'center',
+    paddingHorizontal: 18,
     paddingBottom: 14,
     borderBottomWidth: 1,
   },
@@ -223,36 +259,45 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
   },
-  subtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
   closeBtn: {
-    padding: 6,
-    borderRadius: 12,
+    padding: 7,
+    borderRadius: 20,
+  },
+  doneHeaderBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 18,
+  },
+  doneHeaderBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   previewContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   previewFrame: {
-    height: 168,
-    borderRadius: 16,
+    height: 156,
+    borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
+    position: 'relative',
     justifyContent: 'space-between',
   },
   previewChatContent: {
-    padding: 10,
+    padding: 12,
     gap: 8,
+    zIndex: 10,
   },
   previewBubbleThem: {
     alignSelf: 'flex-start',
     maxWidth: '75%',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 12,
-    borderBottomLeftRadius: 2,
+    borderRadius: 14,
+    borderBottomLeftRadius: 3,
     borderWidth: 1,
   },
   previewBubbleMe: {
@@ -260,8 +305,8 @@ const styles = StyleSheet.create({
     maxWidth: '75%',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 12,
-    borderBottomRightRadius: 2,
+    borderRadius: 14,
+    borderBottomRightRadius: 3,
   },
   previewHandle: {
     fontSize: 10,
@@ -270,7 +315,7 @@ const styles = StyleSheet.create({
   },
   previewMsgText: {
     fontSize: 11,
-    lineHeight: 14,
+    lineHeight: 15,
   },
   previewTime: {
     fontSize: 8,
@@ -283,92 +328,105 @@ const styles = StyleSheet.create({
     right: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    gap: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 11,
+  },
+  previewDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
   previewBadgeText: {
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '700',
   },
+  captionRow: {
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+  },
+  captionText: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
   listScroll: {
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingHorizontal: 18,
+    paddingBottom: 32,
+    paddingTop: 6,
+    gap: 18,
+  },
+  categorySection: {
+    gap: 10,
   },
   sectionHeading: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '800',
-    letterSpacing: 0.8,
-    marginBottom: 12,
-    marginTop: 6,
+    letterSpacing: 0.3,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'space-between',
+  categoryRow: {
+    gap: 12,
+    paddingVertical: 2,
   },
-  wallpaperCard: {
-    width: '48%',
-    borderRadius: 14,
-    padding: 8,
-    alignItems: 'center',
-  },
-  swatchWrap: {
-    width: '100%',
-    height: 60,
-    borderRadius: 10,
+  phoneCard: {
+    width: 86,
+    height: 136,
+    borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 6,
     position: 'relative',
+    justifyContent: 'space-between',
+    padding: 6,
   },
-  swatchGradient: {
-    ...StyleSheet.absoluteFillObject,
+  miniChatContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 4,
   },
-  checkCircle: {
+  miniBubbleThem: {
+    width: 44,
+    height: 18,
+    borderRadius: 9,
+    borderBottomLeftRadius: 2,
+    alignSelf: 'flex-start',
+  },
+  miniBubbleMe: {
+    width: 44,
+    height: 18,
+    borderRadius: 9,
+    borderBottomRightRadius: 2,
+    alignSelf: 'flex-end',
+  },
+  selectedCircleBadge: {
     position: 'absolute',
     top: 6,
     right: 6,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
+    zIndex: 12,
   },
-  wpName: {
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
-    width: '100%',
-  },
-  wpSub: {
-    fontSize: 10,
-    textAlign: 'center',
-    marginTop: 1,
-    width: '100%',
-  },
-  footer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-  },
-  doneBtn: {
-    paddingVertical: 14,
-    borderRadius: 14,
+  cardFooter: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    borderRadius: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
   },
-  doneBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
+  phoneCardLabel: {
+    fontSize: 9,
     fontWeight: '700',
+    textAlign: 'center',
   },
 });

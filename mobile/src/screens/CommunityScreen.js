@@ -49,7 +49,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSettings } from '../context/SettingsContext';
 import { useAudio } from '../context/AudioContext';
-import { WALLPAPERS, getWallpaperName } from '../lib/wallpapers';
+import { WALLPAPERS, getWallpaperName, getWallpaperById } from '../lib/wallpapers';
 import ChatWallpaperBackground from '../components/ChatWallpaperBackground';
 import WallpaperPickerModal from '../components/WallpaperPickerModal';
 import {
@@ -83,6 +83,10 @@ export default function CommunityScreen({ navigation, route }) {
   const { currentSong, isMiniPlayerVisible, isPlaying } = useAudio();
   const insets = useSafeAreaInsets();
   const styles = makeStyles(colors, isDark);
+
+  const currentTheme = useMemo(() => getWallpaperById(chatWallpaper), [chatWallpaper]);
+  const myBubbleBg = currentTheme?.bubbleColor || (isDark ? '#6D28D9' : '#7C3AED');
+  const myBubbleTextColor = currentTheme?.bubbleTextColor || '#FFFFFF';
 
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
 
@@ -990,7 +994,12 @@ export default function CommunityScreen({ navigation, route }) {
                     </TouchableOpacity>
                   )}
 
-                  <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
+                  <View
+                    style={[
+                      styles.bubble,
+                      isMe ? [styles.bubbleMe, { backgroundColor: myBubbleBg }] : styles.bubbleThem,
+                    ]}
+                  >
                     {!isMe && (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 }}>
                         <Text style={[styles.senderHandle, { color: avatar.text || avatar.bg }]}>
@@ -1005,7 +1014,12 @@ export default function CommunityScreen({ navigation, route }) {
                       </View>
                     )}
 
-                    <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
+                    <Text
+                      style={[
+                        styles.messageText,
+                        isMe ? [styles.messageTextMe, { color: myBubbleTextColor }] : null,
+                      ]}
+                    >
                       {item.message}
                     </Text>
 
@@ -1056,7 +1070,11 @@ export default function CommunityScreen({ navigation, route }) {
             <TouchableOpacity
               onPress={handleSendGroupMessage}
               disabled={!inputText.trim() || sending}
-              style={[styles.sendBtn, (!inputText.trim() || sending) && { opacity: 0.5 }]}
+              style={[
+                styles.sendBtn,
+                { backgroundColor: myBubbleBg },
+                (!inputText.trim() || sending) && { opacity: 0.5 },
+              ]}
             >
               {sending ? (
                 <ActivityIndicator size="small" color="#FFF" />
@@ -1205,8 +1223,18 @@ export default function CommunityScreen({ navigation, route }) {
               const isMe = item.sender_device_id === deviceId;
               return (
                 <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
-                  <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-                    <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
+                  <View
+                    style={[
+                      styles.bubble,
+                      isMe ? [styles.bubbleMe, { backgroundColor: myBubbleBg }] : styles.bubbleThem,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.messageText,
+                        isMe ? [styles.messageTextMe, { color: myBubbleTextColor }] : null,
+                      ]}
+                    >
                       {item.message}
                     </Text>
                     <View style={styles.bubbleFooter}>
@@ -1249,7 +1277,11 @@ export default function CommunityScreen({ navigation, route }) {
               <TouchableOpacity
                 onPress={handleSendDirectMessage}
                 disabled={!directInputText.trim()}
-                style={[styles.sendBtn, !directInputText.trim() && { opacity: 0.5 }]}
+                style={[
+                  styles.sendBtn,
+                  { backgroundColor: myBubbleBg },
+                  !directInputText.trim() && { opacity: 0.5 },
+                ]}
               >
                 <Send size={18} color="#FFF" />
               </TouchableOpacity>
@@ -1338,6 +1370,16 @@ export default function CommunityScreen({ navigation, route }) {
 
         {/* Top Right Constant Action Icons */}
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {/* WhatsApp-style Chat Theme Switcher */}
+          <TouchableOpacity
+            style={[styles.headerIconBtn, { marginRight: 10 }]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => setShowWallpaperModal(true)}
+            accessibilityLabel="Chat Theme"
+          >
+            <Palette color={myBubbleBg} size={19} />
+          </TouchableOpacity>
+
           {/* Community Profile & Settings Button */}
           <TouchableOpacity
             style={[styles.headerProfileBtn, { marginRight: 10 }]}
@@ -1739,6 +1781,7 @@ export default function CommunityScreen({ navigation, route }) {
                   >
                     {WALLPAPERS.map((wp) => {
                       const isSelected = wp.id === (chatWallpaper || 'default');
+                      const gradient = isDark ? wp.darkGradient : wp.lightGradient;
                       return (
                         <TouchableOpacity
                           key={wp.id}
@@ -1746,7 +1789,7 @@ export default function CommunityScreen({ navigation, route }) {
                           style={[
                             styles.wallpaperPickerCard,
                             {
-                              borderColor: isSelected ? colors.purpleAccent : colors.divider,
+                              borderColor: isSelected ? wp.bubbleColor : colors.divider,
                               borderWidth: isSelected ? 2 : 1,
                               backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
                             },
@@ -1754,22 +1797,43 @@ export default function CommunityScreen({ navigation, route }) {
                           activeOpacity={0.75}
                         >
                           <View style={styles.wallpaperPickerSwatch}>
-                            <ChatWallpaperBackground
-                              wallpaperId={wp.id}
-                              isDark={isDark}
-                              colors={colors}
-                              preview
+                            <LinearGradient
+                              colors={gradient}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 0.3, y: 1 }}
+                              pointerEvents="none"
+                              style={StyleSheet.absoluteFillObject}
                             />
+
+                            <View style={styles.miniSwatchChat} pointerEvents="none">
+                              <View
+                                style={[
+                                  styles.miniSwatchBubbleThem,
+                                  {
+                                    backgroundColor: isDark
+                                      ? 'rgba(255,255,255,0.22)'
+                                      : 'rgba(0,0,0,0.15)',
+                                  },
+                                ]}
+                              />
+                              <View
+                                style={[
+                                  styles.miniSwatchBubbleMe,
+                                  { backgroundColor: wp.bubbleColor },
+                                ]}
+                              />
+                            </View>
+
                             {isSelected && (
-                              <View style={[styles.wallpaperCheckBadge, { backgroundColor: colors.purple, zIndex: 10 }]}>
-                                <Check size={11} color="#FFFFFF" strokeWidth={3} />
+                              <View style={[styles.wallpaperCheckBadge, { backgroundColor: wp.bubbleColor }]}>
+                                <Check size={10} color="#FFFFFF" strokeWidth={3.5} />
                               </View>
                             )}
                           </View>
                           <Text
                             style={[
                               styles.wallpaperPickerName,
-                              { color: isSelected ? colors.purpleAccent : colors.textWhite, fontWeight: isSelected ? '800' : '600' },
+                              { color: isSelected ? wp.bubbleColor : colors.textWhite, fontWeight: isSelected ? '800' : '600' },
                             ]}
                             numberOfLines={1}
                           >
@@ -2541,23 +2605,44 @@ const makeStyles = (colors, isDark) =>
       borderColor: colors.divider,
     },
     wallpaperPickerCard: {
-      width: 100,
-      padding: 6,
-      borderRadius: 12,
+      width: 76,
+      padding: 4,
+      borderRadius: 14,
       alignItems: 'center',
     },
     wallpaperPickerSwatch: {
-      width: '100%',
-      height: 48,
-      borderRadius: 8,
+      width: 68,
+      height: 104,
+      borderRadius: 12,
       overflow: 'hidden',
       marginBottom: 6,
       position: 'relative',
+      justifyContent: 'center',
+    },
+    miniSwatchChat: {
+      flex: 1,
+      justifyContent: 'center',
+      gap: 6,
+      paddingHorizontal: 4,
+    },
+    miniSwatchBubbleThem: {
+      width: 32,
+      height: 12,
+      borderRadius: 6,
+      borderBottomLeftRadius: 2,
+      alignSelf: 'flex-start',
+    },
+    miniSwatchBubbleMe: {
+      width: 32,
+      height: 12,
+      borderRadius: 6,
+      borderBottomRightRadius: 2,
+      alignSelf: 'flex-end',
     },
     wallpaperCheckBadge: {
       position: 'absolute',
-      top: 4,
-      right: 4,
+      top: 5,
+      right: 5,
       width: 18,
       height: 18,
       borderRadius: 9,
@@ -2565,10 +2650,12 @@ const makeStyles = (colors, isDark) =>
       justifyContent: 'center',
       borderWidth: 1.5,
       borderColor: '#FFFFFF',
+      zIndex: 10,
     },
     wallpaperPickerName: {
       fontSize: 10,
       textAlign: 'center',
+      fontWeight: '600',
     },
     toastBox: {
       position: 'absolute',

@@ -5,6 +5,7 @@ import { getWallpaperById } from '../lib/wallpapers';
 
 export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, preview = false }) {
   const wallpaper = useMemo(() => getWallpaperById(wallpaperId), [wallpaperId]);
+  const defaultBg = colors?.bg || (isDark ? '#0F0A1A' : '#FFFFFF');
 
   if (!wallpaper || wallpaper.id === 'default') {
     return (
@@ -12,7 +13,7 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
         pointerEvents="none"
         style={[
           styles.container,
-          { backgroundColor: preview ? (isDark ? '#161324' : '#F8FAFC') : colors.bg },
+          { backgroundColor: preview ? (isDark ? '#161324' : '#F8FAFC') : defaultBg },
         ]}
       />
     );
@@ -22,7 +23,7 @@ export default function ChatWallpaperBackground({ wallpaperId, isDark, colors, p
   const safeColors =
     Array.isArray(gradientColors) && gradientColors.length >= 2
       ? gradientColors
-      : [colors.bg, colors.bg];
+      : [defaultBg, defaultBg];
 
   return (
     <View pointerEvents="none" style={styles.container}>
