@@ -389,7 +389,7 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         {/* ── Version ── */}
-        <Text style={styles.versionText}>Version 1.3.0 (Build 6)</Text>
+        <Text style={styles.versionText}>Version 1.3.4 (Build 10)</Text>
       </ScrollView>
 
       <Toast visible={showToast} message={toastMsg} />
