@@ -681,10 +681,11 @@ export default function SongScreen({ route, navigation }) {
         />
       </Animated.View>
 
-      {/* ── Sticky collapsed header ── */}
-      <Animated.View style={[styles.stickyHeader, { opacity: stickyHeaderOpacity }]}>
-        <Text style={styles.stickyTitle} numberOfLines={1}>{song.title}</Text>
-      </Animated.View>
+      {/* ── Sticky collapsed header background (title omitted to avoid button overlap) ── */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.stickyHeader, { opacity: stickyHeaderOpacity }]}
+      />
 
       {/* ── Floating controls ── */}
       <View style={styles.floatingControls}>
@@ -1403,7 +1404,7 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     alignItems: 'center',
   },
 
-  // ── Sticky header ──
+  // ── Sticky header background ──
   stickyHeader: {
     position: 'absolute',
     top: 0,
@@ -1411,18 +1412,9 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     right: 0,
     height: HEADER_COLLAPSED_H,
     backgroundColor: isDark ? 'rgba(15, 10, 26, 0.95)' : 'rgba(248, 250, 252, 0.95)',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingBottom: 12,
-    paddingHorizontal: 60,
     zIndex: 10,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(109, 40, 217, 0.15)',
-  },
-  stickyTitle: {
-    color: colors.textWhite,
-    fontSize: 16,
-    fontWeight: '700',
   },
 
   // ── Floating controls ──
