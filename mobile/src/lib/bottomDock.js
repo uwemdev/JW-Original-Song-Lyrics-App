@@ -14,19 +14,10 @@ export function getChatBottomPadding(
   bottomInset = 0,
   playerVisible = false,
   playerHeight = INITIAL_MINI_PLAYER_HEIGHT,
-  keyboardVisible = false,
-  keyboardHeight = 0,
-  didWindowResize = false
+  keyboardVisible = false
 ) {
   if (keyboardVisible) {
-    if (platform === 'ios') {
-      return Math.max(DOCK_GAP, bottomInset || 0);
-    }
-    // On Android: if window already resized, small gap; otherwise lift by full keyboard height
-    if (didWindowResize) {
-      return DOCK_GAP;
-    }
-    return keyboardHeight > 0 ? keyboardHeight : 280;
+    return platform === 'ios' ? Math.max(DOCK_GAP, bottomInset || 0) : DOCK_GAP;
   }
   return getMiniPlayerBottom(platform, bottomInset) + (playerVisible ? playerHeight + DOCK_GAP : 0);
 }

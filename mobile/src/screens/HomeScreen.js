@@ -233,6 +233,29 @@ export default function HomeScreen({ navigation }) {
   const [isFirstLaunchOffline, setIsFirstLaunchOffline] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState(null);
+  const [isOnline, setIsOnline] = useState(true);
+
+  // Monitor active internet connection so online-only features like Community Lounge hide when offline
+  useEffect(() => {
+    let mounted = true;
+    const checkNetwork = async () => {
+      try {
+        const net = await Network.getNetworkStateAsync();
+        if (mounted) {
+          setIsOnline(Boolean(net.isConnected && net.isInternetReachable !== false));
+        }
+      } catch (_) {
+        if (mounted) setIsOnline(false);
+      }
+    };
+
+    checkNetwork();
+    const interval = setInterval(checkNetwork, 8000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // ── Load cached catalog instantly for offline startup ──
   const loadCachedCatalog = useCallback(async () => {
@@ -724,8 +747,10 @@ export default function HomeScreen({ navigation }) {
       sections.push({ key: 'curated-featured', items: curatedFeaturedSongs });
     }
 
-    // 3.8 Live Community Lounge
-    sections.push({ key: 'community-banner' });
+    // 3.8 Live Community Lounge (only display when there is an active internet connection)
+    if (isOnline) {
+      sections.push({ key: 'community-banner' });
+    }
 
     // Recently Added
     if (recentSongs.length > 0) {

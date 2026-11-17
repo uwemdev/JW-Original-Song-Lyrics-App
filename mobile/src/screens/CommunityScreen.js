@@ -91,31 +91,17 @@ export default function CommunityScreen({ navigation, route }) {
 
   // Keyboard state for input bar positioning above bottom tabs / keyboard
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(() => Keyboard.isVisible());
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [contentLayoutHeight, setContentLayoutHeight] = useState(0);
-  const maxContentHeightRef = useRef(0);
-
-  const handleContainerLayout = (e) => {
-    const h = e.nativeEvent.layout.height;
-    setContentLayoutHeight(h);
-    if (!isKeyboardVisible) {
-      maxContentHeightRef.current = Math.max(maxContentHeightRef.current, h);
-    }
-  };
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const onShow = (e) => {
+    const onShow = () => {
       setIsKeyboardVisible(true);
-      const kh = e?.endCoordinates?.height || 0;
-      if (kh > 0) setKeyboardHeight(kh);
     };
 
     const onHide = () => {
       setIsKeyboardVisible(false);
-      setKeyboardHeight(0);
     };
 
     const showSub = Keyboard.addListener(showEvent, onShow);
@@ -126,10 +112,19 @@ export default function CommunityScreen({ navigation, route }) {
     };
   }, []);
 
-  const didWindowResize =
-    isKeyboardVisible &&
-    maxContentHeightRef.current > 0 &&
-    maxContentHeightRef.current - contentLayoutHeight > 150;
+  // Auto-scroll to latest message when keyboard opens
+  useEffect(() => {
+    if (isKeyboardVisible) {
+      const timer = setTimeout(() => {
+        if (!activeDirectThread && activeTab === 'lounge') {
+          groupListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        } else if (activeDirectThread) {
+          directListRef.current?.scrollToEnd({ animated: true });
+        }
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [isKeyboardVisible, activeDirectThread, activeTab]);
 
   const isPlayerUp = isMiniPlayerVisible && Boolean(currentSong);
   const restingBottom = getChatBottomPadding(Platform.OS, insets.bottom, isPlayerUp, miniPlayerHeight, false);
@@ -138,9 +133,7 @@ export default function CommunityScreen({ navigation, route }) {
     insets.bottom,
     isPlayerUp,
     miniPlayerHeight,
-    isKeyboardVisible,
-    keyboardHeight,
-    didWindowResize
+    isKeyboardVisible
   );
 
   // Profile & Ban state
@@ -1303,10 +1296,9 @@ export default function CommunityScreen({ navigation, route }) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      enabled={Platform.OS === 'ios'}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      enabled={true}
       keyboardVerticalOffset={0}
-      onLayout={handleContainerLayout}
     >
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 

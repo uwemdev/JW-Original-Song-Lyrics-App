@@ -63,7 +63,6 @@ export default function CommunityBanner({ onPress }) {
                 <Text style={styles.actionBtnText}>Enter Lounge</Text>
                 <ChevronRight size={14} color="#FFF" style={{ marginLeft: 2 }} />
               </View>
-              <Text style={styles.safetyHint}>Safe & Anonymous (No phone or personal data)</Text>
             </View>
           </LinearGradient>
         </Animated.View>
