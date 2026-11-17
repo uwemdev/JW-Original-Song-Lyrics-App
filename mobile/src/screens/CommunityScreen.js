@@ -112,17 +112,23 @@ export default function CommunityScreen({ navigation, route }) {
     };
   }, []);
 
-  // Auto-scroll to latest message when keyboard opens
+  const handleInputFocus = useCallback(() => {
+    setIsKeyboardVisible(true);
+    if (!activeDirectThread && activeTab === 'lounge') {
+      groupListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    } else if (activeDirectThread) {
+      directListRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [activeDirectThread, activeTab]);
+
+  // Keep message list pinned to latest message when keyboard visibility changes
   useEffect(() => {
     if (isKeyboardVisible) {
-      const timer = setTimeout(() => {
-        if (!activeDirectThread && activeTab === 'lounge') {
-          groupListRef.current?.scrollToOffset({ offset: 0, animated: true });
-        } else if (activeDirectThread) {
-          directListRef.current?.scrollToEnd({ animated: true });
-        }
-      }, 200);
-      return () => clearTimeout(timer);
+      if (!activeDirectThread && activeTab === 'lounge') {
+        groupListRef.current?.scrollToOffset({ offset: 0, animated: false });
+      } else if (activeDirectThread) {
+        directListRef.current?.scrollToEnd({ animated: false });
+      }
     }
   }, [isKeyboardVisible, activeDirectThread, activeTab]);
 
@@ -1065,11 +1071,7 @@ export default function CommunityScreen({ navigation, route }) {
                 setInputText(text);
                 if (validationWarning) setValidationWarning('');
               }}
-              onFocus={() => {
-                setTimeout(() => {
-                  groupListRef.current?.scrollToOffset({ offset: 0, animated: true });
-                }, 150);
-              }}
+              onFocus={handleInputFocus}
               multiline
               maxLength={280}
             />
@@ -1267,11 +1269,7 @@ export default function CommunityScreen({ navigation, route }) {
                 placeholderTextColor={colors.textMuted}
                 value={directInputText}
                 onChangeText={setDirectInputText}
-                onFocus={() => {
-                  setTimeout(() => {
-                    directListRef.current?.scrollToEnd({ animated: true });
-                  }, 150);
-                }}
+                onFocus={handleInputFocus}
                 multiline
                 maxLength={280}
               />
@@ -1296,7 +1294,7 @@ export default function CommunityScreen({ navigation, route }) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
       enabled={true}
       keyboardVerticalOffset={0}
     >
