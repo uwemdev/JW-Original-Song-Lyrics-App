@@ -91,15 +91,31 @@ export default function CommunityScreen({ navigation, route }) {
 
   // Keyboard state for input bar positioning above bottom tabs / keyboard
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(() => Keyboard.isVisible());
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [contentLayoutHeight, setContentLayoutHeight] = useState(0);
+  const maxContentHeightRef = useRef(0);
+
+  const handleContainerLayout = (e) => {
+    const h = e.nativeEvent.layout.height;
+    setContentLayoutHeight(h);
+    if (!isKeyboardVisible) {
+      maxContentHeightRef.current = Math.max(maxContentHeightRef.current, h);
+    }
+  };
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const onShow = () => setIsKeyboardVisible(true);
+    const onShow = (e) => {
+      setIsKeyboardVisible(true);
+      const kh = e?.endCoordinates?.height || 0;
+      if (kh > 0) setKeyboardHeight(kh);
+    };
 
     const onHide = () => {
       setIsKeyboardVisible(false);
+      setKeyboardHeight(0);
     };
 
     const showSub = Keyboard.addListener(showEvent, onShow);
@@ -110,9 +126,22 @@ export default function CommunityScreen({ navigation, route }) {
     };
   }, []);
 
+  const didWindowResize =
+    isKeyboardVisible &&
+    maxContentHeightRef.current > 0 &&
+    maxContentHeightRef.current - contentLayoutHeight > 150;
+
   const isPlayerUp = isMiniPlayerVisible && Boolean(currentSong);
   const restingBottom = getChatBottomPadding(Platform.OS, insets.bottom, isPlayerUp, miniPlayerHeight, false);
-  const currentBottomPadding = getChatBottomPadding(Platform.OS, insets.bottom, isPlayerUp, miniPlayerHeight, isKeyboardVisible);
+  const currentBottomPadding = getChatBottomPadding(
+    Platform.OS,
+    insets.bottom,
+    isPlayerUp,
+    miniPlayerHeight,
+    isKeyboardVisible,
+    keyboardHeight,
+    didWindowResize
+  );
 
   // Profile & Ban state
   const [profile, setProfile] = useState(null);
@@ -1277,6 +1306,7 @@ export default function CommunityScreen({ navigation, route }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       enabled={Platform.OS === 'ios'}
       keyboardVerticalOffset={0}
+      onLayout={handleContainerLayout}
     >
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 

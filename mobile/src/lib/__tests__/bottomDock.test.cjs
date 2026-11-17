@@ -34,9 +34,21 @@ test('chat clears the measured player and tab bar on both platforms', () => {
         dock.getChatBottomPadding(platform, inset, false, 68, false),
         dock.getMiniPlayerBottom(platform, inset)
       );
-      assert.equal(dock.getChatBottomPadding(platform, inset, true, 110, true), dock.DOCK_GAP);
     }
   }
+});
+
+test('chat input adapts to keyboard correctly on android and ios', () => {
+  // iOS uses safe inset or dock gap
+  assert.equal(dock.getChatBottomPadding('ios', 0, false, 68, true), dock.DOCK_GAP);
+  assert.equal(dock.getChatBottomPadding('ios', 24, false, 68, true), 24);
+
+  // Android: without window resize, lifts by full keyboard height or fallback 280
+  assert.equal(dock.getChatBottomPadding('android', 0, false, 68, true, 305, false), 305);
+  assert.equal(dock.getChatBottomPadding('android', 0, false, 68, true, 0, false), 280);
+
+  // Android: with window resize, uses DOCK_GAP
+  assert.equal(dock.getChatBottomPadding('android', 0, false, 68, true, 305, true), dock.DOCK_GAP);
 });
 
 test('mini-player hides for the keyboard and reports its measured height', () => {
