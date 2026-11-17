@@ -591,7 +591,6 @@ export default function HomeScreen({ navigation }) {
                 resizeMode="cover"
               />
             </View>
-            <Text style={styles.headerTitle}>Original Song Lyrics</Text>
           </View>
         </View>
 
@@ -776,7 +775,6 @@ export default function HomeScreen({ navigation }) {
                   resizeMode="cover"
                 />
               </View>
-              <Text style={styles.headerTitle}>Original Song Lyrics</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
@@ -1477,7 +1475,6 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
     backgroundColor: '#6D28D9',
   },
   headerLogoImg: {

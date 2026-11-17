@@ -17,7 +17,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#6D28D9",
         "foregroundImage": "./assets/adaptive-icon.png"
       },
       "package": "com.jworiginalsongslyrics.app",
