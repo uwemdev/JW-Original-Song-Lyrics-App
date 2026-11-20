@@ -13,6 +13,7 @@ const KEYS = {
   theme: '@settings_theme',
   fontSizeIdx: '@lyrics_font_size', // matches SongScreen's existing key
   autoPlay: '@settings_auto_play',
+  continuousPlay: '@settings_continuous_play',
   dataSaver: '@settings_data_saver',
   autoCacheFavorites: '@settings_auto_cache_favorites',
   newSongAlerts: '@settings_new_song_alerts',
@@ -31,6 +32,7 @@ const DEFAULTS = {
   theme: 'system', // 'dark' | 'light' | 'system'
   fontSizeIdx: 1, // 0=small, 1=medium, 2=large
   autoPlay: true,
+  continuousPlay: true,
   dataSaver: false,
   autoCacheFavorites: false,
   newSongAlerts: true,
@@ -66,6 +68,7 @@ export function SettingsProvider({ children }) {
   const [theme, setThemeState] = useState(DEFAULTS.theme);
   const [fontSizeIdx, setFontSizeIdxState] = useState(DEFAULTS.fontSizeIdx);
   const [autoPlay, setAutoPlayState] = useState(DEFAULTS.autoPlay);
+  const [continuousPlay, setContinuousPlayState] = useState(DEFAULTS.continuousPlay);
   const [dataSaver, setDataSaverState] = useState(DEFAULTS.dataSaver);
   const [autoCacheFavorites, setAutoCacheFavoritesState] = useState(DEFAULTS.autoCacheFavorites);
   const [newSongAlerts, setNewSongAlertsState] = useState(DEFAULTS.newSongAlerts);
@@ -103,6 +106,7 @@ export function SettingsProvider({ children }) {
           if (!isNaN(parsed)) setFontSizeIdxState(parsed);
         }
         if (map[KEYS.autoPlay]) setAutoPlayState(map[KEYS.autoPlay] === 'true');
+        if (map[KEYS.continuousPlay] !== undefined) setContinuousPlayState(map[KEYS.continuousPlay] !== 'false');
         if (map[KEYS.dataSaver]) setDataSaverState(map[KEYS.dataSaver] === 'true');
         if (map[KEYS.autoCacheFavorites]) setAutoCacheFavoritesState(map[KEYS.autoCacheFavorites] === 'true');
         if (map[KEYS.newSongAlerts] !== undefined) setNewSongAlertsState(map[KEYS.newSongAlerts] !== 'false');
@@ -346,6 +350,11 @@ export function SettingsProvider({ children }) {
     await AsyncStorage.setItem(KEYS.autoPlay, String(val));
   }, []);
 
+  const setContinuousPlay = useCallback(async (val) => {
+    setContinuousPlayState(val);
+    await AsyncStorage.setItem(KEYS.continuousPlay, val ? 'true' : 'false');
+  }, []);
+
   const setDataSaver = useCallback(async (val) => {
     setDataSaverState(val);
     await AsyncStorage.setItem(KEYS.dataSaver, String(val));
@@ -419,6 +428,7 @@ export function SettingsProvider({ children }) {
       setThemeState(DEFAULTS.theme);
       setFontSizeIdxState(DEFAULTS.fontSizeIdx);
       setAutoPlayState(DEFAULTS.autoPlay);
+      setContinuousPlayState(DEFAULTS.continuousPlay);
       setDataSaverState(DEFAULTS.dataSaver);
       setAutoCacheFavoritesState(DEFAULTS.autoCacheFavorites);
       setNewSongAlertsState(DEFAULTS.newSongAlerts);
@@ -437,6 +447,7 @@ export function SettingsProvider({ children }) {
     theme, setTheme,
     fontSizeIdx, setFontSizeIdx,
     autoPlay, setAutoPlay,
+    continuousPlay, setContinuousPlay,
     dataSaver, setDataSaver,
     autoCacheFavorites, setAutoCacheFavorites,
     newSongAlerts, setNewSongAlerts,

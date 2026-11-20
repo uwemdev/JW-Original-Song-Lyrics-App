@@ -5,6 +5,7 @@ import { getLocalAudioUri } from '../lib/offlineManager';
 import { logSongEvent } from '../lib/analytics';
 import { updateCommunityNowPlaying } from '../lib/community';
 import { INITIAL_MINI_PLAYER_HEIGHT } from '../lib/bottomDock';
+import { getCachedSongs } from '../lib/catalogCache';
 
 const AudioContext = createContext(null);
 
@@ -184,19 +185,50 @@ export function AudioProvider({ children, navigationRef }) {
     player.seekTo(target);
   }, [player, status.currentTime, status.duration]);
 
-  // Play next track in queue
-  const playNext = useCallback(() => {
-    if (queue.length === 0) return;
-    const nextIdx = queueIndex + 1;
-    if (nextIdx < queue.length) {
-      const nextSong = queue[nextIdx];
-      setQueueIndex(nextIdx);
-      playSong(nextSong);
-    } else {
-      // End of queue
-      player.pause();
+  // Play next track in queue; if queue exhausted, auto-build from same category
+  const playNext = useCallback(async () => {
+    if (queue.length > 0) {
+      const nextIdx = queueIndex + 1;
+      if (nextIdx < queue.length) {
+        const nextSong = queue[nextIdx];
+        setQueueIndex(nextIdx);
+        playSong(nextSong, queue);
+        return;
+      }
     }
-  }, [queue, queueIndex, playSong, player]);
+
+    // Queue exhausted, single-item, or empty: build a category queue from cached catalog
+    if (currentSong?.category_id) {
+      try {
+        const allSongs = await getCachedSongs();
+        const catSongs = allSongs.filter(
+          (s) =>
+            String(s.category_id) === String(currentSong.category_id) &&
+            s.is_published !== false &&
+            s.mp3_url
+        );
+        if (catSongs.length > 1) {
+          // Find current song position within category, advance to the next (or wrap to start)
+          const curIdx = catSongs.findIndex((s) => String(s.id) === String(currentSong.id));
+          const nextIdx = curIdx >= 0 && curIdx + 1 < catSongs.length ? curIdx + 1 : 0;
+          setQueue(catSongs);
+          setQueueIndex(nextIdx);
+          playSong(catSongs[nextIdx], catSongs);
+          return;
+        }
+      } catch (_) {}
+    }
+
+    // If existing queue has more than 1 song and we reached the end, loop to beginning
+    if (queue.length > 1) {
+      setQueueIndex(0);
+      playSong(queue[0], queue);
+      return;
+    }
+
+    // Nothing left to play
+    player.pause();
+  }, [queue, queueIndex, currentSong?.id, currentSong?.category_id, playSong, player]);
 
   // Play previous track in queue
   const playPrev = useCallback(() => {
@@ -210,7 +242,7 @@ export function AudioProvider({ children, navigationRef }) {
     if (prevIdx >= 0) {
       const prevSong = queue[prevIdx];
       setQueueIndex(prevIdx);
-      playSong(prevSong);
+      playSong(prevSong, queue);
     } else {
       player.seekTo(0);
     }
@@ -233,13 +265,13 @@ export function AudioProvider({ children, navigationRef }) {
           player.pause();
         } catch (_) {}
         clearSleepTimer();
-      } else if (settings?.autoPlay) {
+      } else if (settings?.continuousPlay) {
         playNext();
       }
     } else if (!status.didJustFinish) {
       prevDidFinishRef.current = false;
     }
-  }, [status.didJustFinish, sleepTimerOption, settings?.autoPlay, playNext, player, clearSleepTimer]);
+  }, [status.didJustFinish, sleepTimerOption, settings?.continuousPlay, playNext, player, clearSleepTimer]);
 
   // Sync currently playing song with Community profile and presence in real time
   useEffect(() => {

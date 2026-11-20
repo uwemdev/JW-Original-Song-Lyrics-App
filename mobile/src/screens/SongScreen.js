@@ -139,6 +139,7 @@ function Toast({ visible, message }) {
 // SONG DETAIL SCREEN
 // ═══════════════════════════════════════════════════════════════════
 export default function SongScreen({ route, navigation }) {
+  const isFocused = useIsFocused();
   const { colors, isDark } = useSettings();
   const styles = makeStyles(colors, isDark);
   const { song } = route.params;
@@ -255,6 +256,14 @@ export default function SongScreen({ route, navigation }) {
       setCurrentScreen('');
     };
   }, [song?.id]);
+
+  // Sync displayed song when continuous play auto-advances while viewing SongScreen
+  useEffect(() => {
+    if (isFocused && currentSong?.id && currentSong.id !== song?.id) {
+      navigation.setParams({ song: currentSong });
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }
+  }, [isFocused, currentSong?.id, song?.id, navigation]);
 
   async function handlePlayPause() {
     if (!song.mp3_url) {
@@ -1170,7 +1179,7 @@ export default function SongScreen({ route, navigation }) {
                 <TouchableOpacity
                   style={styles.moreCard}
                   activeOpacity={0.85}
-                  onPress={() => navigation.push('Song', { song: s })}
+                  onPress={() => navigation.push('Song', { song: s, queue: moreSongs })}
                 >
                   <FallbackImage uri={s.feature_image_url} style={styles.moreCardImg} iconSize={20} />
                   <Text style={styles.moreCardTitle} numberOfLines={1}>{s.title}</Text>

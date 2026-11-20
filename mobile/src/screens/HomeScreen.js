@@ -536,7 +536,13 @@ export default function HomeScreen({ navigation }) {
 
   const navigateToSong = (song) => {
     AsyncStorage.setItem('@last_viewed_daily_song_date', new Date().toDateString()).catch(() => {});
-    navigation.navigate('Song', { song, queue: recentSongs });
+    const categoryQueue = songs.filter(
+      (s) => String(s.category_id) === String(song.category_id) && s.is_published !== false && s.mp3_url
+    );
+    navigation.navigate('Song', {
+      song,
+      queue: categoryQueue.length > 0 ? categoryQueue : recentSongs,
+    });
   };
 
   const navigateToCategory = (cat) =>

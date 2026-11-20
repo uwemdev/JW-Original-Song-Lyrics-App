@@ -19,6 +19,7 @@ import {
   Palette,
   Type,
   PlayCircle,
+  SkipForward,
   Wifi,
   HardDrive,
   Download,
@@ -229,6 +230,14 @@ export default function SettingsScreen({ navigation }) {
             subtitle="Auto-play songs when opening details"
             value={settings.autoPlay}
             onValueChange={settings.setAutoPlay}
+          />
+          <View style={styles.divider} />
+          <ToggleRow
+            icon={<SkipForward color={colors.purpleAccent} size={20} />}
+            label="Continuous Play"
+            subtitle="Auto-play next song in category when track finishes"
+            value={settings.continuousPlay}
+            onValueChange={settings.setContinuousPlay}
           />
           <View style={styles.divider} />
           <ToggleRow
