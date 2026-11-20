@@ -189,6 +189,23 @@ export default function AdminLayout() {
           .ilike('title', `%${q}%`)
           .limit(8);
 
+        if (songsData && songsData.length > 0) {
+          const songIds = songsData.map((s) => s.id);
+          const { data: eventsData } = await supabase
+            .from('app_song_events')
+            .select('song_id')
+            .eq('event_type', 'play')
+            .in('song_id', songIds);
+
+          const counts = {};
+          (eventsData || []).forEach((e) => {
+            counts[e.song_id] = (counts[e.song_id] || 0) + 1;
+          });
+          songsData.forEach((s) => {
+            s.playCount = counts[s.id] || 0;
+          });
+        }
+
         setPaletteResults(songsData || []);
       } catch (err) {
         console.error('Palette search error:', err);
@@ -589,6 +606,15 @@ export default function AdminLayout() {
                               <span>·</span>
                               <span style={{ color: song.is_published ? '#22c55e' : '#f87171' }}>
                                 {song.is_published ? 'Published' : 'Draft'}
+                              </span>
+                              <span>·</span>
+                              <span
+                                className="admin-plays-badge"
+                                style={{ padding: '2px 6px', fontSize: '10px' }}
+                                title={`${song.playCount || 0} total plays`}
+                              >
+                                <Play size={8} fill={song.playCount > 0 ? 'currentColor' : 'none'} />
+                                <span>{(song.playCount || 0).toLocaleString()} plays</span>
                               </span>
                             </div>
                           </div>

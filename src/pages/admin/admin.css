@@ -820,7 +820,7 @@
 /* Stat Cards for Dashboard */
 .admin-stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -1568,6 +1568,194 @@
   color: #a1a1aa;
   border: 1px solid rgba(113, 113, 122, 0.3);
 }
+
+/* Plays Badge */
+.admin-plays-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  background: rgba(139, 92, 246, 0.12);
+  color: #c4b5fd;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  white-space: nowrap;
+}
+
+.admin-plays-badge.zero {
+  background: rgba(113, 113, 122, 0.1);
+  color: #71717a;
+  border-color: rgba(113, 113, 122, 0.2);
+}
+
+.admin-plays-badge.hot {
+  background: rgba(236, 72, 153, 0.14);
+  color: #f472b6;
+  border-color: rgba(236, 72, 153, 0.3);
+}
+
+/* Analytics Subtext & KPIs */
+.analytics-kpi-subtext {
+  font-size: 11px;
+  color: #a1a1aa;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Horizontal Progress Bars */
+.analytics-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.analytics-bar-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #e4e4e7;
+  width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.analytics-bar-track {
+  flex: 1;
+  height: 8px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.analytics-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+  transition: width 0.3s ease;
+}
+
+.analytics-bar-val {
+  font-size: 11px;
+  font-weight: 600;
+  color: #c4b5fd;
+  min-width: 65px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Hourly Listening Chart */
+.analytics-hourly-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 120px;
+  padding: 12px 6px 0 6px;
+  background: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.analytics-hourly-col {
+  flex: 1;
+  min-width: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  position: relative;
+}
+
+.analytics-hourly-bar {
+  width: 100%;
+  max-width: 18px;
+  border-radius: 3px 3px 0 0;
+  background: rgba(139, 92, 246, 0.35);
+  transition: height 0.3s ease, background 0.15s ease;
+  min-height: 4px;
+  cursor: pointer;
+}
+
+.analytics-hourly-bar:hover,
+.analytics-hourly-bar.peak {
+  background: #8b5cf6;
+}
+
+.analytics-hourly-bar.peak {
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+}
+
+.analytics-hourly-label {
+  font-size: 9px;
+  color: #71717a;
+  margin-top: 4px;
+  text-align: center;
+}
+
+/* Spotlight Top Songs */
+.analytics-top-song-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #111113;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.analytics-top-song-card:hover {
+  border-color: #3f3f46;
+  background: #18181b;
+}
+
+.analytics-rank-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.analytics-rank-badge.rank-1 {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.analytics-rank-badge.rank-2 {
+  background: rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+.analytics-rank-badge.rank-3 {
+  background: rgba(180, 83, 9, 0.2);
+  color: #f97316;
+  border: 1px solid rgba(180, 83, 9, 0.4);
+}
+
+.analytics-rank-badge.rank-default {
+  background: #1c1c1f;
+  color: #a1a1aa;
+  border: 1px solid #27272a;
+}
+
 
 
 

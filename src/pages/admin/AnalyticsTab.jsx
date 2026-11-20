@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import {
@@ -6,6 +6,7 @@ import {
   Search,
   AlertCircle,
   Play,
+  Pause,
   Eye,
   Share2,
   Download,
@@ -19,6 +20,12 @@ import {
   Filter,
   CheckCircle2,
   Music,
+  Users,
+  Headphones,
+  Sparkles,
+  Layers,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 export default function AnalyticsTab() {
@@ -39,6 +46,41 @@ export default function AnalyticsTab() {
   const [zeroResultFilter, setZeroResultFilter] = useState('');
   const [engagementFilter, setEngagementFilter] = useState('');
   const [engagementSortKey, setEngagementSortKey] = useState('plays'); // 'plays', 'views', 'downloads', 'shares', 'total'
+  const [engagementStatusFilter, setEngagementStatusFilter] = useState('all'); // 'all', 'played', 'unplayed', 'favorited'
+  const [showZeroPlaysList, setShowZeroPlaysList] = useState(false);
+
+  // Audio preview playback
+  const [playingAudioId, setPlayingAudioId] = useState(null);
+  const audioPlayerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+    };
+  }, []);
+
+  const toggleAudio = (track, e) => {
+    if (e) e.stopPropagation();
+    if (!track.mp3_url) return;
+
+    if (playingAudioId === track.id) {
+      audioPlayerRef.current?.pause();
+      setPlayingAudioId(null);
+    } else {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+      }
+      const audio = new Audio(track.mp3_url);
+      audioPlayerRef.current = audio;
+      setPlayingAudioId(track.id);
+      audio.play().catch(() => setPlayingAudioId(null));
+      audio.onended = () => setPlayingAudioId(null);
+      audio.onerror = () => setPlayingAudioId(null);
+    }
+  };
 
   // Calculate startDate based on timeRange
   const startDate = useMemo(() => {
@@ -87,7 +129,7 @@ export default function AnalyticsTab() {
       // 3. Fetch songs metadata for titles, categories, and images
       const songsQuery = supabase
         .from('songs')
-        .select('id, title, category_id, feature_image_url, categories(name)');
+        .select('id, title, category_id, feature_image_url, mp3_url, is_published, categories(name)');
 
       const [searchRes, eventsRes, songsRes] = await Promise.all([
         searchLogsQuery,
@@ -132,13 +174,35 @@ export default function AnalyticsTab() {
     let shares = 0;
     let favorites = 0;
 
+    const uniqueListeners = new Set();
+    const uniqueSearchDevices = new Set();
+    const uniqueTotalDevices = new Set();
+
     songEvents.forEach((ev) => {
+      if (ev.device_id) {
+        uniqueTotalDevices.add(ev.device_id);
+        if (ev.event_type === 'play') {
+          uniqueListeners.add(ev.device_id);
+        }
+      }
       if (ev.event_type === 'view') views += 1;
       else if (ev.event_type === 'play') plays += 1;
       else if (ev.event_type === 'download') downloads += 1;
       else if (ev.event_type === 'share_status') shares += 1;
       else if (ev.event_type === 'favorite') favorites += 1;
     });
+
+    searchLogs.forEach((s) => {
+      if (s.device_id) {
+        uniqueTotalDevices.add(s.device_id);
+        uniqueSearchDevices.add(s.device_id);
+      }
+    });
+
+    const listenersCount = uniqueListeners.size;
+    const avgPlaysPerListener = listenersCount > 0 ? (plays / listenersCount).toFixed(1) : '0';
+    const viewToPlayRate = views > 0 ? ((plays / views) * 100).toFixed(1) : (plays > 0 ? '100.0' : '0.0');
+    const saveRate = plays > 0 ? ((favorites / plays) * 100).toFixed(1) : '0';
 
     return {
       totalSearches,
@@ -149,8 +213,116 @@ export default function AnalyticsTab() {
       downloads,
       shares,
       favorites,
+      listenersCount,
+      avgPlaysPerListener,
+      viewToPlayRate,
+      saveRate,
+      totalDevices: uniqueTotalDevices.size,
     };
   }, [searchLogs, songEvents]);
+
+  // ── Top 5 Most Played Songs Spotlight ──
+  const topPlayedSongs = useMemo(() => {
+    const counts = {};
+    songEvents.forEach((ev) => {
+      if (ev.event_type === 'play') {
+        counts[ev.song_id] = (counts[ev.song_id] || 0) + 1;
+      }
+    });
+
+    const sorted = Object.entries(counts)
+      .map(([id, plays]) => {
+        const song = songsMap[id] || { title: 'Unknown Track', id };
+        return {
+          id,
+          title: song.title || 'Untitled',
+          categoryName: song.categories?.name || 'Uncategorized',
+          feature_image_url: song.feature_image_url || '',
+          mp3_url: song.mp3_url || '',
+          plays,
+        };
+      })
+      .sort((a, b) => b.plays - a.plays)
+      .slice(0, 5);
+
+    const maxPlays = sorted.length > 0 ? sorted[0].plays : 1;
+    return sorted.map((s, idx) => ({
+      ...s,
+      rank: idx + 1,
+      percentOfMax: Math.round((s.plays / maxPlays) * 100),
+    }));
+  }, [songEvents, songsMap]);
+
+  // ── Category Play Distribution ──
+  const categoryPlayDistribution = useMemo(() => {
+    const counts = {};
+    let totalCatPlays = 0;
+
+    songEvents.forEach((ev) => {
+      if (ev.event_type === 'play') {
+        totalCatPlays += 1;
+        const song = songsMap[ev.song_id];
+        const cat = song?.categories?.name || 'Uncategorized';
+        counts[cat] = (counts[cat] || 0) + 1;
+      }
+    });
+
+    const list = Object.entries(counts).map(([name, count]) => ({
+      name,
+      count,
+      percent: totalCatPlays > 0 ? Math.round((count / totalCatPlays) * 100) : 0,
+    }));
+
+    list.sort((a, b) => b.count - a.count);
+    return { list, totalCatPlays };
+  }, [songEvents, songsMap]);
+
+  // ── Hourly Listening Distribution (00h - 23h) ──
+  const hourlyPattern = useMemo(() => {
+    const hours = Array(24).fill(0);
+    songEvents.forEach((ev) => {
+      if (ev.event_type === 'play' && ev.created_at) {
+        const h = new Date(ev.created_at).getHours();
+        hours[h] += 1;
+      }
+    });
+
+    const maxPlays = Math.max(...hours, 1);
+    let peakHour = 0;
+    let peakCount = 0;
+    hours.forEach((count, h) => {
+      if (count > peakCount) {
+        peakCount = count;
+        peakHour = h;
+      }
+    });
+
+    const formatHour = (h) => {
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const hr = h % 12 || 12;
+      return `${hr} ${ampm}`;
+    };
+
+    return {
+      hours,
+      maxPlays,
+      peakHour,
+      peakCount,
+      peakHourFormatted: formatHour(peakHour),
+    };
+  }, [songEvents]);
+
+  // ── Zero-Play Songs (Catalog Opportunities) ──
+  const zeroPlaySongs = useMemo(() => {
+    const playedIds = new Set();
+    songEvents.forEach((ev) => {
+      if (ev.event_type === 'play') playedIds.add(ev.song_id);
+    });
+
+    return Object.values(songsMap).filter(
+      (s) => s.is_published && !playedIds.has(s.id)
+    );
+  }, [songEvents, songsMap]);
 
   // ── Zero-Result Queries Grouping ──
   const zeroResultList = useMemo(() => {
@@ -189,7 +361,7 @@ export default function AnalyticsTab() {
     return list;
   }, [searchLogs, zeroResultFilter]);
 
-  // ── Top Search Queries (Leaderboard) ──
+  // ── Top Search Queries ──
   const topQueries = useMemo(() => {
     const groups = {};
 
@@ -249,13 +421,24 @@ export default function AnalyticsTab() {
 
     let list = Object.values(counts).map((c) => {
       const song = songsMap[c.song_id] || { title: 'Unknown Song', id: c.song_id };
+      const convRate = c.views > 0 ? ((c.plays / c.views) * 100).toFixed(0) : (c.plays > 0 ? '100' : '0');
       return {
         ...c,
         title: song.title || 'Untitled',
         categoryName: song.categories?.name || 'Uncategorized',
         feature_image_url: song.feature_image_url || '',
+        mp3_url: song.mp3_url || '',
+        convRate,
       };
     });
+
+    if (engagementStatusFilter === 'played') {
+      list = list.filter((s) => s.plays > 0);
+    } else if (engagementStatusFilter === 'unplayed') {
+      list = list.filter((s) => s.plays === 0);
+    } else if (engagementStatusFilter === 'favorited') {
+      list = list.filter((s) => s.favorites > 0);
+    }
 
     if (engagementFilter.trim()) {
       const term = engagementFilter.trim().toLowerCase();
@@ -268,7 +451,7 @@ export default function AnalyticsTab() {
 
     list.sort((a, b) => (b[engagementSortKey] || 0) - (a[engagementSortKey] || 0));
     return list;
-  }, [songEvents, songsMap, engagementFilter, engagementSortKey]);
+  }, [songEvents, songsMap, engagementFilter, engagementSortKey, engagementStatusFilter]);
 
   // ── CSV Export Helpers ──
   const exportSearchesCsv = () => {
@@ -292,6 +475,7 @@ export default function AnalyticsTab() {
       'Song ID',
       'Plays',
       'Views',
+      'Conversion Rate %',
       'Downloads',
       'Status Shares',
       'Favorites',
@@ -303,6 +487,7 @@ export default function AnalyticsTab() {
       `"${s.song_id}"`,
       s.plays,
       s.views,
+      `${s.convRate}%`,
       s.downloads,
       s.shares,
       s.favorites,
@@ -324,19 +509,17 @@ export default function AnalyticsTab() {
     URL.revokeObjectURL(url);
   }
 
-  // Deep link to Add Song modal with prefilled title
   const handleCreateSongWithTitle = (title) => {
     navigate(`/admin?tab=songs&newSong=true&title=${encodeURIComponent(title)}`);
   };
 
-  // Format relative date
   const formatTimeAgo = (dateStr) => {
     if (!dateStr) return '-';
     const seconds = Math.floor((new Date() - new Date(dateStr)) / 1000);
     if (seconds < 60) return `${Math.max(1, seconds)}s ago`;
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
+    const hours = Math.floor(seconds / 60);
     if (hours < 24) return `${hours}h ago`;
     const days = Math.floor(hours / 24);
     if (days < 30) return `${days}d ago`;
@@ -349,7 +532,7 @@ export default function AnalyticsTab() {
       <div className="admin-page-header" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h1>Analytics & Search Insights</h1>
+            <h1>Analytics & Play Insights</h1>
             <span
               style={{
                 fontSize: '11px',
@@ -364,13 +547,12 @@ export default function AnalyticsTab() {
             </span>
           </div>
           <p style={{ color: 'var(--admin-text-muted)', fontSize: '13px', marginTop: '4px' }}>
-            Live mobile search intelligence, zero-result demand tracking, and song engagement telemetry.
+            Live audience listening telemetry, top songs leaderboard, category demand, and search intelligence.
           </p>
         </div>
 
-        {/* Header Controls: Time Range, Refresh & CSV Exports */}
+        {/* Controls: Time Range, Refresh & CSV Exports */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {/* Time range selector */}
           <div
             style={{
               display: 'inline-flex',
@@ -406,7 +588,6 @@ export default function AnalyticsTab() {
             ))}
           </div>
 
-          {/* Refresh Button */}
           <button
             onClick={() => fetchData(true)}
             className="btn-admin-secondary"
@@ -418,17 +599,6 @@ export default function AnalyticsTab() {
             <span>Refresh</span>
           </button>
 
-          {/* Export Dropdown / Buttons */}
-          <button
-            onClick={exportSearchesCsv}
-            className="btn-admin-secondary"
-            title="Export search queries to CSV"
-            style={{ padding: '7px 12px' }}
-          >
-            <FileDown size={14} />
-            <span>Searches CSV</span>
-          </button>
-
           <button
             onClick={exportEngagementCsv}
             className="btn-admin-secondary"
@@ -438,10 +608,20 @@ export default function AnalyticsTab() {
             <FileDown size={14} />
             <span>Engagement CSV</span>
           </button>
+
+          <button
+            onClick={exportSearchesCsv}
+            className="btn-admin-secondary"
+            title="Export search queries to CSV"
+            style={{ padding: '7px 12px' }}
+          >
+            <FileDown size={14} />
+            <span>Searches CSV</span>
+          </button>
         </div>
       </div>
 
-      {/* Error alert if any */}
+      {/* Error alert */}
       {errorMsg && (
         <div
           className="admin-alert danger"
@@ -463,7 +643,7 @@ export default function AnalyticsTab() {
         </div>
       )}
 
-      {/* ── KPI Summary Cards ── */}
+      {/* ── KPI Summary Cards (8-Metric Grid) ── */}
       <div
         style={{
           display: 'grid',
@@ -472,78 +652,426 @@ export default function AnalyticsTab() {
           marginBottom: '24px',
         }}
       >
-        {/* Total Searches */}
+        {/* Audio Plays */}
         <div className="admin-stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6' }}>
-            <Search size={20} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-value">{loading ? '...' : kpis.totalSearches.toLocaleString()}</div>
-            <div className="stat-label">Total Searches</div>
-          </div>
-        </div>
-
-        {/* Zero-Result Searches */}
-        <div className="admin-stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444' }}>
-            <AlertCircle size={20} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-value" style={{ color: kpis.zeroResultSearches > 0 ? '#ef4444' : undefined }}>
-              {loading ? '...' : kpis.zeroResultSearches.toLocaleString()}
-            </div>
-            <div className="stat-label">Zero-Result Searches</div>
-          </div>
-        </div>
-
-        {/* Zero-Result Rate */}
-        <div className="admin-stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
-            <TrendingUp size={20} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-value">{loading ? '...' : `${kpis.zeroResultRate}%`}</div>
-            <div className="stat-label">Missed Search Rate</div>
-          </div>
-        </div>
-
-        {/* Song Plays */}
-        <div className="admin-stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(34, 197, 94, 0.12)', color: '#22c55e' }}>
-            <Play size={20} />
+          <div className="stat-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
+            <Play size={20} fill="#8b5cf6" />
           </div>
           <div className="stat-info">
             <div className="stat-value">{loading ? '...' : kpis.plays.toLocaleString()}</div>
             <div className="stat-label">Audio Plays</div>
+            <div className="analytics-kpi-subtext">
+              <span>{kpis.viewToPlayRate}% view-to-play</span>
+            </div>
           </div>
         </div>
 
-        {/* Song Views */}
+        {/* Unique Listeners */}
         <div className="admin-stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}>
+          <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
+            <Users size={20} />
+          </div>
+          <div className="stat-info">
+            <div className="stat-value">{loading ? '...' : kpis.listenersCount.toLocaleString()}</div>
+            <div className="stat-label">Unique Listeners</div>
+            <div className="analytics-kpi-subtext">
+              <span>{kpis.avgPlaysPerListener} plays / listener</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Lyrics Views */}
+        <div className="admin-stat-card">
+          <div className="stat-icon" style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e' }}>
             <Eye size={20} />
           </div>
           <div className="stat-info">
             <div className="stat-value">{loading ? '...' : kpis.views.toLocaleString()}</div>
             <div className="stat-label">Lyrics Views</div>
+            <div className="analytics-kpi-subtext">
+              <span>Catalog engagement</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Conversion Rate */}
+        <div className="admin-stat-card">
+          <div className="stat-icon" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}>
+            <TrendingUp size={20} />
+          </div>
+          <div className="stat-info">
+            <div className="stat-value">{loading ? '...' : `${kpis.viewToPlayRate}%`}</div>
+            <div className="stat-label">Play Conversion</div>
+            <div className="analytics-kpi-subtext">
+              <span>Readers who listen</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Total Searches */}
+        <div className="admin-stat-card">
+          <div className="stat-icon" style={{ background: 'rgba(14, 165, 233, 0.15)', color: '#0ea5e9' }}>
+            <Search size={20} />
+          </div>
+          <div className="stat-info">
+            <div className="stat-value">{loading ? '...' : kpis.totalSearches.toLocaleString()}</div>
+            <div className="stat-label">Total Searches</div>
+            <div className="analytics-kpi-subtext">
+              <span>{kpis.zeroResultSearches} with 0 results</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Missed Search Rate */}
+        <div className="admin-stat-card">
+          <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>
+            <AlertCircle size={20} />
+          </div>
+          <div className="stat-info">
+            <div className="stat-value" style={{ color: kpis.zeroResultSearches > 0 ? '#ef4444' : undefined }}>
+              {loading ? '...' : `${kpis.zeroResultRate}%`}
+            </div>
+            <div className="stat-label">Missed Search Rate</div>
+            <div className="analytics-kpi-subtext">
+              <span>Unmatched demand</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Favorites & Saves */}
+        <div className="admin-stat-card">
+          <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
+            <Heart size={20} />
+          </div>
+          <div className="stat-info">
+            <div className="stat-value">{loading ? '...' : kpis.favorites.toLocaleString()}</div>
+            <div className="stat-label">Favorites & Saves</div>
+            <div className="analytics-kpi-subtext">
+              <span>{kpis.saveRate}% save rate</span>
+            </div>
           </div>
         </div>
 
         {/* Downloads & Shares */}
         <div className="admin-stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(236, 72, 153, 0.12)', color: '#ec4899' }}>
+          <div className="stat-icon" style={{ background: 'rgba(236, 72, 153, 0.15)', color: '#ec4899' }}>
             <Share2 size={20} />
           </div>
           <div className="stat-info">
-            <div className="stat-value">
-              {loading ? '...' : (kpis.downloads + kpis.shares).toLocaleString()}
+            <div className="stat-value">{loading ? '...' : (kpis.downloads + kpis.shares).toLocaleString()}</div>
+            <div className="stat-label">Downloads & Shares</div>
+            <div className="analytics-kpi-subtext">
+              <span>{kpis.downloads} audio / {kpis.shares} status</span>
             </div>
-            <div className="stat-label">Downloads & Status Shares</div>
           </div>
         </div>
       </div>
 
-      {/* ── SECTION 1: Zero-Result Search Intelligence (Content Gap Analysis) ── */}
+      {/* ── SECTION: Listening Analytics & Audience Patterns ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        {/* Top 5 Most Played Tracks */}
+        <div className="admin-card" style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={16} color="#fbbf24" />
+                <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: '#fff' }}>
+                  Top 5 Most Played Tracks
+                </h2>
+              </div>
+              <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--admin-text-muted)' }}>
+                Highest stream volume in selected period
+              </p>
+            </div>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: '600',
+                color: '#8b5cf6',
+                background: 'rgba(139, 92, 246, 0.12)',
+                padding: '3px 8px',
+                borderRadius: '6px',
+              }}
+            >
+              Audience Favorites
+            </span>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--admin-text-muted)', fontSize: '12px' }}>
+              Calculating top tracks...
+            </div>
+          ) : topPlayedSongs.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--admin-text-muted)', fontSize: '12px' }}>
+              No plays recorded in this time range.
+            </div>
+          ) : (
+            <div>
+              {topPlayedSongs.map((track) => {
+                const isPlaying = playingAudioId === track.id;
+                return (
+                  <div key={track.id} className="analytics-top-song-card">
+                    {/* Rank Badge */}
+                    <div className={`analytics-rank-badge rank-${track.rank <= 3 ? track.rank : 'default'}`}>
+                      #{track.rank}
+                    </div>
+
+                    {/* Artwork */}
+                    {track.feature_image_url ? (
+                      <img
+                        src={track.feature_image_url}
+                        alt=""
+                        style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '6px',
+                          background: '#1c1c1f',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Music size={15} color="#71717a" />
+                      </div>
+                    )}
+
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          color: '#fff',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {track.title}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#a1a1aa', marginTop: '2px' }}>
+                        {track.categoryName}
+                      </div>
+                    </div>
+
+                    {/* Play count & preview audio button */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="admin-plays-badge hot">
+                        <Play size={10} fill="currentColor" />
+                        <span>{track.plays} plays</span>
+                      </span>
+
+                      {track.mp3_url && (
+                        <button
+                          onClick={(e) => toggleAudio(track, e)}
+                          className="btn-icon-admin"
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            background: isPlaying ? '#8b5cf6' : undefined,
+                            color: isPlaying ? '#fff' : undefined,
+                          }}
+                          title={isPlaying ? 'Pause preview' : 'Play track preview'}
+                        >
+                          {isPlaying ? <Pause size={12} /> : <Play size={12} />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Category Play Distribution */}
+        <div className="admin-card" style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Layers size={16} color="#8b5cf6" />
+                <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: '#fff' }}>
+                  Plays by Category
+                </h2>
+              </div>
+              <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--admin-text-muted)' }}>
+                Audience listening share across catalog categories
+              </p>
+            </div>
+            <span style={{ fontSize: '12px', color: '#c4b5fd', fontWeight: '600' }}>
+              {categoryPlayDistribution.totalCatPlays} total
+            </span>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--admin-text-muted)', fontSize: '12px' }}>
+              Calculating category distribution...
+            </div>
+          ) : categoryPlayDistribution.list.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--admin-text-muted)', fontSize: '12px' }}>
+              No category plays recorded in this period.
+            </div>
+          ) : (
+            <div style={{ marginTop: '8px' }}>
+              {categoryPlayDistribution.list.map((item) => (
+                <div key={item.name} className="analytics-bar-item">
+                  <div className="analytics-bar-label" title={item.name}>
+                    {item.name}
+                  </div>
+                  <div className="analytics-bar-track">
+                    <div
+                      className="analytics-bar-fill"
+                      style={{ width: `${Math.max(item.percent, 3)}%` }}
+                    />
+                  </div>
+                  <div className="analytics-bar-val">
+                    {item.count} ({item.percent}%)
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── SECTION: Peak Listening Hours Chart ── */}
+      <div className="admin-card" style={{ padding: '16px 20px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Clock size={16} color="#a78bfa" />
+              <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: '#fff' }}>
+                Listening Activity Patterns (Peak Hours)
+              </h2>
+            </div>
+            <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--admin-text-muted)' }}>
+              Distribution of track playback across 24 hours of the day (Local Time)
+            </p>
+          </div>
+
+          {hourlyPattern.peakCount > 0 && (
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: '600',
+                color: '#22c55e',
+                background: 'rgba(34, 197, 94, 0.12)',
+                border: '1px solid rgba(34, 197, 94, 0.25)',
+                padding: '4px 10px',
+                borderRadius: '6px',
+              }}
+            >
+              Peak Listening Time: {hourlyPattern.peakHourFormatted} ({hourlyPattern.peakCount} plays)
+            </div>
+          )}
+        </div>
+
+        {/* 24-Column Hourly Chart */}
+        <div className="analytics-hourly-chart">
+          {hourlyPattern.hours.map((count, h) => {
+            const isPeak = count > 0 && count === hourlyPattern.peakCount;
+            const heightPercent = hourlyPattern.maxPlays > 0 ? Math.max((count / hourlyPattern.maxPlays) * 85, 4) : 4;
+            const label = h % 3 === 0 ? (h === 0 ? '12a' : h === 12 ? '12p' : h > 12 ? `${h - 12}p` : `${h}a`) : '';
+
+            return (
+              <div key={h} className="analytics-hourly-col">
+                <div
+                  className={`analytics-hourly-bar ${isPeak ? 'peak' : ''}`}
+                  style={{ height: `${heightPercent}%` }}
+                  title={`${h}:00 - ${h}:59: ${count} plays`}
+                />
+                <div className="analytics-hourly-label">{label}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── SECTION: Catalog Opportunity: Zero-Play Songs ── */}
+      <div className="admin-card" style={{ marginBottom: '24px', padding: '0', overflow: 'hidden' }}>
+        <div
+          onClick={() => setShowZeroPlaysList((prev) => !prev)}
+          style={{
+            padding: '14px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            background: 'rgba(245, 158, 11, 0.04)',
+            borderBottom: showZeroPlaysList ? '1px solid var(--admin-border)' : 'none',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }} />
+            <div>
+              <span style={{ fontSize: '14px', fontWeight: '700', color: '#fff' }}>
+                Catalog Opportunity: Unplayed Songs ({zeroPlaySongs.length})
+              </span>
+              <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--admin-text-muted)' }}>
+                Published songs with 0 plays in this timeframe. Promote or spotlight these tracks.
+              </p>
+            </div>
+          </div>
+          <button className="btn-icon-admin" style={{ border: 'none', background: 'transparent' }}>
+            {showZeroPlaysList ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+        </div>
+
+        {showZeroPlaysList && (
+          <div style={{ padding: '12px 20px' }}>
+            {zeroPlaySongs.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#22c55e', fontSize: '13px' }}>
+                All published songs in the catalog have received at least one play!
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '10px' }}>
+                {zeroPlaySongs.slice(0, 18).map((song) => (
+                  <div
+                    key={song.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 12px',
+                      background: '#111113',
+                      border: '1px solid #27272a',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    {song.feature_image_url ? (
+                      <img src={song.feature_image_url} alt="" style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '32px', height: '32px', borderRadius: '6px', background: '#1c1c1f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Music size={14} color="#71717a" />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', fontWeight: '600', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {song.title}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#71717a' }}>{song.categories?.name || 'Uncategorized'}</div>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/admin?tab=songs&editSongId=${song.id}`)}
+                      className="btn-admin-secondary"
+                      style={{ padding: '4px 8px', fontSize: '10px' }}
+                      title="Edit song"
+                    >
+                      Inspect
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── SECTION 1: Zero-Result Search Intelligence ── */}
       <div className="admin-card" style={{ marginBottom: '24px', padding: '0', overflow: 'hidden' }}>
         <div
           style={{
@@ -559,14 +1087,7 @@ export default function AnalyticsTab() {
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: '#ef4444',
-                }}
-              />
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} />
               <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: 'var(--admin-text)' }}>
                 Zero-Result Search Intelligence (Content Opportunities)
               </h2>
@@ -588,7 +1109,6 @@ export default function AnalyticsTab() {
             </p>
           </div>
 
-          {/* Quick filter input */}
           <div style={{ position: 'relative', width: '220px' }}>
             <Search
               size={14}
@@ -602,22 +1122,15 @@ export default function AnalyticsTab() {
             />
             <input
               type="text"
-              placeholder="Filter missing terms..."
+              placeholder="Search zero-result queries..."
               value={zeroResultFilter}
               onChange={(e) => setZeroResultFilter(e.target.value)}
               className="admin-input"
-              style={{
-                paddingLeft: '32px',
-                fontSize: '12px',
-                paddingTop: '6px',
-                paddingBottom: '6px',
-                width: '100%',
-              }}
+              style={{ paddingLeft: '32px', fontSize: '12px', paddingTop: '6px', paddingBottom: '6px', width: '100%' }}
             />
           </div>
         </div>
 
-        {/* Zero-Result Table */}
         {loading ? (
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
             Loading search intelligence...
@@ -629,7 +1142,7 @@ export default function AnalyticsTab() {
               No zero-result searches found
             </div>
             <div style={{ fontSize: '12px', color: 'var(--admin-text-muted)', marginTop: '4px' }}>
-              All mobile searches within this time range matched published songs in your catalog.
+              Every mobile user search found at least one matching song in your catalog.
             </div>
           </div>
         ) : (
@@ -638,60 +1151,57 @@ export default function AnalyticsTab() {
               <thead>
                 <tr>
                   <th>Requested Query</th>
-                  <th style={{ width: '130px' }}>Times Searched</th>
-                  <th style={{ width: '130px' }}>Unique Devices</th>
-                  <th style={{ width: '140px' }}>Last Searched</th>
-                  <th style={{ width: '170px', textAlign: 'right' }}>Action</th>
+                  <th style={{ width: '110px', textAlign: 'center' }}>Times Searched</th>
+                  <th style={{ width: '130px', textAlign: 'center' }}>Unique Devices</th>
+                  <th style={{ width: '130px', textAlign: 'center' }}>Last Searched</th>
+                  <th style={{ width: '150px', textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {zeroResultList.slice(0, 25).map((item) => (
+                {zeroResultList.slice(0, 20).map((item) => (
                   <tr key={item.query}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span
-                          style={{
-                            fontWeight: '600',
-                            fontSize: '13px',
-                            color: 'var(--admin-text)',
-                            background: 'var(--admin-surface-2)',
-                            padding: '3px 8px',
-                            borderRadius: '6px',
-                            border: '1px solid var(--admin-border)',
-                          }}
-                        >
-                          {item.query}
+                        <span style={{ fontWeight: '600', color: 'var(--admin-text)', fontSize: '13px' }}>
+                          "{item.query}"
                         </span>
                       </div>
                     </td>
-                    <td>
-                      <span style={{ fontWeight: '700', color: '#ef4444' }}>
+                    <td style={{ textAlign: 'center' }}>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          background: item.count > 3 ? 'rgba(239, 68, 68, 0.15)' : 'var(--admin-surface-2)',
+                          color: item.count > 3 ? '#ef4444' : 'var(--admin-text-secondary)',
+                        }}
+                      >
                         {item.count} {item.count === 1 ? 'time' : 'times'}
                       </span>
                     </td>
-                    <td>
-                      <span style={{ color: 'var(--admin-text-muted)', fontSize: '13px' }}>
-                        {item.uniqueDevices} {item.uniqueDevices === 1 ? 'device' : 'devices'}
-                      </span>
+                    <td style={{ textAlign: 'center', fontSize: '12px', color: 'var(--admin-text-secondary)' }}>
+                      {item.uniqueDevices} {item.uniqueDevices === 1 ? 'device' : 'devices'}
                     </td>
-                    <td>
-                      <span style={{ color: 'var(--admin-text-muted)', fontSize: '12px' }}>
-                        {formatTimeAgo(item.lastSearched)}
-                      </span>
+                    <td style={{ textAlign: 'center', fontSize: '12px', color: 'var(--admin-text-muted)' }}>
+                      {formatTimeAgo(item.lastSearched)}
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <button
                         onClick={() => handleCreateSongWithTitle(item.query)}
                         className="btn-admin-primary"
                         style={{
+                          padding: '4px 10px',
                           fontSize: '11px',
-                          padding: '5px 10px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
                           gap: '4px',
                         }}
-                        title={`Create a new song with title "${item.query}"`}
+                        title={`Create a new song titled "${item.query}"`}
                       >
                         <Plus size={12} />
-                        <span>Create Song</span>
+                        <span>Add as Song</span>
                       </button>
                     </td>
                   </tr>
@@ -702,16 +1212,8 @@ export default function AnalyticsTab() {
         )}
       </div>
 
-      {/* ── SECTION 2: Top Search Queries Leaderboard & Recent Stream ── */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '20px',
-          marginBottom: '24px',
-        }}
-      >
-        {/* Top Search Terms */}
+      {/* ── SECTION 2: Top Search Queries Leaderboard ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div className="admin-card" style={{ padding: '0', overflow: 'hidden' }}>
           <div
             style={{
@@ -725,63 +1227,41 @@ export default function AnalyticsTab() {
             <div>
               <h3 style={{ fontSize: '14px', fontWeight: '700', margin: 0 }}>Top Search Terms</h3>
               <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: 'var(--admin-text-muted)' }}>
-                Most popular terms entered by users
+                Most popular searches by volume
               </p>
             </div>
-            <span style={{ fontSize: '11px', color: 'var(--admin-text-muted)' }}>
-              Top {topQueries.length}
-            </span>
+            <TrendingUp size={15} color="var(--admin-text-muted)" />
           </div>
 
           {loading ? (
             <div style={{ padding: '30px', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
-              Loading leaderboard...
+              Loading top queries...
             </div>
           ) : topQueries.length === 0 ? (
             <div style={{ padding: '30px', textAlign: 'center', color: 'var(--admin-text-muted)', fontSize: '13px' }}>
-              No search logs available yet.
+              No search logs found in this period.
             </div>
           ) : (
             <div className="admin-table-wrap">
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '40px' }}>#</th>
-                    <th>Query</th>
-                    <th style={{ width: '80px', textAlign: 'right' }}>Count</th>
-                    <th style={{ width: '90px', textAlign: 'right' }}>Avg Hits</th>
+                    <th>Term</th>
+                    <th style={{ width: '80px', textAlign: 'center' }}>Searches</th>
+                    <th style={{ width: '90px', textAlign: 'center' }}>Avg Results</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {topQueries.map((t, idx) => (
-                    <tr key={t.query}>
-                      <td style={{ color: 'var(--admin-text-muted)', fontSize: '11px', fontWeight: '700' }}>
-                        {idx + 1}
+                  {topQueries.slice(0, 10).map((q) => (
+                    <tr key={q.query}>
+                      <td style={{ fontWeight: '500', color: 'var(--admin-text)' }}>
+                        "{q.query}"
                       </td>
-                      <td>
-                        <span style={{ fontWeight: '600', fontSize: '13px', color: 'var(--admin-text)' }}>
-                          {t.query}
-                        </span>
+                      <td style={{ textAlign: 'center', fontWeight: '700', color: '#8b5cf6' }}>
+                        {q.count}
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: '600' }}>
-                        {t.count}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            background:
-                              Number(t.avgResults) === 0
-                                ? 'rgba(239, 68, 68, 0.15)'
-                                : 'rgba(34, 197, 94, 0.15)',
-                            color: Number(t.avgResults) === 0 ? '#f87171' : '#4ade80',
-                            fontWeight: '600',
-                          }}
-                        >
-                          {t.avgResults}
-                        </span>
+                      <td style={{ textAlign: 'center', fontSize: '12px', color: 'var(--admin-text-secondary)' }}>
+                        {q.avgResults}
                       </td>
                     </tr>
                   ))}
@@ -791,7 +1271,7 @@ export default function AnalyticsTab() {
           )}
         </div>
 
-        {/* Live Search Stream (Recent 15 Searches) */}
+        {/* Recent Search Activity */}
         <div className="admin-card" style={{ padding: '0', overflow: 'hidden' }}>
           <div
             style={{
@@ -830,7 +1310,7 @@ export default function AnalyticsTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {searchLogs.slice(0, 15).map((log) => (
+                  {searchLogs.slice(0, 10).map((log) => (
                     <tr key={log.id}>
                       <td>
                         <div style={{ fontSize: '13px', fontWeight: '500', color: 'var(--admin-text)' }}>
@@ -883,20 +1363,55 @@ export default function AnalyticsTab() {
               Song Engagement Leaderboard
             </h2>
             <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--admin-text-muted)' }}>
-              Breakdown of audio plays, lyric views, offline downloads, and WhatsApp status shares per song.
+              Breakdown of audio plays, lyric views, play conversion, downloads, and WhatsApp status shares per song.
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {/* Quick status filter pills */}
+            <div
+              style={{
+                display: 'inline-flex',
+                background: 'var(--admin-surface-2)',
+                borderRadius: '8px',
+                padding: '2px',
+                border: '1px solid var(--admin-border)',
+              }}
+            >
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'played', label: 'Played (>0)' },
+                { id: 'unplayed', label: 'Unplayed (0)' },
+                { id: 'favorited', label: 'Favorited' },
+              ].map((pill) => (
+                <button
+                  key={pill.id}
+                  onClick={() => setEngagementStatusFilter(pill.id)}
+                  style={{
+                    border: 'none',
+                    background: engagementStatusFilter === pill.id ? 'var(--admin-primary)' : 'transparent',
+                    color: engagementStatusFilter === pill.id ? '#ffffff' : 'var(--admin-text-muted)',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: engagementStatusFilter === pill.id ? '600' : '500',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+
             {/* Search song filter */}
-            <div style={{ position: 'relative', width: '200px' }}>
+            <div style={{ position: 'relative', width: '180px' }}>
               <Search
-                size={14}
+                size={13}
                 style={{
                   position: 'absolute',
                   left: '10px',
                   top: '50%',
-                  transform: 'translateY(-50)',
+                  transform: 'translateY(-50%)',
                   color: 'var(--admin-text-muted)',
                 }}
               />
@@ -907,7 +1422,7 @@ export default function AnalyticsTab() {
                 onChange={(e) => setEngagementFilter(e.target.value)}
                 className="admin-input"
                 style={{
-                  paddingLeft: '32px',
+                  paddingLeft: '30px',
                   fontSize: '12px',
                   paddingTop: '6px',
                   paddingBottom: '6px',
@@ -927,6 +1442,7 @@ export default function AnalyticsTab() {
               <option value="views">Sort by Views</option>
               <option value="downloads">Sort by Downloads</option>
               <option value="shares">Sort by Status Shares</option>
+              <option value="favorites">Sort by Favorites</option>
               <option value="total">Sort by Total Interactions</option>
             </select>
           </div>
@@ -941,7 +1457,7 @@ export default function AnalyticsTab() {
           <div style={{ padding: '36px 20px', textAlign: 'center' }}>
             <Music size={32} color="var(--admin-text-muted)" style={{ margin: '0 auto 8px', display: 'block' }} />
             <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--admin-text)' }}>
-              No song interactions recorded
+              No song interactions found
             </div>
             <div style={{ fontSize: '12px', color: 'var(--admin-text-muted)', marginTop: '4px' }}>
               Engagement events will appear here as mobile users play, view, download, or share songs.
@@ -953,82 +1469,109 @@ export default function AnalyticsTab() {
               <thead>
                 <tr>
                   <th>Song</th>
-                  <th style={{ width: '100px', textAlign: 'right' }}>Audio Plays</th>
-                  <th style={{ width: '100px', textAlign: 'right' }}>Views</th>
-                  <th style={{ width: '110px', textAlign: 'right' }}>Downloads</th>
-                  <th style={{ width: '120px', textAlign: 'right' }}>Status Shares</th>
-                  <th style={{ width: '90px', textAlign: 'right' }}>Favorites</th>
-                  <th style={{ width: '120px', textAlign: 'right' }}>Total Events</th>
+                  <th style={{ width: '90px', textAlign: 'center' }}>Preview</th>
+                  <th style={{ width: '90px', textAlign: 'right' }}>Audio Plays</th>
+                  <th style={{ width: '90px', textAlign: 'right' }}>Views</th>
+                  <th style={{ width: '90px', textAlign: 'right' }}>Conversion</th>
+                  <th style={{ width: '90px', textAlign: 'right' }}>Downloads</th>
+                  <th style={{ width: '100px', textAlign: 'right' }}>Status Shares</th>
+                  <th style={{ width: '80px', textAlign: 'right' }}>Favorites</th>
+                  <th style={{ width: '100px', textAlign: 'right' }}>Total Events</th>
                 </tr>
               </thead>
               <tbody>
-                {songEngagementList.slice(0, 30).map((item) => (
-                  <tr key={item.song_id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {item.feature_image_url ? (
-                          <img
-                            src={item.feature_image_url}
-                            alt=""
-                            style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '6px',
-                              objectFit: 'cover',
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '6px',
-                              background: 'var(--admin-surface-2)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <Music size={14} color="var(--admin-text-muted)" />
-                          </div>
-                        )}
-                        <div>
-                          <div
-                            style={{
-                              fontWeight: '600',
-                              fontSize: '13px',
-                              color: 'var(--admin-text)',
-                              lineHeight: '1.2',
-                            }}
-                          >
-                            {item.title}
-                          </div>
-                          <div style={{ fontSize: '11px', color: 'var(--admin-text-muted)', marginTop: '2px' }}>
-                            {item.categoryName}
+                {songEngagementList.slice(0, 30).map((item) => {
+                  const isPlaying = playingAudioId === item.song_id;
+                  return (
+                    <tr key={item.song_id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          {item.feature_image_url ? (
+                            <img
+                              src={item.feature_image_url}
+                              alt=""
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '6px',
+                                objectFit: 'cover',
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '6px',
+                                background: 'var(--admin-surface-2)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              <Music size={14} color="var(--admin-text-muted)" />
+                            </div>
+                          )}
+                          <div style={{ minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontWeight: '600',
+                                fontSize: '13px',
+                                color: 'var(--admin-text)',
+                                lineHeight: '1.2',
+                              }}
+                            >
+                              {item.title}
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--admin-text-muted)', marginTop: '2px' }}>
+                              {item.categoryName}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td style={{ textAlign: 'right', fontWeight: '700', color: '#22c55e' }}>
-                      {item.plays.toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: 'right', fontWeight: '600', color: '#3b82f6' }}>
-                      {item.views.toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: 'right', fontWeight: '600', color: '#a78bfa' }}>
-                      {item.downloads.toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: 'right', fontWeight: '600', color: '#ec4899' }}>
-                      {item.shares.toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: 'right', fontWeight: '600', color: '#f59e0b' }}>
-                      {item.favorites.toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: 'right', fontWeight: '700' }}>
-                      {item.total.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {item.mp3_url ? (
+                          <button
+                            onClick={(e) => toggleAudio({ id: item.song_id, mp3_url: item.mp3_url }, e)}
+                            className="btn-icon-admin"
+                            style={{
+                              width: '26px',
+                              height: '26px',
+                              background: isPlaying ? '#8b5cf6' : undefined,
+                              color: isPlaying ? '#fff' : undefined,
+                            }}
+                            title={isPlaying ? 'Pause' : 'Play audio'}
+                          >
+                            {isPlaying ? <Pause size={11} /> : <Play size={11} />}
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '10px', color: '#71717a' }}>No Audio</span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: '700', color: item.plays > 0 ? '#22c55e' : '#71717a' }}>
+                        {item.plays.toLocaleString()}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: '600', color: '#3b82f6' }}>
+                        {item.views.toLocaleString()}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: '600', color: '#c4b5fd' }}>
+                        {item.convRate}%
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: '600', color: '#a78bfa' }}>
+                        {item.downloads.toLocaleString()}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: '600', color: '#ec4899' }}>
+                        {item.shares.toLocaleString()}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: '600', color: '#f59e0b' }}>
+                        {item.favorites.toLocaleString()}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: '700' }}>
+                        {item.total.toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

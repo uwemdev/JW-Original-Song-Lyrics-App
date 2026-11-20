@@ -71,10 +71,13 @@ export default function AdminDashboard() {
   const [dashboardStats, setDashboardStats] = useState({
     totalSongs: 0,
     totalCategories: 0,
+    totalPlays: 0,
     newFeedback: 0,
     appVersion: 'v1.0.2',
   });
   const [categorySongCounts, setCategorySongCounts] = useState({});
+  const [songPlayCounts, setSongPlayCounts] = useState({});
+  const [songSort, setSongSort] = useState('newest'); // 'newest' | 'most_plays' | 'least_plays' | 'title_asc' | 'oldest'
 
   // Song Health Checker state
   const [healthModalOpen, setHealthModalOpen] = useState(false);
@@ -130,12 +133,13 @@ export default function AdminDashboard() {
   // Fetch Dashboard Stats
   const fetchDashboardStats = useCallback(async () => {
     try {
-      const [songsCountRes, catsCountRes, unreadFeedbackCount, versionRes, allSongsRes] = await Promise.all([
+      const [songsCountRes, catsCountRes, unreadFeedbackCount, versionRes, allSongsRes, songEventsRes] = await Promise.all([
         supabase.from('songs').select('*', { count: 'exact', head: true }),
         supabase.from('categories').select('*', { count: 'exact', head: true }),
         fetchUnreadCountFromDb(supabase),
         supabase.from('app_version_config').select('latest_version').eq('platform', 'android').limit(1).maybeSingle(),
         supabase.from('songs').select('category_id'),
+        supabase.from('app_song_events').select('song_id').eq('event_type', 'play').limit(10000),
       ]);
 
       const counts = {};
@@ -148,9 +152,22 @@ export default function AdminDashboard() {
         setCategorySongCounts(counts);
       }
 
+      const playCounts = {};
+      let totalPlays = 0;
+      if (songEventsRes.data) {
+        totalPlays = songEventsRes.data.length;
+        songEventsRes.data.forEach((ev) => {
+          if (ev.song_id) {
+            playCounts[ev.song_id] = (playCounts[ev.song_id] || 0) + 1;
+          }
+        });
+      }
+      setSongPlayCounts(playCounts);
+
       setDashboardStats({
         totalSongs: songsCountRes.count || 0,
         totalCategories: catsCountRes.count || 0,
+        totalPlays,
         newFeedback: unreadFeedbackCount || 0,
         appVersion: versionRes.data?.latest_version ? `v${versionRes.data.latest_version}` : 'v1.0.2',
       });
@@ -217,7 +234,7 @@ export default function AdminDashboard() {
   }, [currentTab]);
 
   // Fetch data with server-side filters and pagination
-  const fetchData = useCallback(async (page = songPage, search = songSearch, catId = categoryFilter, status = statusFilter) => {
+  const fetchData = useCallback(async (page = songPage, search = songSearch, catId = categoryFilter, status = statusFilter, sort = songSort) => {
     setLoading(true);
     setErrorMsg('');
     try {
@@ -227,8 +244,15 @@ export default function AdminDashboard() {
 
       let query = supabase
         .from('songs')
-        .select('*, categories(name)', { count: 'exact' })
-        .order('created_at', { ascending: false });
+        .select('*, categories(name)', { count: 'exact' });
+
+      if (sort === 'oldest') {
+        query = query.order('created_at', { ascending: true });
+      } else if (sort === 'title_asc') {
+        query = query.order('title', { ascending: true });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
 
       if (search && search.trim()) {
         query = query.ilike('title', `%${search.trim()}%`);
@@ -258,8 +282,27 @@ export default function AdminDashboard() {
       if (catsRes.error) throw catsRes.error;
       if (songsRes.error) throw songsRes.error;
 
+      const loadedSongs = songsRes.data || [];
+      const songIds = loadedSongs.map((s) => s.id);
+
+      if (songIds.length > 0) {
+        const { data: pagePlays } = await supabase
+          .from('app_song_events')
+          .select('song_id')
+          .eq('event_type', 'play')
+          .in('song_id', songIds);
+
+        if (pagePlays) {
+          const freshCounts = {};
+          pagePlays.forEach((p) => {
+            freshCounts[p.song_id] = (freshCounts[p.song_id] || 0) + 1;
+          });
+          setSongPlayCounts((prev) => ({ ...prev, ...freshCounts }));
+        }
+      }
+
       setCategories(catsRes.data || []);
-      setSongs(songsRes.data || []);
+      setSongs(loadedSongs);
       setTotalSongsCount(songsRes.count || 0);
       setHasMoreSongs((songsRes.count || 0) > to + 1);
     } catch (err) {
@@ -267,15 +310,32 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [songPage, songSearch, categoryFilter, statusFilter]);
+  }, [songPage, songSearch, categoryFilter, statusFilter, songSort]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchData(songPage, songSearch, categoryFilter, statusFilter);
+      fetchData(songPage, songSearch, categoryFilter, statusFilter, songSort);
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [fetchData, songPage, songSearch, categoryFilter, statusFilter]);
+  }, [fetchData, songPage, songSearch, categoryFilter, statusFilter, songSort]);
+
+  // Client-side computed sorting & filtering for plays
+  const displayedSongs = useMemo(() => {
+    let list = [...songs];
+    if (statusFilter === 'has_plays') {
+      list = list.filter((s) => (songPlayCounts[s.id] || 0) > 0);
+    } else if (statusFilter === 'zero_plays') {
+      list = list.filter((s) => (songPlayCounts[s.id] || 0) === 0);
+    }
+
+    if (songSort === 'most_plays') {
+      list.sort((a, b) => (songPlayCounts[b.id] || 0) - (songPlayCounts[a.id] || 0));
+    } else if (songSort === 'least_plays') {
+      list.sort((a, b) => (songPlayCounts[a.id] || 0) - (songPlayCounts[b.id] || 0));
+    }
+    return list;
+  }, [songs, songPlayCounts, statusFilter, songSort]);
 
   // Audio preview toggle
   const toggleAudioPreview = (song, e) => {
@@ -804,7 +864,15 @@ export default function AdminDashboard() {
       <div className="admin-page">
         <div className="admin-page-header">
           <div>
-            <h1>{editingSong ? 'Edit Song' : 'Add New Song'}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h1>{editingSong ? 'Edit Song' : 'Add New Song'}</h1>
+              {editingSong && (
+                <span className="admin-plays-badge" title="Total plays recorded for this track">
+                  <Play size={10} fill="currentColor" />
+                  {(songPlayCounts[editingSong.id] || 0).toLocaleString()} plays
+                </span>
+              )}
+            </div>
             <p className="page-subtitle">Update song information, audio files, and lyrics</p>
           </div>
           <button onClick={closeForm} className="btn-admin-secondary">
@@ -1067,6 +1135,17 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* Total Plays */}
+          <div className="admin-stat-card" onClick={() => navigate('/admin?tab=analytics')} style={{ cursor: 'pointer' }}>
+            <div className="stat-icon" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}>
+              <Play size={20} fill="#a855f7" />
+            </div>
+            <div>
+              <div className="stat-value">{dashboardStats.totalPlays.toLocaleString()}</div>
+              <div className="stat-label">Total Plays</div>
+            </div>
+          </div>
+
           {/* New Feedback */}
           <div className="admin-stat-card" onClick={() => navigate('/admin?tab=feedback')} style={{ cursor: 'pointer' }}>
             <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
@@ -1279,6 +1358,23 @@ export default function AdminDashboard() {
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+
+            {/* Sort Order */}
+            <select
+              value={songSort}
+              onChange={(e) => {
+                setSongSort(e.target.value);
+                setSongPage(0);
+              }}
+              className="admin-select"
+              style={{ width: 'auto', minWidth: '150px' }}
+            >
+              <option value="newest">Sort: Newest</option>
+              <option value="most_plays">Sort: Most Played</option>
+              <option value="least_plays">Sort: Least Played</option>
+              <option value="title_asc">Sort: Title (A-Z)</option>
+              <option value="oldest">Sort: Oldest</option>
+            </select>
           </div>
 
           {/* Quick Filter Status Chips */}
@@ -1287,6 +1383,8 @@ export default function AdminDashboard() {
               { key: 'all', label: 'All Songs' },
               { key: 'published', label: 'Published' },
               { key: 'draft', label: 'Drafts' },
+              { key: 'has_plays', label: 'Has Plays' },
+              { key: 'zero_plays', label: 'Zero Plays' },
               { key: 'no_audio', label: 'Missing Audio' },
               { key: 'no_image', label: 'Missing Image' },
             ].map((st) => {
@@ -1339,6 +1437,7 @@ export default function AdminDashboard() {
                       <th style={{ width: '40px' }}></th>
                       <th>Song Title</th>
                       <th>Category</th>
+                      <th>Plays</th>
                       <th>Audio</th>
                       <th>Status</th>
                       <th>Created</th>
@@ -1346,8 +1445,9 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {songs.map((song) => {
+                    {displayedSongs.map((song) => {
                       const isPlaying = playingAudioId === song.id;
+                      const playCount = songPlayCounts[song.id] || 0;
                       return (
                         <tr key={song.id}>
                           <td>
@@ -1375,6 +1475,16 @@ export default function AdminDashboard() {
                           </td>
 
                           <td>{song.categories?.name || '—'}</td>
+
+                          <td>
+                            <span
+                              className={`admin-plays-badge ${playCount === 0 ? 'zero' : playCount > 10 ? 'hot' : ''}`}
+                              title={`${playCount} total plays recorded`}
+                            >
+                              <Play size={10} fill={playCount > 0 ? 'currentColor' : 'none'} />
+                              <span>{playCount.toLocaleString()} {playCount === 1 ? 'play' : 'plays'}</span>
+                            </span>
+                          </td>
 
                           <td>
                             {song.mp3_url ? (
@@ -1434,8 +1544,9 @@ export default function AdminDashboard() {
 
               {/* Mobile Cards View */}
               <div className="admin-song-cards" style={{ padding: '12px' }}>
-                {songs.map((song) => {
+                {displayedSongs.map((song) => {
                   const isPlaying = playingAudioId === song.id;
+                  const playCount = songPlayCounts[song.id] || 0;
                   return (
                     <div key={song.id} className="admin-song-card">
                       {song.feature_image_url ? (
@@ -1450,7 +1561,7 @@ export default function AdminDashboard() {
                         <div className="song-card-title">{song.title}</div>
                         <div className="song-card-category">{song.categories?.name || 'Uncategorized'}</div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
                           <span
                             onClick={(e) => togglePublishStatus(song, e)}
                             className={`admin-badge ${song.is_published ? 'published' : 'draft'}`}
@@ -1458,6 +1569,15 @@ export default function AdminDashboard() {
                           >
                             <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: song.is_published ? '#22c55e' : '#f87171' }} />
                             {song.is_published ? 'Published' : 'Draft'}
+                          </span>
+
+                          <span
+                            className={`admin-plays-badge ${playCount === 0 ? 'zero' : ''}`}
+                            style={{ padding: '2px 7px', fontSize: '10px' }}
+                            title={`${playCount} total plays`}
+                          >
+                            <Play size={9} fill={playCount > 0 ? 'currentColor' : 'none'} />
+                            <span>{playCount.toLocaleString()} plays</span>
                           </span>
 
                           {song.mp3_url && (

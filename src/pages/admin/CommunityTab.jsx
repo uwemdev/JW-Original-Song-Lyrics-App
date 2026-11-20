@@ -20,6 +20,10 @@ import {
   UserX,
   X,
   AlertTriangle,
+  BarChart3,
+  TrendingUp,
+  Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 
 function getCountryFlag(countryCode) {
@@ -49,6 +53,8 @@ export default function CommunityTab() {
   const [reports, setReports] = useState([]);
   const [bans, setBans] = useState([]);
   const [profilesCount, setProfilesCount] = useState(0);
+  const [profilesList, setProfilesList] = useState([]);
+  const [directMessages, setDirectMessages] = useState([]);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -101,10 +107,12 @@ export default function CommunityTab() {
         .order('last_message_at', { ascending: false })
         .limit(50);
 
-      // 5. Member count
-      const profilesCountRes = await supabase
-        .from('community_profiles')
-        .select('device_id', { count: 'exact', head: true });
+      // 5. Member count & member profiles
+      const [profilesCountRes, profilesListRes, directMsgsRes] = await Promise.all([
+        supabase.from('community_profiles').select('device_id', { count: 'exact', head: true }),
+        supabase.from('community_profiles').select('*').order('last_active_at', { ascending: false }).limit(250),
+        supabase.from('community_direct_messages').select('*').limit(2000),
+      ]);
 
       if (groupRes.error && groupRes.error.code !== '42P01') throw groupRes.error;
       if (reportsRes.error && reportsRes.error.code !== '42P01') throw reportsRes.error;
@@ -115,6 +123,8 @@ export default function CommunityTab() {
       setBans(bansRes.data || []);
       setDirectThreads(threadsRes.data || []);
       setProfilesCount(profilesCountRes.count || 0);
+      setProfilesList(profilesListRes.data || []);
+      setDirectMessages(directMsgsRes.data || []);
     } catch (err) {
       console.error('Community load error:', err);
       if (err.message && err.message.includes('does not exist')) {
@@ -495,6 +505,88 @@ export default function CommunityTab() {
     );
   }, [groupMessages, searchQuery]);
 
+  // ── Community Analytics Computations ──
+  const communityAnalytics = useMemo(() => {
+    const totalMembers = profilesCount || profilesList.length;
+    const now = Date.now();
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+    let activeMembers7d = 0;
+    const countryCounts = {};
+    const memberMessagesCount = {};
+
+    profilesList.forEach((p) => {
+      if (p.last_active_at && new Date(p.last_active_at).getTime() >= sevenDaysAgo) {
+        activeMembers7d += 1;
+      }
+      const c = p.country_name || (p.country_code ? p.country_code.toUpperCase() : 'Global');
+      countryCounts[c] = (countryCounts[c] || 0) + 1;
+    });
+
+    groupMessages.forEach((m) => {
+      if (m.sender_device_id) {
+        memberMessagesCount[m.sender_device_id] = (memberMessagesCount[m.sender_device_id] || 0) + 1;
+      }
+    });
+
+    directMessages.forEach((dm) => {
+      if (dm.sender_device_id) {
+        memberMessagesCount[dm.sender_device_id] = (memberMessagesCount[dm.sender_device_id] || 0) + 1;
+      }
+    });
+
+    const activeChattersCount = Object.keys(memberMessagesCount).length;
+    const participationRate = totalMembers > 0 ? ((activeChattersCount / totalMembers) * 100).toFixed(0) : '0';
+    const totalMessages = groupMessages.length + directMessages.length;
+    const avgMessagesPerChatter = activeChattersCount > 0 ? (totalMessages / activeChattersCount).toFixed(1) : '0';
+
+    const totalThreads = directThreads.length;
+    const acceptedThreads = directThreads.filter((t) => t.status === 'accepted').length;
+    const pendingThreads = directThreads.filter((t) => t.status === 'pending').length;
+    const threadAcceptanceRate = totalThreads > 0 ? ((acceptedThreads / totalThreads) * 100).toFixed(0) : '0';
+
+    const pendingReports = reports.filter((r) => r.status === 'pending').length;
+    const resolvedReports = reports.filter((r) => r.status === 'resolved' || r.status === 'dismissed').length;
+    const safetyScore = totalMessages > 0 ? Math.max(0, 100 - ((reports.length / totalMessages) * 100)).toFixed(1) : '100.0';
+
+    const contributors = profilesList
+      .map((p) => {
+        const msgCount = memberMessagesCount[p.device_id] || 0;
+        return {
+          ...p,
+          messageCount: msgCount,
+        };
+      })
+      .sort((a, b) => b.messageCount - a.messageCount || new Date(b.last_active_at) - new Date(a.last_active_at))
+      .slice(0, 10);
+
+    const countryList = Object.entries(countryCounts)
+      .map(([name, count]) => ({
+        name,
+        count,
+        percent: totalMembers > 0 ? Math.round((count / totalMembers) * 100) : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      totalMembers,
+      activeMembers7d,
+      activeChattersCount,
+      participationRate,
+      totalMessages,
+      avgMessagesPerChatter,
+      totalThreads,
+      acceptedThreads,
+      pendingThreads,
+      threadAcceptanceRate,
+      pendingReports,
+      resolvedReports,
+      safetyScore,
+      contributors,
+      countryList,
+    };
+  }, [profilesCount, profilesList, groupMessages, directMessages, directThreads, reports]);
+
   return (
     <div className="admin-page">
       {/* ── Page Header ── */}
@@ -662,12 +754,13 @@ export default function CommunityTab() {
       </div>
 
       {/* ── Sub-Navigation Tabs ── */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--admin-border)', paddingBottom: '12px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--admin-border)', paddingBottom: '12px', flexWrap: 'wrap' }}>
         {[
           { id: 'group', label: 'Group Lounge Stream', count: groupMessages.length },
           { id: 'reports', label: 'Reported Messages', count: reports.length, badgeColor: '#ef4444' },
           { id: 'direct', label: 'Direct Chats Supervision', count: directThreads.length },
           { id: 'bans', label: 'IP & Device Bans', count: bans.length },
+          { id: 'analytics', label: 'Community Analytics', count: 0 },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1229,7 +1322,256 @@ export default function CommunityTab() {
         </div>
       )}
 
-      {/* ── Modal: Ban User / IP ── */}
+      {/* ── TAB 5: Community Analytics & Activity Insights ── */}
+      {activeSubTab === 'analytics' && (
+        <div>
+          {/* 6 Key Community Metrics */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: '14px',
+              marginBottom: '20px',
+            }}
+          >
+            {/* Total Members */}
+            <div className="admin-stat-card">
+              <div className="stat-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
+                <Users size={20} />
+              </div>
+              <div className="stat-info">
+                <div className="stat-value">{communityAnalytics.totalMembers}</div>
+                <div className="stat-label">Total Registered Profiles</div>
+                <div className="analytics-kpi-subtext">
+                  <span>{communityAnalytics.activeMembers7d} active in last 7d</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Chatters */}
+            <div className="admin-stat-card">
+              <div className="stat-icon" style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e' }}>
+                <MessageSquare size={20} />
+              </div>
+              <div className="stat-info">
+                <div className="stat-value">{communityAnalytics.activeChattersCount}</div>
+                <div className="stat-label">Active Chatters</div>
+                <div className="analytics-kpi-subtext">
+                  <span>{communityAnalytics.participationRate}% participation</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Total Messages Exchanged */}
+            <div className="admin-stat-card">
+              <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
+                <TrendingUp size={20} />
+              </div>
+              <div className="stat-info">
+                <div className="stat-value">{communityAnalytics.totalMessages}</div>
+                <div className="stat-label">Messages Exchanged</div>
+                <div className="analytics-kpi-subtext">
+                  <span>{groupMessages.length} lounge / {directMessages.length} direct</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Avg Messages per Chatter */}
+            <div className="admin-stat-card">
+              <div className="stat-icon" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}>
+                <Sparkles size={20} />
+              </div>
+              <div className="stat-info">
+                <div className="stat-value">{communityAnalytics.avgMessagesPerChatter}</div>
+                <div className="stat-label">Avg Msg / Chatter</div>
+                <div className="analytics-kpi-subtext">
+                  <span>Conversation density</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Direct Threads */}
+            <div className="admin-stat-card">
+              <div className="stat-icon" style={{ background: 'rgba(236, 72, 153, 0.15)', color: '#ec4899' }}>
+                <Users size={20} />
+              </div>
+              <div className="stat-info">
+                <div className="stat-value">{communityAnalytics.totalThreads}</div>
+                <div className="stat-label">1-on-1 Direct Threads</div>
+                <div className="analytics-kpi-subtext">
+                  <span>{communityAnalytics.threadAcceptanceRate}% accepted</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Community Safety Score */}
+            <div className="admin-stat-card">
+              <div className="stat-icon" style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e' }}>
+                <ShieldCheck size={20} />
+              </div>
+              <div className="stat-info">
+                <div className="stat-value">{communityAnalytics.safetyScore}%</div>
+                <div className="stat-label">Community Safety Score</div>
+                <div className="analytics-kpi-subtext">
+                  <span>{reports.length} total reports</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Two-Column Grid: Contributors Leaderboard & Geographic Demographics */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+            {/* Top Contributors Leaderboard */}
+            <div className="admin-card" style={{ padding: '0', overflow: 'hidden' }}>
+              <div
+                style={{
+                  padding: '14px 18px',
+                  borderBottom: '1px solid var(--admin-border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div>
+                  <h3 style={{ fontSize: '14px', fontWeight: '700', margin: 0, color: '#fff' }}>
+                    Top Community Contributors
+                  </h3>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: 'var(--admin-text-muted)' }}>
+                    Ranked by chat activity & lounge messages
+                  </p>
+                </div>
+                <Sparkles size={16} color="#fbbf24" />
+              </div>
+
+              {communityAnalytics.contributors.length === 0 ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--admin-text-muted)', fontSize: '12px' }}>
+                  No active community contributors yet.
+                </div>
+              ) : (
+                <div className="admin-table-wrap">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '40px' }}>Rank</th>
+                        <th>Member</th>
+                        <th>Country</th>
+                        <th style={{ width: '90px', textAlign: 'center' }}>Messages</th>
+                        <th style={{ width: '100px', textAlign: 'right' }}>Last Seen</th>
+                        <th style={{ width: '80px', textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {communityAnalytics.contributors.map((member, idx) => (
+                        <tr key={member.device_id}>
+                          <td>
+                            <div className={`analytics-rank-badge rank-${idx + 1 <= 3 ? idx + 1 : 'default'}`}>
+                              #{idx + 1}
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontWeight: '600', color: '#fff', fontSize: '13px' }}>
+                                {member.handle}
+                              </span>
+                              {renderStars(member.star_level)}
+                            </div>
+                            <div style={{ fontSize: '10px', color: 'var(--admin-text-muted)', marginTop: '2px' }}>
+                              ID: {member.device_id.slice(0, 10)}...
+                            </div>
+                          </td>
+                          <td style={{ fontSize: '12px', color: '#e4e4e7' }}>
+                            <span style={{ marginRight: '4px' }}>{getCountryFlag(member.country_code)}</span>
+                            {member.country_name || member.country_code || 'Global'}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                color: member.messageCount > 0 ? '#22c55e' : '#71717a',
+                                background: member.messageCount > 0 ? 'rgba(34, 197, 94, 0.12)' : 'transparent',
+                                padding: '2px 7px',
+                                borderRadius: '6px',
+                              }}
+                            >
+                              {member.messageCount}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right', fontSize: '11px', color: 'var(--admin-text-muted)' }}>
+                            {formatTimeAgo(member.last_active_at)}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button
+                              onClick={() => {
+                                setBanTarget({
+                                  deviceId: member.device_id,
+                                  ipAddress: member.ip_address || '',
+                                  handle: member.handle,
+                                  durationDays: 7,
+                                  reason: 'Community guidelines review',
+                                });
+                                setShowBanModal(true);
+                              }}
+                              className="btn-admin-danger"
+                              style={{ padding: '3px 8px', fontSize: '10px' }}
+                              title="Ban member"
+                            >
+                              <Ban size={11} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Geographic Distribution */}
+            <div className="admin-card" style={{ padding: '16px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                <div>
+                  <h3 style={{ fontSize: '14px', fontWeight: '700', margin: 0, color: '#fff' }}>
+                    Geographic & Country Demographics
+                  </h3>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: 'var(--admin-text-muted)' }}>
+                    Community profile distribution across nations
+                  </p>
+                </div>
+                <Globe size={16} color="#8b5cf6" />
+              </div>
+
+              {communityAnalytics.countryList.length === 0 ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--admin-text-muted)', fontSize: '12px' }}>
+                  No geographic data recorded yet.
+                </div>
+              ) : (
+                <div style={{ marginTop: '10px' }}>
+                  {communityAnalytics.countryList.map((c) => (
+                    <div key={c.name} className="analytics-bar-item">
+                      <div className="analytics-bar-label" title={c.name}>
+                        {c.name}
+                      </div>
+                      <div className="analytics-bar-track">
+                        <div
+                          className="analytics-bar-fill"
+                          style={{
+                            width: `${Math.max(c.percent, 4)}%`,
+                            background: 'linear-gradient(90deg, #3b82f6, #60a5fa)',
+                          }}
+                        />
+                      </div>
+                      <div className="analytics-bar-val" style={{ color: '#93c5fd' }}>
+                        {c.count} ({c.percent}%)
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {showBanModal && (
         <div className="admin-modal-overlay" onClick={() => setShowBanModal(false)}>
           <div className="admin-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
