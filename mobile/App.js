@@ -49,6 +49,8 @@ export const navigationRef = createNavigationContainerRef();
 LogBox.ignoreLogs([
   'setLayoutAnimationEnabledExperimental',
   'Failed to activate lock screen controls',
+  'Failed to start the expo-audio playback service',
+  'expo-audio config plugin',
 ]);
 
 // Prevent Android from aggressively splitting words mid-syllable across line wraps
