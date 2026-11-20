@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { Platform } from 'react-native';
+import {
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  setAudioModeAsync,
+  requestNotificationPermissionsAsync,
+} from 'expo-audio';
 import { useSettings } from './SettingsContext';
 import { getLocalAudioUri } from '../lib/offlineManager';
 import { logSongEvent } from '../lib/analytics';
@@ -22,6 +28,36 @@ export function AudioProvider({ children, navigationRef }) {
   const [currentScreen, setCurrentScreen] = useState('');
   const [isAudioOffline, setIsAudioOffline] = useState(false);
 
+  // Configure audio session for background playback and lock screen controls at startup
+  useEffect(() => {
+    let isMounted = true;
+    const initAudioSession = async () => {
+      try {
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          interruptionMode: 'doNotMix',
+          allowsRecording: false,
+          shouldPlayInBackground: true,
+        });
+      } catch (err) {
+        console.warn('AudioContext: setAudioModeAsync error:', err);
+      }
+
+      if (Platform.OS === 'android') {
+        try {
+          if (typeof requestNotificationPermissionsAsync === 'function') {
+            await requestNotificationPermissionsAsync();
+          }
+        } catch (_) {}
+      }
+    };
+
+    initAudioSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const updateQueue = useCallback((newQ, newIdx = -1) => {
     const list = Array.isArray(newQ) ? newQ : [];
     queueRef.current = list;
@@ -37,7 +73,11 @@ export function AudioProvider({ children, navigationRef }) {
   const sleepTimerIntervalRef = useRef(null);
 
   // Single persistent expo-audio player instance with high-frequency progress updates (250ms)
-  const player = useAudioPlayer(null, { updateInterval: 250 });
+  // keepAudioSessionActive preserves audio session focus in the background and between tracks
+  const player = useAudioPlayer(null, {
+    updateInterval: 250,
+    keepAudioSessionActive: true,
+  });
   const status = useAudioPlayerStatus(player);
 
   const prevDidFinishRef = useRef(false);
@@ -163,11 +203,16 @@ export function AudioProvider({ children, navigationRef }) {
               {
                 title: song.title || 'Original Song',
                 artist: song.categories?.name || song.category_name || 'JW Original Songs',
-                artwork: song.feature_image_url || undefined,
+                albumTitle: song.categories?.name || 'JW Original Songs',
+                artworkUrl: song.feature_image_url || undefined,
               },
               {
                 showNextTrack: true,
                 showPreviousTrack: true,
+                showSeekForward: true,
+                showSeekBackward: true,
+                seekForwardIntervalSeconds: 10,
+                seekBackwardIntervalSeconds: 10,
               }
             );
           }
@@ -297,6 +342,11 @@ export function AudioProvider({ children, navigationRef }) {
   const dismissMiniPlayer = useCallback(() => {
     try {
       player.pause();
+    } catch (_) {}
+    try {
+      if (typeof player?.clearLockScreenControls === 'function') {
+        player.clearLockScreenControls();
+      }
     } catch (_) {}
     setIsMiniPlayerVisible(false);
   }, [player]);
