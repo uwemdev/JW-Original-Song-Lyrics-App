@@ -157,11 +157,20 @@ export function AudioProvider({ children, navigationRef }) {
           logSongEvent(song.id, 'play', deviceId);
         }
         try {
-          player.setActiveForLockScreen(true, {
-            title: song.title || 'Original Song',
-            artist: song.categories?.name || song.category_name || 'JW Original Songs',
-            artwork: song.feature_image_url || undefined,
-          });
+          if (typeof player?.setActiveForLockScreen === 'function') {
+            player.setActiveForLockScreen(
+              true,
+              {
+                title: song.title || 'Original Song',
+                artist: song.categories?.name || song.category_name || 'JW Original Songs',
+                artwork: song.feature_image_url || undefined,
+              },
+              {
+                showNextTrack: true,
+                showPreviousTrack: true,
+              }
+            );
+          }
         } catch (_) {}
       } catch (err) {
         console.warn('Error loading audio:', err);

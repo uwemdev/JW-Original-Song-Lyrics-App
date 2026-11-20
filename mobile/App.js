@@ -46,7 +46,10 @@ const SettingsStackNav = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
 export const navigationRef = createNavigationContainerRef();
 
-LogBox.ignoreLogs(['setLayoutAnimationEnabledExperimental']);
+LogBox.ignoreLogs([
+  'setLayoutAnimationEnabledExperimental',
+  'Failed to activate lock screen controls',
+]);
 
 // Prevent Android from aggressively splitting words mid-syllable across line wraps
 if (Platform.OS === 'android') {
