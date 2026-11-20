@@ -1,7 +1,8 @@
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AppContext } from '../App';
-import { Play, Pause, X } from 'lucide-react';
+import { Play, Pause, X, SkipBack, SkipForward } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export default function AudioPlayer() {
   const { currentSong, setCurrentSong, isPlaying, setIsPlaying } = useContext(AppContext);
@@ -27,7 +28,7 @@ export default function AudioPlayer() {
   useEffect(() => {
     if (audioRef.current && currentSong?.mp3_url) {
       if (isPlaying && !isOffline) {
-        audioRef.current.play().catch(e => console.error("Playback failed", e));
+        audioRef.current.play().catch((e) => console.error("Playback failed", e));
       } else {
         audioRef.current.pause();
       }
@@ -41,6 +42,46 @@ export default function AudioPlayer() {
       setProgress((current / duration) * 100 || 0);
     }
   };
+
+  const handleNext = useCallback(async () => {
+    if (!currentSong) return;
+    try {
+      let query = supabase.from('songs').select('*').eq('is_published', true).not('mp3_url', 'is', null);
+      if (currentSong.category_id) {
+        query = query.eq('category_id', currentSong.category_id);
+      }
+      const { data } = await query.order('created_at', { ascending: false });
+      if (data && data.length > 1) {
+        const curIdx = data.findIndex((s) => s.id === currentSong.id);
+        const nextIdx = curIdx + 1 < data.length ? curIdx + 1 : 0;
+        setCurrentSong(data[nextIdx]);
+        setIsPlaying(true);
+      }
+    } catch (_) {}
+  }, [currentSong, setCurrentSong, setIsPlaying]);
+
+  const handlePrev = useCallback(async () => {
+    if (!currentSong) return;
+    try {
+      if (audioRef.current && audioRef.current.currentTime > 3) {
+        audioRef.current.currentTime = 0;
+        return;
+      }
+      let query = supabase.from('songs').select('*').eq('is_published', true).not('mp3_url', 'is', null);
+      if (currentSong.category_id) {
+        query = query.eq('category_id', currentSong.category_id);
+      }
+      const { data } = await query.order('created_at', { ascending: false });
+      if (data && data.length > 1) {
+        const curIdx = data.findIndex((s) => s.id === currentSong.id);
+        const prevIdx = curIdx - 1 >= 0 ? curIdx - 1 : data.length - 1;
+        setCurrentSong(data[prevIdx]);
+        setIsPlaying(true);
+      } else if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+      }
+    } catch (_) {}
+  }, [currentSong, setCurrentSong, setIsPlaying]);
 
   if (!currentSong) return null;
 
@@ -62,7 +103,7 @@ export default function AudioPlayer() {
         ref={audioRef} 
         src={currentSong.mp3_url} 
         onTimeUpdate={handleTimeUpdate}
-        onEnded={() => setIsPlaying(false)}
+        onEnded={handleNext}
       />
       
       <div className="flex items-center justify-between mb-2">
@@ -71,19 +112,39 @@ export default function AudioPlayer() {
           {isOffline && <span className="text-xs text-danger">Offline - Audio disabled</span>}
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <button 
+            className="btn-icon text-secondary" 
+            onClick={handlePrev}
+            title="Previous song"
+            style={{ padding: '6px' }}
+          >
+            <SkipBack size={20} />
+          </button>
+
           <button 
             className="btn-icon" 
             onClick={() => setIsPlaying(!isPlaying)}
             disabled={isOffline}
+            title={isPlaying ? "Pause" : "Play"}
             style={{ opacity: isOffline ? 0.5 : 1 }}
           >
             {isPlaying ? <Pause size={24} /> : <Play size={24} />}
           </button>
+
+          <button 
+            className="btn-icon text-secondary" 
+            onClick={handleNext}
+            title="Next song"
+            style={{ padding: '6px' }}
+          >
+            <SkipForward size={20} />
+          </button>
+
           <button className="btn-icon text-secondary" onClick={() => {
             setCurrentSong(null);
             setIsPlaying(false);
-          }}>
+          }} title="Close player">
             <X size={20} />
           </button>
         </div>

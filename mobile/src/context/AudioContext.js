@@ -215,10 +215,31 @@ export function AudioProvider({ children, navigationRef }) {
     player.seekTo(target);
   }, [player, status.currentTime, status.duration]);
 
-  // Play next track in queue
-  const playNext = useCallback(() => {
-    const q = queueRef.current;
-    const curIdx = queueIndexRef.current;
+  // Play next track in queue with catalog fallback
+  const playNext = useCallback(async () => {
+    let q = queueRef.current;
+    let curIdx = queueIndexRef.current;
+
+    // Fallback: if queue is empty or single-item, rebuild from catalog
+    if (!q || q.length <= 1) {
+      try {
+        const allSongs = await getCachedSongs();
+        const catSongs = allSongs.filter(
+          (s) =>
+            String(s.category_id) === String(currentSong?.category_id) &&
+            s.is_published !== false &&
+            s.mp3_url
+        );
+        const listToUse = catSongs.length > 1 ? catSongs : allSongs.filter((s) => s.is_published !== false && s.mp3_url);
+        if (listToUse.length > 1) {
+          q = listToUse;
+          queueRef.current = listToUse;
+          setQueue(listToUse);
+          curIdx = listToUse.findIndex((s) => String(s.id) === String(currentSong?.id));
+        }
+      } catch (_) {}
+    }
+
     if (!q || q.length === 0) return;
     const nextIdx = curIdx + 1 < q.length ? curIdx + 1 : 0;
     const nextSong = q[nextIdx];
@@ -227,18 +248,40 @@ export function AudioProvider({ children, navigationRef }) {
       setQueueIndex(nextIdx);
       playSong(nextSong, q);
     }
-  }, [playSong]);
+  }, [currentSong?.category_id, currentSong?.id, playSong]);
 
-  // Play previous track in queue
-  const playPrev = useCallback(() => {
-    const q = queueRef.current;
-    const curIdx = queueIndexRef.current;
-    if (!q || q.length === 0) return;
+  // Play previous track in queue with catalog fallback
+  const playPrev = useCallback(async () => {
     // If more than 3 seconds in, restart current track
     if ((status.currentTime || 0) > 3) {
       player.seekTo(0);
       return;
     }
+
+    let q = queueRef.current;
+    let curIdx = queueIndexRef.current;
+
+    // Fallback: if queue is empty or single-item, rebuild from catalog
+    if (!q || q.length <= 1) {
+      try {
+        const allSongs = await getCachedSongs();
+        const catSongs = allSongs.filter(
+          (s) =>
+            String(s.category_id) === String(currentSong?.category_id) &&
+            s.is_published !== false &&
+            s.mp3_url
+        );
+        const listToUse = catSongs.length > 1 ? catSongs : allSongs.filter((s) => s.is_published !== false && s.mp3_url);
+        if (listToUse.length > 1) {
+          q = listToUse;
+          queueRef.current = listToUse;
+          setQueue(listToUse);
+          curIdx = listToUse.findIndex((s) => String(s.id) === String(currentSong?.id));
+        }
+      } catch (_) {}
+    }
+
+    if (!q || q.length === 0) return;
     const prevIdx = curIdx - 1 >= 0 ? curIdx - 1 : q.length - 1;
     const prevSong = q[prevIdx];
     if (prevSong) {
@@ -248,7 +291,7 @@ export function AudioProvider({ children, navigationRef }) {
     } else {
       player.seekTo(0);
     }
-  }, [status.currentTime, playSong, player]);
+  }, [status.currentTime, currentSong?.category_id, currentSong?.id, playSong, player]);
 
   // Dismiss mini player completely
   const dismissMiniPlayer = useCallback(() => {

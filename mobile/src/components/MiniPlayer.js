@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Play, Pause, Music, X } from 'lucide-react-native';
+import { Play, Pause, Music, X, SkipBack, SkipForward } from 'lucide-react-native';
 import { useAudio } from '../context/AudioContext';
 import { useSettings } from '../context/SettingsContext';
 import { getMiniPlayerBottom } from '../lib/bottomDock';
@@ -28,6 +28,8 @@ export default function MiniPlayer() {
     isPlaying,
     progress,
     togglePlayPause,
+    playNext,
+    playPrev,
     dismissMiniPlayer,
     isMiniPlayerVisible,
     setMiniPlayerHeight,
@@ -120,32 +122,68 @@ export default function MiniPlayer() {
 
         {/* Player Actions */}
         <View style={styles.actions}>
+          {/* Previous Track Button */}
+          <TouchableOpacity
+            style={styles.skipBtn}
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              playPrev();
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel="Previous song"
+            activeOpacity={0.7}
+          >
+            <SkipBack color={colors.textWhite} size={15} fill={colors.textWhite} />
+          </TouchableOpacity>
+
           {/* Play / Pause Button */}
           <TouchableOpacity
             style={[styles.playBtn, { backgroundColor: colors.purple }]}
-            onPress={togglePlayPause}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              togglePlayPause();
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
             accessibilityRole="button"
             accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
             activeOpacity={0.8}
           >
             {isPlaying ? (
-              <Pause color="#FFFFFF" size={18} fill="#FFFFFF" />
+              <Pause color="#FFFFFF" size={17} fill="#FFFFFF" />
             ) : (
-              <Play color="#FFFFFF" size={18} fill="#FFFFFF" style={{ marginLeft: 2 }} />
+              <Play color="#FFFFFF" size={17} fill="#FFFFFF" style={{ marginLeft: 2 }} />
             )}
+          </TouchableOpacity>
+
+          {/* Next Track Button */}
+          <TouchableOpacity
+            style={styles.skipBtn}
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              playNext();
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel="Next song"
+            activeOpacity={0.7}
+          >
+            <SkipForward color={colors.textWhite} size={15} fill={colors.textWhite} />
           </TouchableOpacity>
 
           {/* Dismiss / Close Button */}
           <TouchableOpacity
             style={styles.closeBtn}
-            onPress={dismissMiniPlayer}
-            hitSlop={{ top: 10, bottom: 10, left: 8, right: 10 }}
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              dismissMiniPlayer();
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }}
             accessibilityRole="button"
             accessibilityLabel="Close mini player"
             activeOpacity={0.7}
           >
-            <X color={colors.textMuted} size={16} />
+            <X color={colors.textMuted} size={15} />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -224,9 +262,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  skipBtn: {
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   closeBtn: {
-    width: 30,
-    height: 30,
+    width: 28,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
   },

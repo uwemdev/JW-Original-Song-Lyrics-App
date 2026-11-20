@@ -48,6 +48,8 @@ import {
   WifiOff,
   Radio,
   Moon,
+  SkipBack,
+  SkipForward,
 } from 'lucide-react-native';
 import { Replay10Icon, Forward10Icon } from '../components/SeekIcons';
 import AddToPlaylistModal from '../components/AddToPlaylistModal';
@@ -182,6 +184,8 @@ export default function SongScreen({ route, navigation }) {
     isAudioOffline,
     playSong,
     togglePlayPause,
+    playNext,
+    playPrev,
     seekBy: audioSeekBy,
     setCurrentScreen,
     sleepTimerOption,
@@ -842,6 +846,18 @@ export default function SongScreen({ route, navigation }) {
 
             {/* Controls row */}
             <View style={styles.playerControls}>
+              {/* Previous Track Button */}
+              <TouchableOpacity
+                style={styles.skipTrackBtn}
+                onPress={playPrev}
+                accessibilityRole="button"
+                accessibilityLabel="Previous track"
+                activeOpacity={0.7}
+              >
+                <SkipBack color={colors.textWhite} size={20} fill={colors.textWhite} />
+              </TouchableOpacity>
+
+              {/* Rewind 10s */}
               <TouchableOpacity
                 style={styles.skipBtn}
                 onPress={() => seekBy(-10)}
@@ -849,9 +865,10 @@ export default function SongScreen({ route, navigation }) {
                 accessibilityLabel="Rewind 10 seconds"
                 activeOpacity={0.7}
               >
-                <Replay10Icon color={colors.textMuted} size={28} />
+                <Replay10Icon color={colors.textMuted} size={26} />
               </TouchableOpacity>
 
+              {/* Play / Pause Button */}
               <TouchableOpacity
                 style={styles.playBtn}
                 accessibilityRole="button"
@@ -866,6 +883,7 @@ export default function SongScreen({ route, navigation }) {
                 )}
               </TouchableOpacity>
 
+              {/* Forward 10s */}
               <TouchableOpacity
                 style={styles.skipBtn}
                 onPress={() => seekBy(10)}
@@ -873,7 +891,18 @@ export default function SongScreen({ route, navigation }) {
                 accessibilityLabel="Forward 10 seconds"
                 activeOpacity={0.7}
               >
-                <Forward10Icon color={colors.textMuted} size={28} />
+                <Forward10Icon color={colors.textMuted} size={26} />
+              </TouchableOpacity>
+
+              {/* Next Track Button */}
+              <TouchableOpacity
+                style={styles.skipTrackBtn}
+                onPress={playNext}
+                accessibilityRole="button"
+                accessibilityLabel="Next track"
+                activeOpacity={0.7}
+              >
+                <SkipForward color={colors.textWhite} size={20} fill={colors.textWhite} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1537,13 +1566,22 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 16,
-    gap: 24,
+    gap: 12,
+  },
+  skipTrackBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(109, 40, 217, 0.06)',
   },
   skipBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 48,
-    height: 48,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
   },
   playBtn: {
     width: 56,
