@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Outlet, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import AdminErrorBoundary from '../../components/AdminErrorBoundary';
 import { fetchUnreadCountFromDb } from './feedbackUtils';
 import './admin.css';
 import {
@@ -529,7 +530,9 @@ export default function AdminLayout() {
 
         {/* Content Workspace */}
         <main className="admin-content">
-          <Outlet context={{ currentTab }} />
+          <AdminErrorBoundary>
+            <Outlet context={{ currentTab }} />
+          </AdminErrorBoundary>
         </main>
       </div>
 

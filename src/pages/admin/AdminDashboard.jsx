@@ -1141,7 +1141,7 @@ export default function AdminDashboard() {
               <Play size={20} fill="#a855f7" />
             </div>
             <div>
-              <div className="stat-value">{dashboardStats.totalPlays.toLocaleString()}</div>
+              <div className="stat-value">{((dashboardStats && dashboardStats.totalPlays) || 0).toLocaleString()}</div>
               <div className="stat-label">Total Plays</div>
             </div>
           </div>

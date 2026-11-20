@@ -11,6 +11,7 @@ import About from './pages/About';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminLogin from './pages/admin/AdminLogin';
+import AdminErrorBoundary from './components/AdminErrorBoundary';
 import Navigation from './components/Navigation';
 import AudioPlayer from './components/AudioPlayer';
 import { seedCategoriesIfEmpty } from './lib/seedCategories';
@@ -64,8 +65,22 @@ function App() {
           </Route>
           
           {/* Admin Routes (Full screen, independent of public app container) */}
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin" element={<AdminLayout />}>
+          <Route
+            path="/admin/login"
+            element={
+              <AdminErrorBoundary>
+                <AdminLogin />
+              </AdminErrorBoundary>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <AdminErrorBoundary>
+                <AdminLayout />
+              </AdminErrorBoundary>
+            }
+          >
             <Route index element={<AdminDashboard />} />
           </Route>
         </Routes>

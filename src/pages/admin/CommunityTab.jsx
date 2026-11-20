@@ -699,7 +699,7 @@ export default function CommunityTab() {
             <Users size={20} />
           </div>
           <div className="stat-info">
-            <div className="stat-value">{loading ? '...' : profilesCount.toLocaleString()}</div>
+            <div className="stat-value">{loading ? '...' : (profilesCount || 0).toLocaleString()}</div>
             <div className="stat-label">Community Profiles</div>
           </div>
         </div>
@@ -1476,7 +1476,7 @@ export default function CommunityTab() {
                               {renderStars(member.star_level)}
                             </div>
                             <div style={{ fontSize: '10px', color: 'var(--admin-text-muted)', marginTop: '2px' }}>
-                              ID: {member.device_id.slice(0, 10)}...
+                              ID: {(member.device_id || '').slice(0, 10)}...
                             </div>
                           </td>
                           <td style={{ fontSize: '12px', color: '#e4e4e7' }}>

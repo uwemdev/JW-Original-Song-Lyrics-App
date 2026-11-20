@@ -658,10 +658,10 @@ export default function AnalyticsTab() {
             <Play size={20} fill="#8b5cf6" />
           </div>
           <div className="stat-info">
-            <div className="stat-value">{loading ? '...' : kpis.plays.toLocaleString()}</div>
+            <div className="stat-value">{loading ? '...' : (kpis?.plays || 0).toLocaleString()}</div>
             <div className="stat-label">Audio Plays</div>
             <div className="analytics-kpi-subtext">
-              <span>{kpis.viewToPlayRate}% view-to-play</span>
+              <span>{kpis?.viewToPlayRate || '0.0'}% view-to-play</span>
             </div>
           </div>
         </div>
@@ -672,10 +672,10 @@ export default function AnalyticsTab() {
             <Users size={20} />
           </div>
           <div className="stat-info">
-            <div className="stat-value">{loading ? '...' : kpis.listenersCount.toLocaleString()}</div>
+            <div className="stat-value">{loading ? '...' : (kpis?.listenersCount || 0).toLocaleString()}</div>
             <div className="stat-label">Unique Listeners</div>
             <div className="analytics-kpi-subtext">
-              <span>{kpis.avgPlaysPerListener} plays / listener</span>
+              <span>{kpis?.avgPlaysPerListener || '0'} plays / listener</span>
             </div>
           </div>
         </div>
@@ -686,7 +686,7 @@ export default function AnalyticsTab() {
             <Eye size={20} />
           </div>
           <div className="stat-info">
-            <div className="stat-value">{loading ? '...' : kpis.views.toLocaleString()}</div>
+            <div className="stat-value">{loading ? '...' : (kpis?.views || 0).toLocaleString()}</div>
             <div className="stat-label">Lyrics Views</div>
             <div className="analytics-kpi-subtext">
               <span>Catalog engagement</span>
@@ -700,7 +700,7 @@ export default function AnalyticsTab() {
             <TrendingUp size={20} />
           </div>
           <div className="stat-info">
-            <div className="stat-value">{loading ? '...' : `${kpis.viewToPlayRate}%`}</div>
+            <div className="stat-value">{loading ? '...' : `${kpis?.viewToPlayRate || '0.0'}%`}</div>
             <div className="stat-label">Play Conversion</div>
             <div className="analytics-kpi-subtext">
               <span>Readers who listen</span>
@@ -714,10 +714,10 @@ export default function AnalyticsTab() {
             <Search size={20} />
           </div>
           <div className="stat-info">
-            <div className="stat-value">{loading ? '...' : kpis.totalSearches.toLocaleString()}</div>
+            <div className="stat-value">{loading ? '...' : (kpis?.totalSearches || 0).toLocaleString()}</div>
             <div className="stat-label">Total Searches</div>
             <div className="analytics-kpi-subtext">
-              <span>{kpis.zeroResultSearches} with 0 results</span>
+              <span>{kpis?.zeroResultSearches || 0} with 0 results</span>
             </div>
           </div>
         </div>
@@ -728,8 +728,8 @@ export default function AnalyticsTab() {
             <AlertCircle size={20} />
           </div>
           <div className="stat-info">
-            <div className="stat-value" style={{ color: kpis.zeroResultSearches > 0 ? '#ef4444' : undefined }}>
-              {loading ? '...' : `${kpis.zeroResultRate}%`}
+            <div className="stat-value" style={{ color: (kpis?.zeroResultSearches || 0) > 0 ? '#ef4444' : undefined }}>
+              {loading ? '...' : `${kpis?.zeroResultRate || '0.0'}%`}
             </div>
             <div className="stat-label">Missed Search Rate</div>
             <div className="analytics-kpi-subtext">
@@ -744,10 +744,10 @@ export default function AnalyticsTab() {
             <Heart size={20} />
           </div>
           <div className="stat-info">
-            <div className="stat-value">{loading ? '...' : kpis.favorites.toLocaleString()}</div>
+            <div className="stat-value">{loading ? '...' : (kpis?.favorites || 0).toLocaleString()}</div>
             <div className="stat-label">Favorites & Saves</div>
             <div className="analytics-kpi-subtext">
-              <span>{kpis.saveRate}% save rate</span>
+              <span>{kpis?.saveRate || '0'}% save rate</span>
             </div>
           </div>
         </div>
@@ -758,10 +758,10 @@ export default function AnalyticsTab() {
             <Share2 size={20} />
           </div>
           <div className="stat-info">
-            <div className="stat-value">{loading ? '...' : (kpis.downloads + kpis.shares).toLocaleString()}</div>
+            <div className="stat-value">{loading ? '...' : ((kpis?.downloads || 0) + (kpis?.shares || 0)).toLocaleString()}</div>
             <div className="stat-label">Downloads & Shares</div>
             <div className="analytics-kpi-subtext">
-              <span>{kpis.downloads} audio / {kpis.shares} status</span>
+              <span>{kpis?.downloads || 0} audio / {kpis?.shares || 0} status</span>
             </div>
           </div>
         </div>
@@ -1548,26 +1548,26 @@ export default function AnalyticsTab() {
                           <span style={{ fontSize: '10px', color: '#71717a' }}>No Audio</span>
                         )}
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: '700', color: item.plays > 0 ? '#22c55e' : '#71717a' }}>
-                        {item.plays.toLocaleString()}
+                      <td style={{ textAlign: 'right', fontWeight: '700', color: (item.plays || 0) > 0 ? '#22c55e' : '#71717a' }}>
+                        {(item.plays || 0).toLocaleString()}
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: '600', color: '#3b82f6' }}>
-                        {item.views.toLocaleString()}
+                        {(item.views || 0).toLocaleString()}
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: '600', color: '#c4b5fd' }}>
-                        {item.convRate}%
+                        {item.convRate || '0.0'}%
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: '600', color: '#a78bfa' }}>
-                        {item.downloads.toLocaleString()}
+                        {(item.downloads || 0).toLocaleString()}
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: '600', color: '#ec4899' }}>
-                        {item.shares.toLocaleString()}
+                        {(item.shares || 0).toLocaleString()}
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: '600', color: '#f59e0b' }}>
-                        {item.favorites.toLocaleString()}
+                        {(item.favorites || 0).toLocaleString()}
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: '700' }}>
-                        {item.total.toLocaleString()}
+                        {(item.total || 0).toLocaleString()}
                       </td>
                     </tr>
                   );
