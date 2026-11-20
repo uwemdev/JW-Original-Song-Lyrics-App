@@ -10,14 +10,26 @@ import { getCachedSongs } from '../lib/catalogCache';
 const AudioContext = createContext(null);
 
 export function AudioProvider({ children, navigationRef }) {
-  const { settings, deviceId } = useSettings();
+  const settings = useSettings();
+  const { deviceId, continuousPlay } = settings;
   const [currentSong, setCurrentSong] = useState(null);
   const [queue, setQueue] = useState([]);
   const [queueIndex, setQueueIndex] = useState(-1);
+  const queueRef = useRef([]);
+  const queueIndexRef = useRef(-1);
   const [isMiniPlayerVisible, setIsMiniPlayerVisible] = useState(false);
   const [miniPlayerHeight, setMiniPlayerHeight] = useState(INITIAL_MINI_PLAYER_HEIGHT);
   const [currentScreen, setCurrentScreen] = useState('');
   const [isAudioOffline, setIsAudioOffline] = useState(false);
+
+  const updateQueue = useCallback((newQ, newIdx = -1) => {
+    const list = Array.isArray(newQ) ? newQ : [];
+    queueRef.current = list;
+    setQueue(list);
+    const idx = typeof newIdx === 'number' ? newIdx : -1;
+    queueIndexRef.current = idx;
+    setQueueIndex(idx);
+  }, []);
 
   // Sleep Timer state
   const [sleepTimerOption, setSleepTimerOption] = useState(null); // null | '15' | '30' | '45' | '60' | 'end_of_song'
@@ -94,21 +106,30 @@ export function AudioProvider({ children, navigationRef }) {
   const playSong = useCallback((song, newQueue = null) => {
     if (!song) return;
 
-    if (newQueue && Array.isArray(newQueue) && newQueue.length > 0) {
-      setQueue(newQueue);
-      const idx = newQueue.findIndex((s) => s.id === song.id);
-      setQueueIndex(idx >= 0 ? idx : 0);
-    } else if (currentSong?.id !== song.id) {
-      // If no new queue provided and it's a different song, keep existing queue or make single-item
-      setQueue((prev) => {
-        const idx = prev.findIndex((s) => s.id === song.id);
-        if (idx >= 0) {
-          setQueueIndex(idx);
-          return prev;
+    if (newQueue && Array.isArray(newQueue) && newQueue.length > 1) {
+      const idx = newQueue.findIndex((s) => String(s.id) === String(song.id));
+      updateQueue(newQueue, idx >= 0 ? idx : 0);
+    } else {
+      // Auto-build category queue from cached catalog so queue is always populated
+      (async () => {
+        try {
+          const allSongs = await getCachedSongs();
+          const catSongs = allSongs.filter(
+            (s) =>
+              String(s.category_id) === String(song.category_id) &&
+              s.is_published !== false &&
+              s.mp3_url
+          );
+          if (catSongs.length > 0) {
+            const idx = catSongs.findIndex((s) => String(s.id) === String(song.id));
+            updateQueue(catSongs, idx >= 0 ? idx : 0);
+          } else {
+            updateQueue([song], 0);
+          }
+        } catch (_) {
+          updateQueue([song], 0);
         }
-        setQueueIndex(0);
-        return [song];
-      });
+      })();
     }
 
     // If tapping the already loaded song, just resume if paused
@@ -133,7 +154,7 @@ export function AudioProvider({ children, navigationRef }) {
         player.replace({ uri: targetUri });
         player.play();
         if (song?.id) {
-          logSongEvent(song.id, 'play', settings?.deviceId);
+          logSongEvent(song.id, 'play', deviceId);
         }
         try {
           player.setActiveForLockScreen(true, {
@@ -148,7 +169,7 @@ export function AudioProvider({ children, navigationRef }) {
     };
 
     startPlayback();
-  }, [currentSong?.id, player]);
+  }, [currentSong?.id, player, updateQueue, deviceId]);
 
   // Toggle play / pause
   const togglePlayPause = useCallback(() => {
@@ -185,68 +206,40 @@ export function AudioProvider({ children, navigationRef }) {
     player.seekTo(target);
   }, [player, status.currentTime, status.duration]);
 
-  // Play next track in queue; if queue exhausted, auto-build from same category
-  const playNext = useCallback(async () => {
-    if (queue.length > 0) {
-      const nextIdx = queueIndex + 1;
-      if (nextIdx < queue.length) {
-        const nextSong = queue[nextIdx];
-        setQueueIndex(nextIdx);
-        playSong(nextSong, queue);
-        return;
-      }
+  // Play next track in queue
+  const playNext = useCallback(() => {
+    const q = queueRef.current;
+    const curIdx = queueIndexRef.current;
+    if (!q || q.length === 0) return;
+    const nextIdx = curIdx + 1 < q.length ? curIdx + 1 : 0;
+    const nextSong = q[nextIdx];
+    if (nextSong) {
+      queueIndexRef.current = nextIdx;
+      setQueueIndex(nextIdx);
+      playSong(nextSong, q);
     }
-
-    // Queue exhausted, single-item, or empty: build a category queue from cached catalog
-    if (currentSong?.category_id) {
-      try {
-        const allSongs = await getCachedSongs();
-        const catSongs = allSongs.filter(
-          (s) =>
-            String(s.category_id) === String(currentSong.category_id) &&
-            s.is_published !== false &&
-            s.mp3_url
-        );
-        if (catSongs.length > 1) {
-          // Find current song position within category, advance to the next (or wrap to start)
-          const curIdx = catSongs.findIndex((s) => String(s.id) === String(currentSong.id));
-          const nextIdx = curIdx >= 0 && curIdx + 1 < catSongs.length ? curIdx + 1 : 0;
-          setQueue(catSongs);
-          setQueueIndex(nextIdx);
-          playSong(catSongs[nextIdx], catSongs);
-          return;
-        }
-      } catch (_) {}
-    }
-
-    // If existing queue has more than 1 song and we reached the end, loop to beginning
-    if (queue.length > 1) {
-      setQueueIndex(0);
-      playSong(queue[0], queue);
-      return;
-    }
-
-    // Nothing left to play
-    player.pause();
-  }, [queue, queueIndex, currentSong?.id, currentSong?.category_id, playSong, player]);
+  }, [playSong]);
 
   // Play previous track in queue
   const playPrev = useCallback(() => {
-    if (queue.length === 0) return;
+    const q = queueRef.current;
+    const curIdx = queueIndexRef.current;
+    if (!q || q.length === 0) return;
     // If more than 3 seconds in, restart current track
     if ((status.currentTime || 0) > 3) {
       player.seekTo(0);
       return;
     }
-    const prevIdx = queueIndex - 1;
-    if (prevIdx >= 0) {
-      const prevSong = queue[prevIdx];
+    const prevIdx = curIdx - 1 >= 0 ? curIdx - 1 : q.length - 1;
+    const prevSong = q[prevIdx];
+    if (prevSong) {
+      queueIndexRef.current = prevIdx;
       setQueueIndex(prevIdx);
-      playSong(prevSong, queue);
+      playSong(prevSong, q);
     } else {
       player.seekTo(0);
     }
-  }, [queue, queueIndex, status.currentTime, playSong, player]);
+  }, [status.currentTime, playSong, player]);
 
   // Dismiss mini player completely
   const dismissMiniPlayer = useCallback(() => {
@@ -256,22 +249,70 @@ export function AudioProvider({ children, navigationRef }) {
     setIsMiniPlayerVisible(false);
   }, [player]);
 
-  // Continuous Play & Sleep Timer check: Auto-advance or pause when track finishes
+  const isAdvancingRef = useRef(false);
+
+  // Core handler when a song completes
+  const handleTrackFinished = useCallback(() => {
+    if (isAdvancingRef.current) return;
+    isAdvancingRef.current = true;
+    setTimeout(() => {
+      isAdvancingRef.current = false;
+    }, 1500);
+
+    if (sleepTimerOption === 'end_of_song') {
+      try {
+        player.pause();
+      } catch (_) {}
+      clearSleepTimer();
+      return;
+    }
+
+    if (continuousPlay !== false) {
+      playNext();
+    }
+  }, [sleepTimerOption, clearSleepTimer, continuousPlay, playNext, player]);
+
+  // Direct native event listener for playback status updates
   useEffect(() => {
-    if (status.didJustFinish && !prevDidFinishRef.current) {
+    if (!player) return;
+    let sub;
+    try {
+      sub = player.addListener('playbackStatusUpdate', (s) => {
+        if (s?.didJustFinish) {
+          handleTrackFinished();
+        }
+      });
+    } catch (_) {}
+    return () => {
+      try {
+        sub?.remove?.();
+      } catch (_) {}
+    };
+  }, [player, handleTrackFinished]);
+
+  // Continuous Play & Sleep Timer check fallback: React status hook watcher
+  useEffect(() => {
+    const isFinished =
+      Boolean(status.didJustFinish) ||
+      (status.duration > 0 &&
+        status.currentTime >= status.duration - 0.4 &&
+        !status.playing &&
+        !status.isBuffering);
+
+    if (isFinished && !prevDidFinishRef.current) {
       prevDidFinishRef.current = true;
-      if (sleepTimerOption === 'end_of_song') {
-        try {
-          player.pause();
-        } catch (_) {}
-        clearSleepTimer();
-      } else if (settings?.continuousPlay) {
-        playNext();
-      }
-    } else if (!status.didJustFinish) {
+      handleTrackFinished();
+    } else if (!isFinished && status.playing) {
       prevDidFinishRef.current = false;
     }
-  }, [status.didJustFinish, sleepTimerOption, settings?.continuousPlay, playNext, player, clearSleepTimer]);
+  }, [
+    status.didJustFinish,
+    status.currentTime,
+    status.duration,
+    status.playing,
+    status.isBuffering,
+    handleTrackFinished,
+  ]);
 
   // Sync currently playing song with Community profile and presence in real time
   useEffect(() => {
