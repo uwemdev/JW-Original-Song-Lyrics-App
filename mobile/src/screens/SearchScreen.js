@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getCachedSongs, searchSongsLocally } from '../lib/catalogCache';
 import {
   Search as SearchIcon,
   ArrowLeft,
@@ -247,10 +248,10 @@ export default function SearchScreen({ navigation, route }) {
     await AsyncStorage.setItem('@favorites', JSON.stringify(ids));
   };
 
-  // ── Search logic ──
+  // ── Search logic (Instant offline local search with remote sync) ──
   const performSearch = useCallback(
     async (searchTerm) => {
-      if (!searchTerm.trim()) {
+      if (!searchTerm || !searchTerm.trim()) {
         setResults([]);
         setHasSearched(false);
         setSearching(false);
@@ -259,6 +260,17 @@ export default function SearchScreen({ navigation, route }) {
 
       setSearching(true);
       setHasSearched(true);
+
+      // Instant offline search across cached catalog
+      let pool = allSongs;
+      if (!pool || pool.length === 0) {
+        pool = await getCachedSongs();
+        if (pool.length > 0) setAllSongs(pool);
+      }
+      const localMatches = searchSongsLocally(pool, searchTerm, scopedCategoryId);
+      if (localMatches.length > 0) {
+        setResults(localMatches);
+      }
 
       try {
         const term = `%${searchTerm.trim()}%`;
@@ -274,7 +286,6 @@ export default function SearchScreen({ navigation, route }) {
         }
 
         const { data, error } = await queryBuilder.limit(50);
-
         if (error) throw error;
 
         // Sort results: title matches first, then writeup, then lyrics
@@ -291,13 +302,23 @@ export default function SearchScreen({ navigation, route }) {
         saveRecentSearch(searchTerm.trim());
         logSearchQuery(searchTerm, scored.length, deviceId);
       } catch (err) {
-        console.error('Search error:', err);
-        setResults([]);
-        logSearchQuery(searchTerm, 0, deviceId);
+        // Fallback to local search if remote query failed or offline
+        if (localMatches.length > 0) {
+          setResults(localMatches);
+          saveRecentSearch(searchTerm.trim());
+          logSearchQuery(searchTerm, localMatches.length, deviceId);
+        } else {
+          const freshPool = await getCachedSongs();
+          const fallback = searchSongsLocally(freshPool, searchTerm, scopedCategoryId);
+          setResults(fallback);
+          if (fallback.length > 0) saveRecentSearch(searchTerm.trim());
+          logSearchQuery(searchTerm, fallback.length, deviceId);
+        }
+      } finally {
+        setSearching(false);
       }
-      setSearching(false);
     },
-    [scopedCategoryId, deviceId],
+    [allSongs, scopedCategoryId, deviceId],
   );
 
   const moodSongs = useMemo(() => {

@@ -20,6 +20,12 @@ import * as Network from 'expo-network';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  getCachedSongs,
+  getCachedCategories,
+  setCachedSongs,
+  setCachedCategories,
+} from '../lib/catalogCache';
+import {
   Search,
   ChevronRight,
   Heart,
@@ -226,10 +232,6 @@ export default function HomeScreen({ navigation }) {
     };
   }, [installDate]);
 
-  // ── Cache keys ──
-  const CACHE_KEY_SONGS = '@cached_catalog_songs';
-  const CACHE_KEY_CATEGORIES = '@cached_catalog_categories';
-
   const [isFirstLaunchOffline, setIsFirstLaunchOffline] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState(null);
@@ -260,23 +262,17 @@ export default function HomeScreen({ navigation }) {
   // ── Load cached catalog instantly for offline startup ──
   const loadCachedCatalog = useCallback(async () => {
     try {
-      const [cachedSongsRaw, cachedCatsRaw] = await Promise.all([
-        AsyncStorage.getItem(CACHE_KEY_SONGS),
-        AsyncStorage.getItem(CACHE_KEY_CATEGORIES),
+      const [parsedSongs, parsedCats] = await Promise.all([
+        getCachedSongs(),
+        getCachedCategories(),
       ]);
       let hasCached = false;
-      if (cachedSongsRaw) {
-        const parsedSongs = JSON.parse(cachedSongsRaw);
-        if (Array.isArray(parsedSongs) && parsedSongs.length > 0) {
-          setSongs(parsedSongs);
-          hasCached = true;
-        }
+      if (Array.isArray(parsedSongs) && parsedSongs.length > 0) {
+        setSongs(parsedSongs);
+        hasCached = true;
       }
-      if (cachedCatsRaw) {
-        const parsedCats = JSON.parse(cachedCatsRaw);
-        if (Array.isArray(parsedCats) && parsedCats.length > 0) {
-          setCategories(parsedCats);
-        }
+      if (Array.isArray(parsedCats) && parsedCats.length > 0) {
+        setCategories(parsedCats);
       }
       return hasCached;
     } catch (_) {
@@ -284,10 +280,10 @@ export default function HomeScreen({ navigation }) {
     }
   }, []);
 
-  // ── Data fetch ──
+  // ── Data fetch with timeout race to protect offline startup ──
   const fetchData = useCallback(async () => {
     try {
-      const [catRes, songRes] = await Promise.all([
+      const fetchPromise = Promise.all([
         supabase.from('categories').select('*').order('sort_order'),
         supabase
           .from('songs')
@@ -295,29 +291,36 @@ export default function HomeScreen({ navigation }) {
           .eq('is_published', true)
           .order('created_at', { ascending: false }),
       ]);
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Network timeout')), 6500)
+      );
+
+      const [catRes, songRes] = await Promise.race([fetchPromise, timeoutPromise]);
+
       if (catRes.data && catRes.data.length > 0) {
         setCategories(catRes.data);
-        AsyncStorage.setItem(CACHE_KEY_CATEGORIES, JSON.stringify(catRes.data)).catch(() => {});
+        setCachedCategories(catRes.data);
       }
       if (songRes.data && songRes.data.length > 0) {
         setSongs(songRes.data);
         setIsFirstLaunchOffline(false);
         setRetryError(null);
-        AsyncStorage.setItem(CACHE_KEY_SONGS, JSON.stringify(songRes.data)).catch(() => {});
+        setCachedSongs(songRes.data);
         return true;
       }
 
       // If remote returned nothing, check if we have cached catalog
-      const cached = await AsyncStorage.getItem(CACHE_KEY_SONGS).catch(() => null);
-      if (!cached || JSON.parse(cached).length === 0) {
+      const cached = await getCachedSongs();
+      if (!cached || cached.length === 0) {
         setIsFirstLaunchOffline(true);
         triggerFirstLaunchOfflineNotification().catch(() => {});
       }
       return false;
     } catch (err) {
       console.warn('Fetch error:', err?.message || err);
-      const cached = await AsyncStorage.getItem(CACHE_KEY_SONGS).catch(() => null);
-      if (!cached || JSON.parse(cached).length === 0) {
+      const cached = await getCachedSongs();
+      if (!cached || cached.length === 0) {
         setIsFirstLaunchOffline(true);
         triggerFirstLaunchOfflineNotification().catch(() => {});
       }

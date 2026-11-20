@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getCachedSongs, getFavoriteSongsFromCatalog } from '../lib/catalogCache';
 import {
   Heart,
   Search,
@@ -210,37 +211,53 @@ export default function FavoritesScreen({ navigation }) {
 
       setFavIds(ids);
 
-      // Fetch fresh song data from Supabase
-      const { data, error } = await supabase
-        .from('songs')
-        .select('*, categories(name)')
-        .in('id', ids)
-        .eq('is_published', true);
+      // 1. Instant local offline load from cached catalog
+      try {
+        const cachedSongs = await getCachedSongs();
+        const localFavs = getFavoriteSongsFromCatalog(cachedSongs, ids);
+        if (localFavs.length > 0) {
+          setFavSongs(localFavs);
+          setLoading(false);
+        }
+      } catch (_) {}
 
-      if (error) throw error;
+      // 2. Fetch fresh song data from Supabase if online
+      try {
+        const { data, error } = await supabase
+          .from('songs')
+          .select('*, categories(name)')
+          .in('id', ids)
+          .eq('is_published', true);
 
-      const songs = data || [];
+        if (error) throw error;
 
-      // Remove any deleted/unpublished songs from local storage
-      const validIds = songs.map((s) => s.id);
-      const cleanedIds = ids.filter((id) => validIds.includes(id));
-      if (cleanedIds.length !== ids.length) {
-        await AsyncStorage.setItem('@favorites', JSON.stringify(cleanedIds));
-        setFavIds(cleanedIds);
+        const songs = data || [];
+
+        // Remove any deleted/unpublished songs from local storage
+        const validIds = songs.map((s) => s.id);
+        const cleanedIds = ids.filter((id) => validIds.includes(id));
+        if (cleanedIds.length !== ids.length) {
+          await AsyncStorage.setItem('@favorites', JSON.stringify(cleanedIds));
+          setFavIds(cleanedIds);
+        }
+
+        // Maintain the order from favIds (most recently added last)
+        const songMap = {};
+        songs.forEach((s) => { songMap[s.id] = s; });
+        const orderedSongs = cleanedIds
+          .map((id) => songMap[id])
+          .filter(Boolean)
+          .reverse(); // newest additions first
+
+        setFavSongs(orderedSongs);
+      } catch (err) {
+        // Offline fallback: ensure local favorites remain visible
+        const cachedSongs = await getCachedSongs();
+        const localFavs = getFavoriteSongsFromCatalog(cachedSongs, ids);
+        if (localFavs.length > 0) {
+          setFavSongs(localFavs);
+        }
       }
-
-      // Maintain the order from favIds (most recently added last)
-      const songMap = {};
-      songs.forEach((s) => { songMap[s.id] = s; });
-      const orderedSongs = cleanedIds
-        .map((id) => songMap[id])
-        .filter(Boolean)
-        .reverse(); // newest additions first
-
-      setFavSongs(orderedSongs);
-    } catch (err) {
-      console.error('Favorites load error:', err);
-    }
     setLoading(false);
   }, []);
 

@@ -26,6 +26,7 @@ import {
   Plus,
 } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
+import { getCachedSongs } from '../lib/catalogCache';
 import { usePlaylists } from '../context/PlaylistContext';
 import { useAudio } from '../context/AudioContext';
 import { useSettings } from '../context/SettingsContext';
@@ -56,6 +57,21 @@ export default function PlaylistScreen({ route, navigation }) {
       return;
     }
 
+    // 1. Instant local load from cached catalog
+    try {
+      const cached = await getCachedSongs();
+      if (cached.length > 0) {
+        const map = {};
+        cached.forEach((s) => { map[String(s.id)] = s; });
+        const localOrdered = playlist.songIds.map((id) => map[String(id)]).filter(Boolean);
+        if (localOrdered.length > 0) {
+          setSongs(localOrdered);
+          setLoading(false);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fetch fresh details from Supabase if online
     try {
       const { data, error } = await supabase
         .from('songs')
@@ -68,13 +84,22 @@ export default function PlaylistScreen({ route, navigation }) {
       // Keep order of songIds
       const map = {};
       (data || []).forEach((s) => {
-        map[s.id] = s;
+        map[String(s.id)] = s;
       });
 
-      const ordered = playlist.songIds.map((id) => map[id]).filter(Boolean);
+      const ordered = playlist.songIds.map((id) => map[String(id)]).filter(Boolean);
       setSongs(ordered);
     } catch (err) {
-      console.warn('Failed to load playlist songs:', err);
+      // Offline fallback: ensure cached songs remain in state
+      try {
+        const cached = await getCachedSongs();
+        if (cached.length > 0) {
+          const map = {};
+          cached.forEach((s) => { map[String(s.id)] = s; });
+          const localOrdered = playlist.songIds.map((id) => map[String(id)]).filter(Boolean);
+          if (localOrdered.length > 0) setSongs(localOrdered);
+        }
+      } catch (_) {}
     } finally {
       setLoading(false);
     }

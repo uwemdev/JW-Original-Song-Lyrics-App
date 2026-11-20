@@ -14,6 +14,11 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
+import {
+  getCachedCategories,
+  getCachedSongs,
+  getCategoryCountsFromCatalog,
+} from '../lib/catalogCache';
 import { Search, Music, LayoutGrid } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 
@@ -47,15 +52,29 @@ export default function CategoriesScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback(async () => {
+    // 1. Instant local offline load from cache
+    try {
+      const [cachedCats, cachedSongs] = await Promise.all([
+        getCachedCategories(),
+        getCachedSongs(),
+      ]);
+      if (cachedCats.length > 0) {
+        setCategories(cachedCats);
+        setSongCounts(getCategoryCountsFromCatalog(cachedSongs));
+        setLoading(false);
+      }
+    } catch (_) {}
+
+    // 2. Fresh remote fetch if online
     try {
       const [catRes, songRes] = await Promise.all([
         supabase.from('categories').select('*').order('sort_order'),
         supabase.from('songs').select('category_id').eq('is_published', true),
       ]);
       
-      if (catRes.data) setCategories(catRes.data);
+      if (catRes.data && catRes.data.length > 0) setCategories(catRes.data);
       
-      if (songRes.data) {
+      if (songRes.data && songRes.data.length > 0) {
         const counts = {};
         songRes.data.forEach((s) => {
           counts[s.category_id] = (counts[s.category_id] || 0) + 1;
@@ -63,7 +82,17 @@ export default function CategoriesScreen({ navigation }) {
         setSongCounts(counts);
       }
     } catch (err) {
-      console.error(err);
+      // Offline fallback: ensure cached categories and counts remain visible
+      try {
+        const [cachedCats, cachedSongs] = await Promise.all([
+          getCachedCategories(),
+          getCachedSongs(),
+        ]);
+        if (cachedCats.length > 0) {
+          setCategories(cachedCats);
+          setSongCounts(getCategoryCountsFromCatalog(cachedSongs));
+        }
+      } catch (_) {}
     } finally {
       setLoading(false);
       setRefreshing(false);

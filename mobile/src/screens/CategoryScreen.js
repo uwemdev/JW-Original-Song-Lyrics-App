@@ -19,6 +19,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  getCachedSongs,
+  getCachedCategories,
+  filterSongsByCategory,
+} from '../lib/catalogCache';
+import {
   ArrowLeft,
   Search,
   Heart,
@@ -201,9 +206,17 @@ export default function CategoryScreen({ route, navigation }) {
     await AsyncStorage.setItem('@favorites', JSON.stringify(ids));
   };
 
-  // ── Fetch category info ──
+  // ── Fetch category info with offline cache fallback ──
   useEffect(() => {
     (async () => {
+      // 1. Try local cache first for instant display
+      try {
+        const cachedCats = await getCachedCategories();
+        const found = cachedCats.find((c) => String(c.id) === String(categoryId));
+        if (found) setCategoryInfo(found);
+      } catch (_) {}
+
+      // 2. Try fresh fetch from remote
       try {
         const { data } = await supabase
           .from('categories')
@@ -215,7 +228,7 @@ export default function CategoryScreen({ route, navigation }) {
     })();
   }, [categoryId]);
 
-  // ── Fetch songs ──
+  // ── Fetch songs with offline fallback ──
   const fetchSongs = useCallback(
     async (reset = false) => {
       if (reset) {
@@ -223,6 +236,19 @@ export default function CategoryScreen({ route, navigation }) {
         setHasMore(true);
       } else {
         setLoadingMore(true);
+      }
+
+      // Pre-load from local cache immediately on reset if available
+      if (reset) {
+        try {
+          const cachedAll = await getCachedSongs();
+          const cachedMatched = filterSongsByCategory(cachedAll, categoryId, sortKey);
+          if (cachedMatched.length > 0) {
+            setSongs(cachedMatched);
+            setTotalCount(cachedMatched.length);
+            setLoading(false);
+          }
+        } catch (_) {}
       }
 
       try {
@@ -258,7 +284,16 @@ export default function CategoryScreen({ route, navigation }) {
         if (count !== null && count !== undefined) setTotalCount(count);
         setHasMore(newSongs.length === PAGE_SIZE);
       } catch (err) {
-        console.error('CategoryScreen fetch error:', err);
+        // Offline fallback: load all matching cached songs for this category
+        try {
+          const cachedAll = await getCachedSongs();
+          const cachedMatched = filterSongsByCategory(cachedAll, categoryId, sortKey);
+          if (cachedMatched.length > 0) {
+            setSongs(cachedMatched);
+            setTotalCount(cachedMatched.length);
+            setHasMore(false);
+          }
+        } catch (_) {}
       } finally {
         setLoading(false);
         setLoadingMore(false);

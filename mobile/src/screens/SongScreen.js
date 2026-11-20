@@ -24,6 +24,7 @@ import { useAudio } from '../context/AudioContext';
 import * as Network from 'expo-network';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getCachedSongs, getRelatedSongsFromCatalog } from '../lib/catalogCache';
 import {
   ChevronLeft,
   Heart,
@@ -380,8 +381,19 @@ export default function SongScreen({ route, navigation }) {
     } catch (_) {}
   };
 
-  // ── More songs ──
+  // ── More songs (Offline-first with remote sync) ──
   const fetchMoreSongs = async () => {
+    // 1. Instant local offline lookup
+    try {
+      const cached = await getCachedSongs();
+      const localRelated = getRelatedSongsFromCatalog(cached, song.category_id, song.id, 15);
+      if (localRelated.length > 0) {
+        setMoreSongs(localRelated);
+        setLoadingMore(false);
+      }
+    } catch (_) {}
+
+    // 2. Fetch fresh if online
     try {
       const { data } = await supabase
         .from('songs')
@@ -391,7 +403,7 @@ export default function SongScreen({ route, navigation }) {
         .neq('id', song.id)
         .order('sort_order')
         .limit(15);
-      setMoreSongs(data || []);
+      if (data && data.length > 0) setMoreSongs(data);
     } catch (_) {}
     setLoadingMore(false);
   };
