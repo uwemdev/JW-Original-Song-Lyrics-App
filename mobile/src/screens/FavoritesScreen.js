@@ -258,7 +258,11 @@ export default function FavoritesScreen({ navigation }) {
           setFavSongs(localFavs);
         }
       }
-    setLoading(false);
+    } catch (err) {
+      console.error('Favorites load error:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
